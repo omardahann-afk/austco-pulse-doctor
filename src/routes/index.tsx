@@ -529,7 +529,7 @@ function ResultsPanel({
             </TableBody>
           </Table>
         </CardContent>
-      </Card>
+      </Card>}
     </div>
   );
 }
