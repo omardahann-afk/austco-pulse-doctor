@@ -15,7 +15,7 @@
 
 import type {
   DiagnosisRequest, DnsEntry, PugaInstance, ServerInterface,
-  InstalledModule, PulseDevice, ControllerEntry, ModuleRole,
+  InstalledModule, PulseDevice, ModuleRole,
 } from "./siteDoctorApi";
 
 export type Severity = "Critical" | "Warning" | "Info";
@@ -106,7 +106,6 @@ export function validateArchitecture(req: DiagnosisRequest): ArchitectureReport 
   const serverIfs = req.serverInterfaces ?? [];
   const modules = req.installedModules ?? [];
   const devices = req.pulseDevices ?? [];
-  const controllers = req.controllers ?? [];
 
   /* 1. Authoritative PuGa must exist + must hold pulse.austco.local */
   const auth = proxies.find((p) => p.role === "Authoritative");
@@ -286,9 +285,6 @@ export function validateArchitecture(req: DiagnosisRequest): ArchitectureReport 
       evidence: [c.item], fix: [`Complete ${c.item} on the affected server and re-validate.`],
     });
   }
-
-  // Touch unused so TS doesn't flag (controllers used by trace upstream)
-  void controllers;
 
   return {
     deploymentType: req.deploymentType ?? "Standalone",
