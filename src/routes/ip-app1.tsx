@@ -15,7 +15,7 @@ export const Route = createFileRoute("/ip-app1")({
 
 function Page() {
   const [issues, setIssues] = useState<DiagnosticIssue[]>([]);
-  useEffect(() => { runFullAustcoDiagnosis(siteConfig, undefined, 0).then(r => setIssues(r.issues.filter(i => "IP-APP1" === "" || i.id === "IP-APP1" || i.module.toLowerCase().includes("IP-APP1".toLowerCase())))); }, []);
+  useEffect(() => { runFullAustcoDiagnosis(siteConfig, undefined, 0).then(r => setIssues(r.issues.filter(i => i.id === "IP-APP1" || i.module.toLowerCase().includes("IP-APP1".toLowerCase())))); }, []);
   const devices = mockDevices.filter(d => d.type === "IP-APP1");
   return (
     <div className="space-y-6">
