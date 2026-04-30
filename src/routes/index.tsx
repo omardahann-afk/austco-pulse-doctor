@@ -10,11 +10,18 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import {
   ScanLine, Loader2, Plus, X, Settings2, ShieldCheck, AlertOctagon, Server,
   Network, CircuitBoard, Cable, ChevronRight, CheckCircle2, XCircle, AlertTriangle,
+  HardDrive, Workflow,
 } from "lucide-react";
 import {
   DEFAULT_PAYLOAD, runDiagnosis, getBackendUrl, setBackendUrl, DEFAULT_BACKEND_URL,
   type DiagnosisRequest, type DiagnosisResponse,
 } from "@/lib/siteDoctorApi";
+import {
+  traceSignalPath, readHardwareHealth, readDeploymentHealth,
+  type ChainStep, type Breakpoint, type HardwareHealthRow, type DeploymentHealthCheck,
+} from "@/lib/breakpointEngine";
+import { BreakpointMap } from "@/components/BreakpointMap";
+import { BreakpointReport } from "@/components/BreakpointReport";
 
 export const Route = createFileRoute("/")({
   head: () => ({ meta: [
@@ -48,6 +55,11 @@ function CommandCenter() {
   const [scanning, setScanning] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<DiagnosisResponse | null>(null);
+  const [hwHealth, setHwHealth] = useState<HardwareHealthRow[] | null>(null);
+  const [deployHealth, setDeployHealth] = useState<DeploymentHealthCheck[] | null>(null);
+  const [chainSteps, setChainSteps] = useState<ChainStep[]>([]);
+  const [breakpoint, setBreakpoint] = useState<Breakpoint | null>(null);
+  const [chainConclusion, setChainConclusion] = useState<string>("");
 
   useEffect(() => { setBackendUrlState(getBackendUrl()); }, []);
 
@@ -59,9 +71,41 @@ function CommandCenter() {
     setError(null);
     setScanning(true);
     setBackendUrl(backendUrl);
+    setHwHealth(null); setDeployHealth(null); setChainSteps([]); setBreakpoint(null); setChainConclusion("");
     try {
-      const r = await runDiagnosis(payload, backendUrl);
-      setResult(r);
+      // Always run hardware/breakpoint engine — it works without the local backend.
+      const firstCtrl = payload.knownDevices.find((d) => /controller/i.test(d.type))?.ip ?? "10.20.4.22";
+      const firstApp1 = payload.knownDevices.find((d) => /app1/i.test(d.type))?.ip ?? "10.20.6.30";
+      const firstIn8  = payload.knownDevices.find((d) => /in8/i.test(d.type))?.ip ?? "10.20.5.40";
+      const firstLight= payload.knownDevices.find((d) => /light/i.test(d.type))?.ip ?? "10.20.7.50";
+
+      const hwPromise = readHardwareHealth({
+        controllerIp: firstCtrl, ipapp1Ip: firstApp1, ipin8Ip: firstIn8, signalLightIp: firstLight,
+        pulseGatewayIp: payload.virtualIp ?? undefined,
+      });
+      const chainPromise = traceSignalPath(
+        {
+          room: "Room 230", expectedGroup: "East Wing Signal Lights",
+          ipin8Ip: firstIn8, controllerIp: firstCtrl,
+          ipapp1Ip: firstApp1, signalLightIp: firstLight,
+          pulseGatewayIp: payload.virtualIp ?? undefined,
+        },
+        setChainSteps,
+        180,
+      );
+      setDeployHealth(readDeploymentHealth());
+
+      // Backend call may fail (laptop not running site-doctor.js) — degrade gracefully.
+      const backendPromise = runDiagnosis(payload, backendUrl).then(
+        (r) => { setResult(r); return null; },
+        (err) => err instanceof Error ? err.message : String(err),
+      );
+
+      const [hw, chain, backendErr] = await Promise.all([hwPromise, chainPromise, backendPromise]);
+      setHwHealth(hw);
+      setBreakpoint(chain.breakpoint);
+      setChainConclusion(chain.conclusion);
+      if (backendErr) setError(backendErr);
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
       setResult(null);
@@ -262,7 +306,11 @@ function CommandCenter() {
 
         {/* RIGHT: results */}
         <div className="space-y-4">
-          <ResultsPanel result={result} error={error} scanning={scanning} backendUrl={backendUrl} />
+          <ResultsPanel
+            result={result} error={error} scanning={scanning} backendUrl={backendUrl}
+            hwHealth={hwHealth} deployHealth={deployHealth}
+            chainSteps={chainSteps} breakpoint={breakpoint} chainConclusion={chainConclusion}
+          />
         </div>
       </form>
     </div>
@@ -271,8 +319,15 @@ function CommandCenter() {
 
 function ResultsPanel({
   result, error, scanning, backendUrl,
-}: { result: DiagnosisResponse | null; error: string | null; scanning: boolean; backendUrl: string }) {
-  if (error) {
+  hwHealth, deployHealth, chainSteps, breakpoint, chainConclusion,
+}: {
+  result: DiagnosisResponse | null; error: string | null; scanning: boolean; backendUrl: string;
+  hwHealth: HardwareHealthRow[] | null; deployHealth: DeploymentHealthCheck[] | null;
+  chainSteps: ChainStep[]; breakpoint: Breakpoint | null; chainConclusion: string;
+}) {
+  const hasAnything = result || hwHealth || deployHealth || chainSteps.length > 0;
+
+  if (error && !hasAnything) {
     return (
       <Alert className="border-critical/40 bg-critical/10 text-critical">
         <AlertOctagon className="h-4 w-4" />
@@ -288,7 +343,7 @@ function ResultsPanel({
     );
   }
 
-  if (!result) {
+  if (!hasAnything) {
     return (
       <Card className="bg-card/70">
         <CardHeader className="pb-3"><CardTitle className="text-base">Diagnosis Results</CardTitle></CardHeader>
@@ -307,28 +362,104 @@ function ResultsPanel({
     );
   }
 
-  const critical = result.issues.filter((i) => i.severity === "Critical").length;
-  const reachable = result.devices.filter((d) => d.alive !== false).length;
+  const critical = result?.issues.filter((i) => i.severity === "Critical").length ?? (breakpoint ? 1 : 0);
+  const reachable = result?.devices.filter((d) => d.alive !== false).length ?? (hwHealth?.filter((h) => h.online).length ?? 0);
+  const siteName = result?.site ?? "Site";
 
   return (
     <div className="space-y-4">
+      {error && (
+        <Alert className="border-warning/40 bg-warning/10 text-warning">
+          <AlertTriangle className="h-4 w-4" />
+          <AlertTitle>Live backend unreachable — showing hardware adapter results only</AlertTitle>
+          <AlertDescription className="text-xs text-foreground/80">
+            <span className="font-mono">{error}</span> · backend: <span className="font-mono">{backendUrl}</span>
+          </AlertDescription>
+        </Alert>
+      )}
+
       {/* Summary */}
       <div className="grid grid-cols-3 gap-2">
-        <SummaryStat label="Site" value={result.site} tone="info" Icon={ShieldCheck} />
-        <SummaryStat label="Devices found" value={`${reachable}`} sub={`${result.devices.length} scanned`} tone="ok" Icon={Server} />
+        <SummaryStat label="Site" value={siteName} tone="info" Icon={ShieldCheck} />
+        <SummaryStat label="Modules online" value={`${reachable}`} sub={`${(result?.devices.length ?? hwHealth?.length ?? 0)} scanned`} tone="ok" Icon={Server} />
         <SummaryStat label="Critical issues" value={`${critical}`} tone={critical ? "crit" : "ok"} Icon={AlertOctagon} />
       </div>
 
+      {/* 1. Austco Deployment Health */}
+      {deployHealth && (
+        <Card className="bg-card/70">
+          <CardHeader className="pb-3"><CardTitle className="flex items-center gap-2 text-base"><ShieldCheck className="h-4 w-4 text-info" /> Austco Deployment Health</CardTitle></CardHeader>
+          <CardContent className="space-y-1.5">
+            {deployHealth.map((d) => (
+              <div key={d.name} className="flex items-start gap-2 rounded-md border border-border/50 bg-muted/10 px-3 py-2 text-xs">
+                {d.ok ? <CheckCircle2 className="mt-0.5 h-3.5 w-3.5 shrink-0 text-success" /> : <XCircle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-critical" />}
+                <div className="flex-1"><div className="font-medium text-sm">{d.name}</div><div className="text-muted-foreground">{d.detail}</div></div>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+      )}
+
+      {/* 2. Hardware Communication Health */}
+      {hwHealth && (
+        <Card className="bg-card/70">
+          <CardHeader className="pb-3"><CardTitle className="flex items-center gap-2 text-base"><HardDrive className="h-4 w-4 text-info" /> Hardware Communication Health</CardTitle></CardHeader>
+          <CardContent className="p-0">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Module</TableHead>
+                  <TableHead>IP</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Detail</TableHead>
+                  <TableHead>Source</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {hwHealth.map((h) => (
+                  <TableRow key={h.module}>
+                    <TableCell className="font-medium">{h.module}</TableCell>
+                    <TableCell className="font-mono text-xs">{h.ip}</TableCell>
+                    <TableCell>
+                      <span className={`inline-flex items-center gap-1 rounded px-2 py-0.5 text-[10px] font-semibold uppercase ${h.online ? "bg-success/15 text-success" : "bg-critical/15 text-critical"}`}>
+                        {h.online ? <CheckCircle2 className="h-3 w-3" /> : <XCircle className="h-3 w-3" />}{h.online ? "Online" : "Offline"}
+                      </span>
+                    </TableCell>
+                    <TableCell className="text-xs text-muted-foreground">{h.detail}</TableCell>
+                    <TableCell><span className="rounded bg-muted/40 px-1.5 py-0.5 font-mono text-[10px] uppercase text-muted-foreground">{h.source}</span></TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* 3. Breakpoint Map */}
+      {chainSteps.length > 0 && (
+        <Card className="bg-card/70">
+          <CardHeader className="pb-3"><CardTitle className="flex items-center gap-2 text-base"><Workflow className="h-4 w-4 text-info" /> Breakpoint Map · Live Signal Chain</CardTitle></CardHeader>
+          <CardContent><BreakpointMap steps={chainSteps} /></CardContent>
+        </Card>
+      )}
+
+      {/* 4. Root Cause Analysis */}
+      {(breakpoint || chainConclusion) && (
+        <BreakpointReport bp={breakpoint} conclusion={chainConclusion} />
+      )}
+
       {/* Conclusion */}
-      <Card className="border-critical/40 bg-gradient-to-br from-critical/15 to-critical/5">
-        <CardContent className="p-5">
-          <div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-critical">Final Conclusion</div>
-          <div className="mt-1 text-lg font-semibold leading-snug">{result.conclusion}</div>
-        </CardContent>
-      </Card>
+      {result && (
+        <Card className="border-critical/40 bg-gradient-to-br from-critical/15 to-critical/5">
+          <CardContent className="p-5">
+            <div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-critical">Backend Conclusion</div>
+            <div className="mt-1 text-lg font-semibold leading-snug">{result.conclusion}</div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Truth chain */}
-      <Card className="bg-card/70">
+      {result && <Card className="bg-card/70">
         <CardHeader className="pb-3">
           <CardTitle className="flex items-center gap-2 text-base">
             <Cable className="h-4 w-4 text-info" /> Truth Layer · Signal Chain
@@ -347,10 +478,10 @@ function ResultsPanel({
             ))}
           </div>
         </CardContent>
-      </Card>
+      </Card>}
 
       {/* Issues */}
-      <Card className="bg-card/70">
+      {result && <Card className="bg-card/70">
         <CardHeader className="pb-3"><CardTitle className="text-base">Issues</CardTitle></CardHeader>
         <CardContent className="space-y-2">
           {result.issues.length === 0 && <div className="text-xs text-muted-foreground">No issues reported by backend.</div>}
@@ -368,10 +499,10 @@ function ResultsPanel({
             </div>
           ))}
         </CardContent>
-      </Card>
+      </Card>}
 
       {/* Device table */}
-      <Card className="bg-card/70">
+      {result && <Card className="bg-card/70">
         <CardHeader className="pb-3"><CardTitle className="text-base">Devices ({result.devices.length})</CardTitle></CardHeader>
         <CardContent className="p-0">
           <Table>
@@ -398,7 +529,7 @@ function ResultsPanel({
             </TableBody>
           </Table>
         </CardContent>
-      </Card>
+      </Card>}
     </div>
   );
 }
