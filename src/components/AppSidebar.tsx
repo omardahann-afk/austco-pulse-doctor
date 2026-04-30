@@ -8,7 +8,7 @@ const NAV = [
     { to: "/", label: "Command Center", icon: Activity },
     { to: "/diagnose", label: "Run Full Diagnosis", icon: ScanLine },
     { to: "/site-map", label: "Live Site Map", icon: MapIcon },
-    { to: "/trace", label: "Trace This Call", icon: Search },
+    { to: "/trace", label: "Trace Signal Path", icon: Search },
   ]},
   { group: "Doctors", items: [
     { to: "/redundancy", label: "Redundancy Doctor", icon: ShieldCheck },
