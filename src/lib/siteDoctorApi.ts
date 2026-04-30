@@ -2,12 +2,108 @@ export type VlanInput = { name: string; cidr: string };
 export type NicInput = { ip: string; purpose: string };
 export type KnownDeviceInput = { name: string; ip: string; type: string };
 
+export type DeploymentType = "Standalone" | "Redundant Pair" | "Floor Controller" | "Integration Server Big" | "Multi-PuGa";
+
+export type PugaInstance = {
+  name: string;
+  role: "Authoritative" | "Proxy";
+  ip: string;             // device-side IP (eth1) for proxies, integration LAN IP for authoritative
+  nic: "eth0" | "eth1";   // which NIC pulse.austco.local should resolve to here
+  vlan: string;           // VLAN/subnet this PuGa serves
+};
+
+export type DnsEntry = {
+  hostname: string;       // e.g. pulse.austco.local
+  expectedIp: string;     // e.g. 10.1.3.250 (proxy) or 192.168.1.211 (authoritative)
+  expectedNic: "eth0" | "eth1";
+  servedBy: string;       // PuGa instance name responsible
+  scopeVlan: string;      // VLAN/subnet this DNS answer applies to
+};
+
+export type ServerInterface = {
+  server: string;         // e.g. "Pulse Gateway VM"
+  nic: "eth0" | "eth1";
+  ip: string;
+  vlan: string;
+  purpose: "Integration LAN" | "Austco Private / Device VLAN" | "Management" | "ACS";
+};
+
+export type ModuleRole =
+  | "Authoritative Pulse Gateway"
+  | "Proxy Pulse Gateway"
+  | "IPConnect"
+  | "INGA"
+  | "License Server"
+  | "Pulse Manage"
+  | "Pulse Device Services"
+  | "Pulse Insights / PostgreSQL"
+  | "Auth / Mobile Gateway"
+  | "HL7 / RTLS"
+  | "Controller"
+  | "IP-APP1"
+  | "IP-APP2"
+  | "Touchpoint"
+  | "Nurse Station"
+  | "Display Driver"
+  | "Call Point";
+
+export type InstalledModule = {
+  role: ModuleRole;
+  host: string;             // VM/host name
+  expectedVmType: DeploymentType;
+};
+
+export type InstallChecklist = {
+  patched: boolean;
+  fileIntegrityScan: boolean;
+  timeNtpDns: boolean;
+  modulesInstalled: boolean;
+  licensed: boolean;
+  sslCertUpdated: boolean;
+  ingaAppPropertiesHasIpcEth0: boolean;
+  ipconnectCcpReachable: boolean;
+};
+
+export type PulseDevice = {
+  name: string;
+  ip: string;
+  vlan: string;
+  dnsTarget: string;        // PuGa instance name device's DNS points to
+  dependsOn: ModuleRole[];  // e.g. ["Pulse Manage","Authoritative Pulse Gateway","Pulse Device Services","License Server"]
+};
+
+export type ControllerEntry = {
+  name: string;
+  ip: string;
+  vlan: string;
+};
+
+export type CallPointEntry = {
+  name: string;            // e.g. "Room 230 Call Point"
+  controller: string;      // controller name
+  inputIndex: number;
+  expectedOutputGroup: string;
+  expectedSignalLight: string; // signal light/zone IP
+  expectedDisplay: string;     // IP-APP1 IP
+};
+
 export type DiagnosisRequest = {
   name: string;
   vlans: VlanInput[];
   serverNics: { primary: NicInput[]; secondary: NicInput[] };
   virtualIp: string | null;
   knownDevices: KnownDeviceInput[];
+  // Architecture fields (Tacera/Pulse rules)
+  deploymentType?: DeploymentType;
+  authoritativePulseGatewayIp?: string;
+  proxyPulseGateways?: PugaInstance[];
+  dnsMap?: DnsEntry[];
+  serverInterfaces?: ServerInterface[];
+  installedModules?: InstalledModule[];
+  installChecklist?: InstallChecklist;
+  pulseDevices?: PulseDevice[];
+  controllers?: ControllerEntry[];
+  callPoints?: CallPointEntry[];
 };
 
 export type ScannedDevice = {
