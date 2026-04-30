@@ -17,12 +17,23 @@ const FILTERS: { id: Filter; label: string }[] = [
   { id: "critical", label: "Critical only" },
 ];
 
-function relTime(iso?: string) {
-  if (!iso) return "—";
-  const s = Math.floor((Date.now() - new Date(iso).getTime()) / 1000);
-  if (s < 60) return `${s}s ago`;
-  if (s < 3600) return `${Math.floor(s / 60)}m ago`;
-  return `${Math.floor(s / 3600)}h ago`;
+import { useEffect, useState as useReactState } from "react";
+
+function RelTime({ iso }: { iso?: string }) {
+  const [text, setText] = useReactState("—");
+  useEffect(() => {
+    if (!iso) { setText("—"); return; }
+    const fmt = () => {
+      const s = Math.floor((Date.now() - new Date(iso).getTime()) / 1000);
+      if (s < 60) return `${s}s ago`;
+      if (s < 3600) return `${Math.floor(s / 60)}m ago`;
+      return `${Math.floor(s / 3600)}h ago`;
+    };
+    setText(fmt());
+    const t = setInterval(() => setText(fmt()), 5000);
+    return () => clearInterval(t);
+  }, [iso]);
+  return <>{text}</>;
 }
 
 export function DeviceTable({ devices }: { devices: AustcoDevice[] }) {
@@ -78,7 +89,7 @@ export function DeviceTable({ devices }: { devices: AustcoDevice[] }) {
                 <td className="px-3 py-2 font-mono text-xs text-muted-foreground">{d.firmware ?? "—"}</td>
                 <td className="px-3 py-2 text-muted-foreground">{d.location ?? "—"}</td>
                 <td className="px-3 py-2 text-right font-mono text-xs">{d.latencyMs?.toFixed(1) ?? "—"} ms</td>
-                <td className="px-3 py-2 font-mono text-xs text-muted-foreground">{relTime(d.lastHeartbeat)}</td>
+                <td className="px-3 py-2 font-mono text-xs text-muted-foreground"><RelTime iso={d.lastHeartbeat} /></td>
                 <td className="px-3 py-2 font-mono text-xs text-muted-foreground">{d.switchPort ?? "—"}</td>
                 <td className="px-3 py-2 text-xs text-warning">{d.issue ?? <span className="text-muted-foreground">—</span>}</td>
               </tr>
