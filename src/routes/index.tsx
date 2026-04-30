@@ -22,6 +22,11 @@ import {
 } from "@/lib/breakpointEngine";
 import { BreakpointMap } from "@/components/BreakpointMap";
 import { BreakpointReport } from "@/components/BreakpointReport";
+import { validateArchitecture, type ArchitectureReport } from "@/lib/architectureValidator";
+import { traceCallPoint, type CallPointStep, type CallPointBreakpoint } from "@/lib/callPointTrace";
+import { ArchitecturePanel } from "@/components/ArchitecturePanel";
+import { CallPointTracePanel } from "@/components/CallPointTracePanel";
+import type { CallPointEntry } from "@/lib/siteDoctorApi";
 
 export const Route = createFileRoute("/")({
   head: () => ({ meta: [
@@ -60,6 +65,11 @@ function CommandCenter() {
   const [chainSteps, setChainSteps] = useState<ChainStep[]>([]);
   const [breakpoint, setBreakpoint] = useState<Breakpoint | null>(null);
   const [chainConclusion, setChainConclusion] = useState<string>("");
+  const [arch, setArch] = useState<ArchitectureReport | null>(null);
+  const [cpSteps, setCpSteps] = useState<CallPointStep[]>([]);
+  const [cpBreak, setCpBreak] = useState<CallPointBreakpoint | null>(null);
+  const [cpConclusion, setCpConclusion] = useState<string>("");
+  const [tracedCallPoint, setTracedCallPoint] = useState<CallPointEntry | null>(null);
 
   useEffect(() => { setBackendUrlState(getBackendUrl()); }, []);
 
@@ -72,6 +82,7 @@ function CommandCenter() {
     setScanning(true);
     setBackendUrl(backendUrl);
     setHwHealth(null); setDeployHealth(null); setChainSteps([]); setBreakpoint(null); setChainConclusion("");
+    setArch(null); setCpSteps([]); setCpBreak(null); setCpConclusion(""); setTracedCallPoint(null);
     try {
       // Always run hardware/breakpoint engine — it works without the local backend.
       const firstCtrl = payload.knownDevices.find((d) => /controller/i.test(d.type))?.ip ?? "10.20.4.22";
@@ -94,6 +105,19 @@ function CommandCenter() {
         180,
       );
       setDeployHealth(readDeploymentHealth());
+
+      // Architecture validation (synchronous, pure logic)
+      const archReport = validateArchitecture(payload);
+      setArch(archReport);
+
+      // Call Point → Output trace for the first declared call point
+      const firstCp = payload.callPoints?.[0];
+      if (firstCp) {
+        setTracedCallPoint(firstCp);
+        const cpResult = await traceCallPoint(payload, archReport, firstCp, setCpSteps, 160);
+        setCpBreak(cpResult.breakpoint);
+        setCpConclusion(cpResult.conclusion);
+      }
 
       // Backend call may fail (laptop not running site-doctor.js) — degrade gracefully.
       const backendPromise = runDiagnosis(payload, backendUrl).then(
