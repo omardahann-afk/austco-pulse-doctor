@@ -15,7 +15,7 @@ export const Route = createFileRoute("/signal-lights")({
 
 function Page() {
   const [issues, setIssues] = useState<DiagnosticIssue[]>([]);
-  useEffect(() => { runFullAustcoDiagnosis(siteConfig, undefined, 0).then(r => setIssues(r.issues.filter(i => "Signal" === "" || i.id === "Signal" || i.module.toLowerCase().includes("Signal".toLowerCase())))); }, []);
+  useEffect(() => { runFullAustcoDiagnosis(siteConfig, undefined, 0).then(r => setIssues(r.issues.filter(i => i.id === "Signal" || i.module.toLowerCase().includes("Signal".toLowerCase())))); }, []);
   const devices = mockDevices.filter(d => ["Signal Light","Zone Light"].includes(d.type));
   return (
     <div className="space-y-6">

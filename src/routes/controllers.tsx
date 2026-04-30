@@ -15,7 +15,7 @@ export const Route = createFileRoute("/controllers")({
 
 function Page() {
   const [issues, setIssues] = useState<DiagnosticIssue[]>([]);
-  useEffect(() => { runFullAustcoDiagnosis(siteConfig, undefined, 0).then(r => setIssues(r.issues.filter(i => "Controller" === "" || i.id === "Controller" || i.module.toLowerCase().includes("Controller".toLowerCase())))); }, []);
+  useEffect(() => { runFullAustcoDiagnosis(siteConfig, undefined, 0).then(r => setIssues(r.issues.filter(i => i.id === "Controller" || i.module.toLowerCase().includes("Controller".toLowerCase())))); }, []);
   const devices = mockDevices.filter(d => d.type === "Controller");
   return (
     <div className="space-y-6">

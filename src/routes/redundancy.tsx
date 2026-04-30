@@ -15,7 +15,7 @@ export const Route = createFileRoute("/redundancy")({
 
 function Page() {
   const [issues, setIssues] = useState<DiagnosticIssue[]>([]);
-  useEffect(() => { runFullAustcoDiagnosis(siteConfig, undefined, 0).then(r => setIssues(r.issues.filter(i => "Redundancy" === "" || i.id === "Redundancy" || i.module.toLowerCase().includes("Redundancy".toLowerCase())))); }, []);
+  useEffect(() => { runFullAustcoDiagnosis(siteConfig, undefined, 0).then(r => setIssues(r.issues.filter(i => i.id === "Redundancy" || i.module.toLowerCase().includes("Redundancy".toLowerCase())))); }, []);
   const devices = mockDevices.filter(d => ["Primary Server","Secondary Server","Virtual IP"].includes(d.type));
   return (
     <div className="space-y-6">
