@@ -334,6 +334,9 @@ function CommandCenter() {
             result={result} error={error} scanning={scanning} backendUrl={backendUrl}
             hwHealth={hwHealth} deployHealth={deployHealth}
             chainSteps={chainSteps} breakpoint={breakpoint} chainConclusion={chainConclusion}
+            arch={arch}
+            tracedCallPoint={tracedCallPoint}
+            cpSteps={cpSteps} cpBreak={cpBreak} cpConclusion={cpConclusion}
           />
         </div>
       </form>
@@ -344,12 +347,16 @@ function CommandCenter() {
 function ResultsPanel({
   result, error, scanning, backendUrl,
   hwHealth, deployHealth, chainSteps, breakpoint, chainConclusion,
+  arch, tracedCallPoint, cpSteps, cpBreak, cpConclusion,
 }: {
   result: DiagnosisResponse | null; error: string | null; scanning: boolean; backendUrl: string;
   hwHealth: HardwareHealthRow[] | null; deployHealth: DeploymentHealthCheck[] | null;
   chainSteps: ChainStep[]; breakpoint: Breakpoint | null; chainConclusion: string;
+  arch: ArchitectureReport | null;
+  tracedCallPoint: CallPointEntry | null;
+  cpSteps: CallPointStep[]; cpBreak: CallPointBreakpoint | null; cpConclusion: string;
 }) {
-  const hasAnything = result || hwHealth || deployHealth || chainSteps.length > 0;
+  const hasAnything = result || hwHealth || deployHealth || chainSteps.length > 0 || arch || cpSteps.length > 0;
 
   if (error && !hasAnything) {
     return (
