@@ -431,6 +431,9 @@ function ResultsPanel({
         </Card>
       )}
 
+      {/* 1b. Architecture validation (Tacera/Pulse rules) */}
+      {arch && <ArchitecturePanel report={arch} />}
+
       {/* 2. Hardware Communication Health */}
       {hwHealth && (
         <Card className="bg-card/70">
@@ -472,6 +475,16 @@ function ResultsPanel({
           <CardHeader className="pb-3"><CardTitle className="flex items-center gap-2 text-base"><Workflow className="h-4 w-4 text-info" /> Breakpoint Map · Live Signal Chain</CardTitle></CardHeader>
           <CardContent><BreakpointMap steps={chainSteps} /></CardContent>
         </Card>
+      )}
+
+      {/* 3b. Call Point → Output Trace */}
+      {tracedCallPoint && cpSteps.length > 0 && (
+        <CallPointTracePanel
+          callPoint={tracedCallPoint}
+          steps={cpSteps}
+          breakpoint={cpBreak}
+          conclusion={cpConclusion}
+        />
       )}
 
       {/* 4. Root Cause Analysis */}
