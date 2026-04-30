@@ -98,4 +98,3 @@ function RootComponent() {
 
 // Keep Link import alive — used by NotFoundComponent.
 void Link;
-}
