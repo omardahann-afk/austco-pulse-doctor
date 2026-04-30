@@ -35,11 +35,15 @@ export const Route = createRootRoute({
       { title: "Austco Site Doctor — Field Diagnostic Copilot" },
       { name: "description", content: "Internal Austco diagnostic platform for Pulse / Tacera / IP-based nurse call systems. Trace failures across the full signal chain." },
       { name: "author", content: "Austco" },
-      { property: "og:title", content: "Austco Site Doctor" },
-      { property: "og:description", content: "Field Diagnostic Copilot for Pulse / Tacera / IP-based nurse call systems." },
+      { property: "og:title", content: "Austco Site Doctor — Field Diagnostic Copilot" },
+      { property: "og:description", content: "Internal Austco diagnostic platform for Pulse / Tacera / IP-based nurse call systems. Trace failures across the full signal chain." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
       { name: "twitter:site", content: "@Austco" },
+      { name: "twitter:title", content: "Austco Site Doctor — Field Diagnostic Copilot" },
+      { name: "twitter:description", content: "Internal Austco diagnostic platform for Pulse / Tacera / IP-based nurse call systems. Trace failures across the full signal chain." },
+      { property: "og:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/30ec29e8-aee5-47e1-99b5-3804e4635bef/id-preview-f0cf50bb--dda9de3d-fa10-4191-b012-911ba475ae99.lovable.app-1777509201530.png" },
+      { name: "twitter:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/30ec29e8-aee5-47e1-99b5-3804e4635bef/id-preview-f0cf50bb--dda9de3d-fa10-4191-b012-911ba475ae99.lovable.app-1777509201530.png" },
     ],
     links: [
       {
