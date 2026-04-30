@@ -1,6 +1,9 @@
 import { Outlet, Link, createRootRoute, HeadContent, Scripts } from "@tanstack/react-router";
 
 import appCss from "../styles.css?url";
+import { SidebarProvider, SidebarTrigger, SidebarInset } from "@/components/ui/sidebar";
+import { AppSidebar } from "@/components/AppSidebar";
+import { Stethoscope } from "lucide-react";
 
 function NotFoundComponent() {
   return (
@@ -29,14 +32,14 @@ export const Route = createRootRoute({
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "Lovable App" },
-      { name: "description", content: "Lovable Generated Project" },
-      { name: "author", content: "Lovable" },
-      { property: "og:title", content: "Lovable App" },
-      { property: "og:description", content: "Lovable Generated Project" },
+      { title: "Austco Site Doctor — Field Diagnostic Copilot" },
+      { name: "description", content: "Internal Austco diagnostic platform for Pulse / Tacera / IP-based nurse call systems. Trace failures across the full signal chain." },
+      { name: "author", content: "Austco" },
+      { property: "og:title", content: "Austco Site Doctor" },
+      { property: "og:description", content: "Field Diagnostic Copilot for Pulse / Tacera / IP-based nurse call systems." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
-      { name: "twitter:site", content: "@Lovable" },
+      { name: "twitter:site", content: "@Austco" },
     ],
     links: [
       {
@@ -65,5 +68,33 @@ function RootShell({ children }: { children: React.ReactNode }) {
 }
 
 function RootComponent() {
-  return <Outlet />;
+  return (
+    <SidebarProvider>
+      <div className="flex min-h-screen w-full bg-background text-foreground">
+        <AppSidebar />
+        <SidebarInset className="min-w-0 flex-1">
+          <header className="sticky top-0 z-30 flex h-12 items-center gap-3 border-b border-border/60 bg-background/80 px-3 backdrop-blur">
+            <SidebarTrigger className="-ml-1" />
+            <div className="flex items-center gap-2 text-sm">
+              <Stethoscope className="h-4 w-4 text-info" />
+              <span className="font-semibold">AUSTCO SITE DOCTOR</span>
+              <span className="text-muted-foreground">·</span>
+              <span className="text-muted-foreground">Field Diagnostic Copilot</span>
+            </div>
+            <div className="ml-auto flex items-center gap-2 text-[11px] text-muted-foreground">
+              <span className="hidden sm:inline">Pulse · Tacera · IP-Connect</span>
+              <span className="hidden sm:inline">·</span>
+              <span className="font-mono">v1.0 internal</span>
+            </div>
+          </header>
+          <main className="min-h-[calc(100vh-3rem)] p-6">
+            <Outlet />
+          </main>
+        </SidebarInset>
+      </div>
+    </SidebarProvider>
+  );
 }
+
+// Keep Link import alive — used by NotFoundComponent.
+void Link;
