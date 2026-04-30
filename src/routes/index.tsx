@@ -22,6 +22,11 @@ import {
 } from "@/lib/breakpointEngine";
 import { BreakpointMap } from "@/components/BreakpointMap";
 import { BreakpointReport } from "@/components/BreakpointReport";
+import { validateArchitecture, type ArchitectureReport } from "@/lib/architectureValidator";
+import { traceCallPoint, type CallPointStep, type CallPointBreakpoint } from "@/lib/callPointTrace";
+import { ArchitecturePanel } from "@/components/ArchitecturePanel";
+import { CallPointTracePanel } from "@/components/CallPointTracePanel";
+import type { CallPointEntry } from "@/lib/siteDoctorApi";
 
 export const Route = createFileRoute("/")({
   head: () => ({ meta: [
@@ -60,6 +65,11 @@ function CommandCenter() {
   const [chainSteps, setChainSteps] = useState<ChainStep[]>([]);
   const [breakpoint, setBreakpoint] = useState<Breakpoint | null>(null);
   const [chainConclusion, setChainConclusion] = useState<string>("");
+  const [arch, setArch] = useState<ArchitectureReport | null>(null);
+  const [cpSteps, setCpSteps] = useState<CallPointStep[]>([]);
+  const [cpBreak, setCpBreak] = useState<CallPointBreakpoint | null>(null);
+  const [cpConclusion, setCpConclusion] = useState<string>("");
+  const [tracedCallPoint, setTracedCallPoint] = useState<CallPointEntry | null>(null);
 
   useEffect(() => { setBackendUrlState(getBackendUrl()); }, []);
 
@@ -72,6 +82,7 @@ function CommandCenter() {
     setScanning(true);
     setBackendUrl(backendUrl);
     setHwHealth(null); setDeployHealth(null); setChainSteps([]); setBreakpoint(null); setChainConclusion("");
+    setArch(null); setCpSteps([]); setCpBreak(null); setCpConclusion(""); setTracedCallPoint(null);
     try {
       // Always run hardware/breakpoint engine — it works without the local backend.
       const firstCtrl = payload.knownDevices.find((d) => /controller/i.test(d.type))?.ip ?? "10.20.4.22";
@@ -94,6 +105,19 @@ function CommandCenter() {
         180,
       );
       setDeployHealth(readDeploymentHealth());
+
+      // Architecture validation (synchronous, pure logic)
+      const archReport = validateArchitecture(payload);
+      setArch(archReport);
+
+      // Call Point → Output trace for the first declared call point
+      const firstCp = payload.callPoints?.[0];
+      if (firstCp) {
+        setTracedCallPoint(firstCp);
+        const cpResult = await traceCallPoint(payload, archReport, firstCp, setCpSteps, 160);
+        setCpBreak(cpResult.breakpoint);
+        setCpConclusion(cpResult.conclusion);
+      }
 
       // Backend call may fail (laptop not running site-doctor.js) — degrade gracefully.
       const backendPromise = runDiagnosis(payload, backendUrl).then(
@@ -310,6 +334,9 @@ function CommandCenter() {
             result={result} error={error} scanning={scanning} backendUrl={backendUrl}
             hwHealth={hwHealth} deployHealth={deployHealth}
             chainSteps={chainSteps} breakpoint={breakpoint} chainConclusion={chainConclusion}
+            arch={arch}
+            tracedCallPoint={tracedCallPoint}
+            cpSteps={cpSteps} cpBreak={cpBreak} cpConclusion={cpConclusion}
           />
         </div>
       </form>
@@ -320,12 +347,16 @@ function CommandCenter() {
 function ResultsPanel({
   result, error, scanning, backendUrl,
   hwHealth, deployHealth, chainSteps, breakpoint, chainConclusion,
+  arch, tracedCallPoint, cpSteps, cpBreak, cpConclusion,
 }: {
   result: DiagnosisResponse | null; error: string | null; scanning: boolean; backendUrl: string;
   hwHealth: HardwareHealthRow[] | null; deployHealth: DeploymentHealthCheck[] | null;
   chainSteps: ChainStep[]; breakpoint: Breakpoint | null; chainConclusion: string;
+  arch: ArchitectureReport | null;
+  tracedCallPoint: CallPointEntry | null;
+  cpSteps: CallPointStep[]; cpBreak: CallPointBreakpoint | null; cpConclusion: string;
 }) {
-  const hasAnything = result || hwHealth || deployHealth || chainSteps.length > 0;
+  const hasAnything = result || hwHealth || deployHealth || chainSteps.length > 0 || arch || cpSteps.length > 0;
 
   if (error && !hasAnything) {
     return (
@@ -400,6 +431,9 @@ function ResultsPanel({
         </Card>
       )}
 
+      {/* 1b. Architecture validation (Tacera/Pulse rules) */}
+      {arch && <ArchitecturePanel report={arch} />}
+
       {/* 2. Hardware Communication Health */}
       {hwHealth && (
         <Card className="bg-card/70">
@@ -441,6 +475,16 @@ function ResultsPanel({
           <CardHeader className="pb-3"><CardTitle className="flex items-center gap-2 text-base"><Workflow className="h-4 w-4 text-info" /> Breakpoint Map · Live Signal Chain</CardTitle></CardHeader>
           <CardContent><BreakpointMap steps={chainSteps} /></CardContent>
         </Card>
+      )}
+
+      {/* 3b. Call Point → Output Trace */}
+      {tracedCallPoint && cpSteps.length > 0 && (
+        <CallPointTracePanel
+          callPoint={tracedCallPoint}
+          steps={cpSteps}
+          breakpoint={cpBreak}
+          conclusion={cpConclusion}
+        />
       )}
 
       {/* 4. Root Cause Analysis */}
