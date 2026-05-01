@@ -32,7 +32,14 @@ export type ConfigEvidence = {
     | "Auth Probe"
     | "Site Payload"
     | "Trace Engine"
-    | "IPConnect CCP";
+    | "IPConnect CCP"
+    | "Network Scan"
+    | "SNMP MAC Table"
+    | "SNMP PoE"
+    | "SNMP Interface"
+    | "ARP Table"
+    | "VLAN Check"
+    | "Manual Entry";
   field: string;
   expected: string;
   actual: string;

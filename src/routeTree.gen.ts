@@ -25,6 +25,7 @@ import { Route as DiagnoseRouteImport } from './routes/diagnose'
 import { Route as ControllersRouteImport } from './routes/controllers'
 import { Route as CctRealityRouteImport } from './routes/cct-reality'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as ApiPublicSnmpBridgeRouteImport } from './routes/api/public/snmp-bridge'
 
 const TraceRoute = TraceRouteImport.update({
   id: '/trace',
@@ -106,6 +107,11 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiPublicSnmpBridgeRoute = ApiPublicSnmpBridgeRouteImport.update({
+  id: '/api/public/snmp-bridge',
+  path: '/api/public/snmp-bridge',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -124,6 +130,7 @@ export interface FileRoutesByFullPath {
   '/signal-lights': typeof SignalLightsRoute
   '/site-map': typeof SiteMapRoute
   '/trace': typeof TraceRoute
+  '/api/public/snmp-bridge': typeof ApiPublicSnmpBridgeRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -142,6 +149,7 @@ export interface FileRoutesByTo {
   '/signal-lights': typeof SignalLightsRoute
   '/site-map': typeof SiteMapRoute
   '/trace': typeof TraceRoute
+  '/api/public/snmp-bridge': typeof ApiPublicSnmpBridgeRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -161,6 +169,7 @@ export interface FileRoutesById {
   '/signal-lights': typeof SignalLightsRoute
   '/site-map': typeof SiteMapRoute
   '/trace': typeof TraceRoute
+  '/api/public/snmp-bridge': typeof ApiPublicSnmpBridgeRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -181,6 +190,7 @@ export interface FileRouteTypes {
     | '/signal-lights'
     | '/site-map'
     | '/trace'
+    | '/api/public/snmp-bridge'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -199,6 +209,7 @@ export interface FileRouteTypes {
     | '/signal-lights'
     | '/site-map'
     | '/trace'
+    | '/api/public/snmp-bridge'
   id:
     | '__root__'
     | '/'
@@ -217,6 +228,7 @@ export interface FileRouteTypes {
     | '/signal-lights'
     | '/site-map'
     | '/trace'
+    | '/api/public/snmp-bridge'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -236,6 +248,7 @@ export interface RootRouteChildren {
   SignalLightsRoute: typeof SignalLightsRoute
   SiteMapRoute: typeof SiteMapRoute
   TraceRoute: typeof TraceRoute
+  ApiPublicSnmpBridgeRoute: typeof ApiPublicSnmpBridgeRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -352,6 +365,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/snmp-bridge': {
+      id: '/api/public/snmp-bridge'
+      path: '/api/public/snmp-bridge'
+      fullPath: '/api/public/snmp-bridge'
+      preLoaderRoute: typeof ApiPublicSnmpBridgeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -372,6 +392,7 @@ const rootRouteChildren: RootRouteChildren = {
   SignalLightsRoute: SignalLightsRoute,
   SiteMapRoute: SiteMapRoute,
   TraceRoute: TraceRoute,
+  ApiPublicSnmpBridgeRoute: ApiPublicSnmpBridgeRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
