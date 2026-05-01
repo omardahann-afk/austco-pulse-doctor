@@ -13,7 +13,8 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
-  useDiagnosisRun, deriveFinalResult, type DiagnosisRunSnapshot, type FinalResult,
+  useDiagnosisRun, deriveFinalResult,
+  type DiagnosisRunSnapshot, type FinalResult, type ModuleToggleKey,
 } from "@/lib/diagnosisRunStore";
 import type { ChainStep } from "@/lib/breakpointEngine";
 import type { CallPointStep } from "@/lib/callPointTrace";
