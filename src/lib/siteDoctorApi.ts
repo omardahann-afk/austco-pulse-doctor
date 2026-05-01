@@ -304,4 +304,45 @@ export const DEFAULT_PAYLOAD: DiagnosisRequest = {
       expectedSignalLight: "10.1.3.50", expectedDisplay: "10.20.6.30",
     },
   ],
+  roomControllers: [
+    {
+      name: "Controller-West",
+      ip: "10.1.3.22",
+      mac: "00:1B:44:11:3A:B7",
+      controllerId: "RC-WEST-01",
+      location: "West Wing — Floor 2",
+      vlan: "10.1.3.0/24",
+      parentIpConnect: "IPConnect",
+      webInterfaceUrl: "http://10.1.3.22/",
+      hasWebAccess: true,
+      serversConfigured: true,
+      ipnetDeviceListPopulated: true,
+      zones: [
+        { name: "Room 230", type: "Room" },
+        { name: "West Wing", type: "Group Signal" },
+      ],
+      groupSignals: [
+        { name: "West Wing Signal Lights", zones: ["West Wing"], targetOdlOrZts: "ODL-Corridor-W", followMeLighting: false },
+      ],
+      callTypes: [
+        { name: "Patient Call", priority: 1, tone: "Standard", lightBehavior: "Solid Green" },
+        { name: "Emergency",    priority: 5, tone: "Urgent",   lightBehavior: "Flashing Red" },
+      ],
+      ipnetDevices: [
+        { name: "Room 230 Callpoint", type: "Callpoint",        address: "1.03", zone: "Room 230", callTypes: ["Patient Call"], portRun: "A", status: "Online" },
+        { name: "Room 230 Pendant",   type: "Pendant",          address: "1.04", zone: "Room 230", callTypes: ["Patient Call"], portRun: "A", status: "Online" },
+        { name: "Room 230 ODL",       type: "Over Door Light",  address: "1.05", zone: "Room 230", portRun: "A", status: "Online" },
+        { name: "Corridor ZTS West",  type: "Zone Tone Sounder",address: "2.01", zone: "West Wing", portRun: "B", status: "Online" },
+        { name: "Relay Output 1",     type: "Relay",            address: "2.02", portRun: "B", status: "Online" },
+      ],
+      links: [
+        { from: "Room 230 Callpoint", to: "West Wing Signal Lights" },
+      ],
+      cancelLinks: [
+        { from: "Room 230 Callpoint", to: "Room 230" },
+      ],
+      remoteRelays: [],
+      eventViewerText: "",
+    },
+  ],
 };
