@@ -1,6 +1,6 @@
 import { Link, useRouterState } from "@tanstack/react-router";
 import { Sidebar, SidebarContent, SidebarGroup, SidebarGroupContent, SidebarGroupLabel, SidebarMenu, SidebarMenuButton, SidebarMenuItem, SidebarHeader, SidebarFooter } from "@/components/ui/sidebar";
-import { Activity, ScanLine, Map as MapIcon, Search, ShieldCheck, Cpu, MonitorSmartphone, Radio, Lightbulb, Network, ListChecks, Clock, FileText, BookOpen, Stethoscope } from "lucide-react";
+import { Activity, ScanLine, Map as MapIcon, Search, ShieldCheck, Cpu, MonitorSmartphone, Radio, Lightbulb, Network, ListChecks, Clock, FileText, BookOpen, Stethoscope, Router } from "lucide-react";
 import { LAPTOP_IP, SITE_NAME, TECHNICIAN } from "@/data/mockSite";
 
 const NAV = [
@@ -13,6 +13,7 @@ const NAV = [
   { group: "Doctors", items: [
     { to: "/redundancy", label: "Redundancy Doctor", icon: ShieldCheck },
     { to: "/controllers", label: "Controller Doctor", icon: Cpu },
+    { to: "/room-controllers", label: "Room Controller / IPnet", icon: Router },
     { to: "/ip-app1", label: "IP-APP1 Doctor", icon: MonitorSmartphone },
     { to: "/ip-in8", label: "IP-IN8 Input Doctor", icon: Radio },
     { to: "/signal-lights", label: "Signal / Zone Light Doctor", icon: Lightbulb },
