@@ -17,6 +17,69 @@ import { shouldAutoApplyDefaultCreds } from "./siteDoctorApi";
 
 export type RcSeverity = "Info" | "Warning" | "Critical";
 
+/**
+ * Verifiable, source-attributed config evidence row that proves a finding.
+ * Each row should map to a specific field in declared/parsed config.
+ * Never invent values — if missing, omit the row or use the explicit
+ * "Not verified" sentinel ({@link NOT_VERIFIED}).
+ */
+export type ConfigEvidence = {
+  source:
+    | "Room Controller Config"
+    | "IPnet Device List"
+    | "Network → Servers"
+    | "Event Viewer"
+    | "Auth Probe"
+    | "Site Payload"
+    | "Trace Engine";
+  field: string;
+  expected: string;
+  actual: string;
+  impact: string;
+};
+
+export const NOT_VERIFIED = "Not verified";
+
+/**
+ * Build a plain-text summary suitable for clipboard / escalation tickets.
+ * Used by both Findings and Trace Breakpoints.
+ */
+export function summarizeEvidence(input: {
+  title: string;
+  breakPoint?: string;
+  previousStepPassed?: string;
+  failedStep?: string;
+  likelyCause: string;
+  fix: string[];
+  configEvidence: ConfigEvidence[];
+  controller?: string;
+}): string {
+  const lines: string[] = [];
+  if (input.breakPoint) lines.push(`Break found at: ${input.breakPoint}`);
+  else lines.push(`Finding: ${input.title}`);
+  if (input.controller) lines.push(`Controller: ${input.controller}`);
+  if (input.previousStepPassed) lines.push(`Previous step passed: ${input.previousStepPassed}`);
+  if (input.failedStep) lines.push(`Failed step: ${input.failedStep}`);
+  lines.push("");
+  lines.push("Config Evidence:");
+  if (input.configEvidence.length === 0) {
+    lines.push("  (Config evidence not available — finding based on trace/log data only.)");
+  } else {
+    for (const e of input.configEvidence) {
+      lines.push(`  - [${e.source}] ${e.field}`);
+      lines.push(`      expected: ${e.expected}`);
+      lines.push(`      actual:   ${e.actual}`);
+      lines.push(`      impact:   ${e.impact}`);
+    }
+  }
+  lines.push("");
+  lines.push(`Likely cause: ${input.likelyCause}`);
+  lines.push("");
+  lines.push("Technician fix:");
+  input.fix.forEach((s, i) => lines.push(`  ${i + 1}. ${s}`));
+  return lines.join("\n");
+}
+
 export type RcFinding = {
   controller: string;
   area: string;
@@ -25,6 +88,7 @@ export type RcFinding = {
   detail: string;
   evidence: string[];
   fix: string[];
+  configEvidence: ConfigEvidence[];
 };
 
 export type RcEventViewerEntry = {
@@ -67,6 +131,7 @@ export type RcTraceBreak = {
   evidence: string[];
   likelyCause: string;
   fix: string[];
+  configEvidence: ConfigEvidence[];
 };
 
 export type RcTraceResult = {
@@ -112,10 +177,10 @@ export function buildRoomControllerReports(req: DiagnosisRequest): RcReport[] {
   const idCounts = new Map<string, number>();
   rcs.forEach((c) => idCounts.set(c.controllerId, (idCounts.get(c.controllerId) ?? 0) + 1));
 
-  return rcs.map((c) => buildOne(c, idCounts));
+  return rcs.map((c) => buildOne(c, idCounts, rcs));
 }
 
-function buildOne(c: RoomController, idCounts: Map<string, number>): RcReport {
+function buildOne(c: RoomController, idCounts: Map<string, number>, allRcs: RoomController[]): RcReport {
   const f: RcFinding[] = [];
   const devices: IpnetDevice[] = c.ipnetDevices ?? [];
 
@@ -132,6 +197,10 @@ function buildOne(c: RoomController, idCounts: Map<string, number>): RcReport {
         "Confirm controller web service is running; reboot controller if necessary.",
         "Verify controller IP has not drifted from configured value.",
       ],
+      configEvidence: [
+        { source: "Room Controller Config", field: "ip",            expected: "reachable on http/80", actual: `${c.ip} ping=ok, http=unreachable`, impact: "Web-based diagnostics and config edits cannot run." },
+        { source: "Room Controller Config", field: "vlan",          expected: "reachable from tech VLAN", actual: c.vlan, impact: "Possible VLAN/firewall isolation between laptop and controller." },
+      ],
     });
   }
 
@@ -143,17 +212,27 @@ function buildOne(c: RoomController, idCounts: Map<string, number>): RcReport {
       detail: "Controller IP is 10.255.255.10, which is the factory default address.",
       evidence: [`ip=${c.ip}`],
       fix: ["Reconfigure controller IP for the site VLAN.", "Re-add it to IPConnect site config.", "Verify Controller ID is unique."],
+      configEvidence: [
+        { source: "Room Controller Config", field: "ip", expected: "site-assigned IP on " + c.vlan, actual: c.ip, impact: "Controller appears to be at factory default; will not match IPConnect site config." },
+      ],
     });
   }
 
   // Rule 3 — Duplicate Controller ID
   if ((idCounts.get(c.controllerId) ?? 0) > 1) {
+    const peers = (allRcs ?? []).filter((x) => x.controllerId === c.controllerId);
     f.push({
       controller: c.name, area: "Identity", severity: "Critical",
       title: "Duplicate Controller ID detected",
       detail: "Duplicate Controller ID can cause event routing and zone/group signal issues across IPConnect deployments.",
       evidence: [`controller_id=${c.controllerId}`, `count=${idCounts.get(c.controllerId)}`],
       fix: ["Assign a unique Controller ID per Room Controller.", "Update IPConnect site config.", "Run Update All Controllers."],
+      configEvidence: [
+        { source: "Room Controller Config", field: "controllerId",
+          expected: "unique site-wide",
+          actual: `${c.controllerId} shared by ${peers.map((p) => `${p.name} (${p.ip})`).join(", ")}`,
+          impact: "IPConnect cannot route events deterministically; group/zone signals may misbehave." },
+      ],
     });
   }
 
@@ -169,6 +248,12 @@ function buildOne(c: RoomController, idCounts: Map<string, number>): RcReport {
         "Open the device web interface and change the admin password.",
         "Update IPConnect / Pulse Manage with the new credentials.",
         "Re-test diagnostics with the new credentials.",
+      ],
+      configEvidence: [
+        { source: "Auth Probe", field: "device type",         expected: "non-default credentials", actual: `${c.model}`, impact: "Hardened devices should not retain factory credentials." },
+        { source: "Auth Probe", field: "attempted username",  expected: "site-issued account",     actual: c.credentials.username, impact: "Default account is well-known." },
+        { source: "Auth Probe", field: "default credentials", expected: "false",                   actual: "true (admin/admin)", impact: "Risk of unauthorised configuration changes." },
+        { source: "Auth Probe", field: "result",              expected: "success with custom creds", actual: c.authStatus === "authenticated_default" ? "success with admin/admin" : "untested", impact: "Operational, but flagged for security." },
       ],
     });
   }
@@ -189,6 +274,12 @@ function buildOne(c: RoomController, idCounts: Map<string, number>): RcReport {
         "Enter the correct username/password in the Room Controller card override fields.",
         "Re-run diagnosis. If unknown, factory reset only with site approval.",
       ],
+      configEvidence: [
+        { source: "Auth Probe", field: "device type",         expected: "valid login",       actual: c.model ?? NOT_VERIFIED, impact: "Cannot read device config or Event Viewer over HTTP." },
+        { source: "Auth Probe", field: "attempted username",  expected: "accepted",          actual: c.credentials?.username ?? NOT_VERIFIED, impact: "Login rejected." },
+        { source: "Auth Probe", field: "default credentials", expected: c.authStatus === "auth_failed_custom" ? "false" : "true (admin/admin)", actual: c.credentials?.isDefault ? "true (admin/admin)" : "false (custom)", impact: "Indicates whether site has rotated credentials." },
+        { source: "Auth Probe", field: "result",              expected: "authenticated",     actual: c.authStatus, impact: "Web-based diagnostics blocked until credentials are corrected." },
+      ],
     });
   }
 
@@ -200,6 +291,9 @@ function buildOne(c: RoomController, idCounts: Map<string, number>): RcReport {
       detail: "Without zones, callpoint events cannot be matched to room/group signal.",
       evidence: ["zones=0"],
       fix: ["Define a Room zone for each callpoint.", "Define Group Signal zones used by ODLs/ZTS.", "Run Update All Controllers."],
+      configEvidence: [
+        { source: "Room Controller Config", field: "zones", expected: "at least one room zone", actual: "0", impact: "Callpoint events cannot be matched to a room or group signal." },
+      ],
     });
   }
 
@@ -212,6 +306,9 @@ function buildOne(c: RoomController, idCounts: Map<string, number>): RcReport {
       detail: "Group signal lights / zone tone sounders will not activate without group signal definitions.",
       evidence: ["group_signals=0"],
       fix: ["Add group signals.", "Assign target ODL/ZTS.", "Update remote zones, then Update All Controllers."],
+      configEvidence: [
+        { source: "Room Controller Config", field: "groupSignals", expected: "≥1 group signal", actual: "0", impact: "ODLs / Zone Tone Sounders will not activate." },
+      ],
     });
   }
   // Rule 6 — Follow-Me Lighting conflict
@@ -223,6 +320,11 @@ function buildOne(c: RoomController, idCounts: Map<string, number>): RcReport {
         detail: "ODL/ZTS configured for Follow-Me Lighting must not also be defined as a group signal target on the same PST/CCT.",
         evidence: [`group_signal=${g.name}`, `target=${g.targetOdlOrZts}`, "follow_me_lighting=true"],
         fix: ["Remove the group signal definition for that ODL/ZTS, or remove Follow-Me Lighting from the CCP for that PST/CCT.", "Reload site config and Update All Controllers."],
+        configEvidence: [
+          { source: "Room Controller Config", field: "groupSignals[].name",            expected: "no Follow-Me overlap", actual: g.name, impact: "Group signal collides with Follow-Me Lighting on the same target." },
+          { source: "Room Controller Config", field: "groupSignals[].targetOdlOrZts",  expected: "ODL/ZTS not used by Follow-Me", actual: g.targetOdlOrZts, impact: "Light behaviour will be unpredictable." },
+          { source: "Room Controller Config", field: "groupSignals[].followMeLighting", expected: "false",                actual: "true", impact: "Conflict flag set in CCP." },
+        ],
       });
     }
   }
@@ -235,6 +337,9 @@ function buildOne(c: RoomController, idCounts: Map<string, number>): RcReport {
       detail: "Without call types, tone, light behaviour and priority are undefined.",
       evidence: ["call_types=0"],
       fix: ["Define Patient/Emergency/etc. call types.", "Assign call types to callpoints in IPnet Device List."],
+      configEvidence: [
+        { source: "Room Controller Config", field: "callTypes", expected: "≥1 call type", actual: "0", impact: "Tone, light behaviour and priority undefined for all calls." },
+      ],
     });
   }
 
@@ -251,6 +356,10 @@ function buildOne(c: RoomController, idCounts: Map<string, number>): RcReport {
         "Run IPnet discovery on the controller.",
         "Replace any faulty callpoint after isolation tests.",
       ],
+      configEvidence: [
+        { source: "IPnet Device List", field: "ipnetDevices",              expected: "discovered devices", actual: `${devices.length}`, impact: "Callpoints will not register events on this controller." },
+        { source: "IPnet Device List", field: "ipnetDeviceListPopulated",  expected: "true",               actual: String(c.ipnetDeviceListPopulated ?? NOT_VERIFIED), impact: "Discovery has not yet been completed or has failed." },
+      ],
     });
   }
 
@@ -262,6 +371,9 @@ function buildOne(c: RoomController, idCounts: Map<string, number>): RcReport {
       detail: "Room Controller supports a maximum of 32 IPnet devices.",
       evidence: [`devices=${devices.length}`],
       fix: ["Move devices to another Room Controller.", "Re-balance IPnet runs."],
+      configEvidence: [
+        { source: "IPnet Device List", field: "ipnetDevices.length", expected: "≤ 32", actual: String(devices.length), impact: "Hard limit exceeded — bus instability and dropped events likely." },
+      ],
     });
   } else if (devices.length > 30) {
     f.push({
@@ -270,6 +382,9 @@ function buildOne(c: RoomController, idCounts: Map<string, number>): RcReport {
       detail: "Recommended maximum is 30 IPnet devices per Room Controller.",
       evidence: [`devices=${devices.length}`],
       fix: ["Plan to redistribute devices across additional Room Controllers."],
+      configEvidence: [
+        { source: "IPnet Device List", field: "ipnetDevices.length", expected: "≤ 30 (recommended)", actual: String(devices.length), impact: "Headroom for service work is gone." },
+      ],
     });
   }
 
@@ -284,6 +399,10 @@ function buildOne(c: RoomController, idCounts: Map<string, number>): RcReport {
       detail: "Device load should be balanced across the two IPnet connectors on the Room Controller.",
       evidence: [`port_a=${portA}`, `port_b=${portB}`],
       fix: ["Move ~half of the devices to the other IPnet connector.", "Document the new wiring run."],
+      configEvidence: [
+        { source: "IPnet Device List", field: "ipnetDevices[].portRun=A", expected: "balanced", actual: String(portA), impact: "Single-connector load increases bus load and failure surface." },
+        { source: "IPnet Device List", field: "ipnetDevices[].portRun=B", expected: "balanced", actual: String(portB), impact: "Single-connector load increases bus load and failure surface." },
+      ],
     });
   }
 
@@ -295,6 +414,11 @@ function buildOne(c: RoomController, idCounts: Map<string, number>): RcReport {
       detail: "Room Controller has no parent IPConnect/Pulse server configured. Events will not forward upstream.",
       evidence: ["servers_configured=false"],
       fix: ["Open Network → Servers on controller.", "Add IPConnect/Pulse server IPs.", "Save and reboot controller if required."],
+      configEvidence: [
+        { source: "Network → Servers", field: "parentIpConnect", expected: c.parentIpConnect ?? "site IPConnect VM", actual: NOT_VERIFIED, impact: "Controller cannot forward events upstream." },
+        { source: "Network → Servers", field: "serversConfigured", expected: "true", actual: "false", impact: "No upstream targets registered on the controller." },
+        { source: "Room Controller Config", field: "ip", expected: "reachable from IPConnect", actual: c.ip, impact: "Even if servers are added, controller must be reachable from IPConnect." },
+      ],
     });
   }
 
@@ -308,6 +432,13 @@ function buildOne(c: RoomController, idCounts: Map<string, number>): RcReport {
       detail: "Recent Event Viewer text contains fault or device-offline events.",
       evidence: faults.slice(0, 5).map((e) => e.raw),
       fix: ["Review Event Viewer.", "Investigate offending devices.", "Re-run discovery if needed."],
+      configEvidence: faults.slice(0, 5).map((e) => ({
+        source: "Event Viewer" as const,
+        field: e.kind,
+        expected: "no fault / offline events",
+        actual: e.raw.slice(0, 240),
+        impact: "Devices marked offline/faulted cannot participate in calls.",
+      })),
     });
   }
 
@@ -418,6 +549,7 @@ export async function traceCallpointSim046(
     evidence: failed.evidence,
     likelyCause: fail!.cause,
     fix: fail!.fix,
+    configEvidence: fail!.configEvidence ?? [],
   };
   return {
     callPoint: cp, steps, breakpoint,
@@ -425,7 +557,15 @@ export async function traceCallpointSim046(
   };
 }
 
-type RcStepFail = { stepId: string; rule: RcTraceBreak["rule"]; detail: string; evidence: string[]; cause: string; fix: string[] };
+type RcStepFail = {
+  stepId: string;
+  rule: RcTraceBreak["rule"];
+  detail: string;
+  evidence: string[];
+  cause: string;
+  fix: string[];
+  configEvidence?: ConfigEvidence[];
+};
 
 function pickRcFailure(ctx: {
   rc?: RoomController;
@@ -445,6 +585,10 @@ function pickRcFailure(ctx: {
       evidence: [`expected=${cp.controller}`],
       cause: "Call point references a controller that is not part of the site payload.",
       fix: [`Add Room Controller "${cp.controller}" to the payload.`, "Re-run trace."],
+      configEvidence: [
+        { source: "Site Payload", field: "roomControllers[].name", expected: cp.controller, actual: NOT_VERIFIED, impact: "Trace cannot resolve the controller for this call point." },
+        { source: "Site Payload", field: "callPoints[].controller", expected: "matches an existing room controller", actual: cp.controller, impact: "Call point declaration references unknown controller." },
+      ],
     };
   }
 
@@ -461,6 +605,11 @@ function pickRcFailure(ctx: {
         "Re-address callpoint and run discovery.",
         "Swap with known-good callpoint if discovery still fails.",
       ],
+      configEvidence: [
+        { source: "IPnet Device List", field: "expected callpoint",   expected: cp.name, actual: NOT_VERIFIED, impact: "Callpoint is not seen on the IPnet bus." },
+        { source: "IPnet Device List", field: "ipnetDevices",         expected: "contains expected callpoint", actual: ipnetDevices.map((d) => `${d.name}@${d.address}`).join(", "), impact: "Discovered devices do not include the expected callpoint." },
+        { source: "Room Controller Config", field: "controllerId",    expected: "matches site config", actual: rc.controllerId, impact: "Affected controller for this callpoint." },
+      ],
     };
   }
 
@@ -476,6 +625,11 @@ function pickRcFailure(ctx: {
         "Check port run power/wiring.",
         "Activate callpoint locally and retest.",
       ],
+      configEvidence: [
+        { source: "Event Viewer",      field: "input-active",       expected: `event for ${matchedCallpoint.name}`, actual: "no matching event", impact: "Controller never saw the IPnet input." },
+        { source: "IPnet Device List", field: "callpoint status",   expected: "Online", actual: matchedCallpoint.status ?? NOT_VERIFIED, impact: "Online status is required to register events." },
+        { source: "IPnet Device List", field: "callpoint portRun",  expected: "A or B", actual: matchedCallpoint.portRun ?? NOT_VERIFIED, impact: "Identifies which IPnet run to inspect." },
+      ],
     };
   }
 
@@ -487,11 +641,17 @@ function pickRcFailure(ctx: {
       evidence: ["servers_configured=false"],
       cause: "Controller cannot forward events upstream — Network → Servers is empty or wrong.",
       fix: ["Open controller Network → Servers.", "Add IPConnect/Pulse server entries.", "Save and reboot if required."],
+      configEvidence: [
+        { source: "Network → Servers",      field: "parentIpConnect",   expected: rc.parentIpConnect ?? "site IPConnect VM", actual: NOT_VERIFIED, impact: "No upstream target for events." },
+        { source: "Network → Servers",      field: "serversConfigured", expected: "true",                                   actual: "false",       impact: "Forwarding chain is broken at the controller." },
+        { source: "Room Controller Config", field: "ip",                expected: "reachable from IPConnect",               actual: rc.ip,         impact: "Even with servers configured, controller IP must be reachable." },
+      ],
     };
   }
 
   // Rule C: IPConnect/PuGa output requires a matching group signal on this controller
   if (!targetGroup) {
+    const existing = (rc.groupSignals ?? []).map((g) => g.name).join(", ") || "none";
     return {
       stepId: "output-evt", rule: "C",
       detail: `Group "${cp.expectedOutputGroup}" is not configured on ${rc.name}.`,
@@ -501,6 +661,11 @@ function pickRcFailure(ctx: {
         "Verify zone exists for the callpoint.",
         "Add group signal with correct zones and target ODL/ZTS.",
         "Re-import IPConnect site config and Update All Controllers.",
+      ],
+      configEvidence: [
+        { source: "Room Controller Config", field: "groupSignals", expected: cp.expectedOutputGroup, actual: "missing", impact: "No output event can map to the expected group signal." },
+        { source: "Room Controller Config", field: "groupSignals (existing)", expected: `includes "${cp.expectedOutputGroup}"`, actual: existing, impact: "Currently defined group signals on this controller." },
+        { source: "Site Payload",           field: "callPoints[].expectedOutputGroup", expected: "matches a configured group signal", actual: cp.expectedOutputGroup, impact: "Affected callpoint/room: " + cp.name + "." },
       ],
     };
   }
@@ -513,6 +678,11 @@ function pickRcFailure(ctx: {
       evidence: [`group=${targetGroup.name}`, `target=${targetGroup.targetOdlOrZts}`],
       cause: "ODL/ZTS configured for Follow-Me Lighting must not also be a group signal target.",
       fix: ["Remove group signal for that ODL/ZTS, or remove Follow-Me Lighting from CCP.", "Reload site config and Update All Controllers."],
+      configEvidence: [
+        { source: "Room Controller Config", field: "groupSignals[].name",             expected: "no Follow-Me overlap", actual: targetGroup.name, impact: "Group signal collides with Follow-Me Lighting on the same target." },
+        { source: "Room Controller Config", field: "groupSignals[].targetOdlOrZts",   expected: "ODL/ZTS not used by Follow-Me", actual: targetGroup.targetOdlOrZts, impact: "Light/sounder behaviour will be unpredictable." },
+        { source: "Room Controller Config", field: "groupSignals[].followMeLighting", expected: "false",                actual: "true", impact: "Conflict flag set in CCP." },
+      ],
     };
   }
 
@@ -524,6 +694,11 @@ function pickRcFailure(ctx: {
       evidence: ["cancel_links=0"],
       cause: "Cancel group / cancel link missing or presence behaviour misconfigured.",
       fix: ["Configure Cancel Links on the controller.", "Verify Cancel Group on relevant call types.", "Re-test cancel from callpoint."],
+      configEvidence: [
+        { source: "Room Controller Config", field: "cancelLinks", expected: "≥1 cancel link", actual: "0", impact: "Calls cannot be cancelled from the expected source." },
+        { source: "Room Controller Config", field: "callTypes",   expected: "cancel group assigned", actual: `${(rc.callTypes ?? []).length} call types declared`, impact: "Cancel behaviour depends on call type configuration." },
+        { source: "Trace Engine",           field: "expected cancel behavior", expected: "cancel on callpoint reset / presence", actual: NOT_VERIFIED, impact: "Cancel chain unverified for this callpoint." },
+      ],
     };
   }
 

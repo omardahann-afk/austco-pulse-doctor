@@ -1,16 +1,21 @@
 import type {
   RcReport, RcTraceStep, RcTraceBreak,
+  ConfigEvidence, RcFinding,
 } from "@/lib/roomControllerDoctor";
+import { summarizeEvidence } from "@/lib/roomControllerDoctor";
 import type { CallPointEntry, RoomController, RcCredentials, RcAuthStatus } from "@/lib/siteDoctorApi";
 import { DEFAULT_RC_CREDENTIALS, shouldAutoApplyDefaultCreds } from "@/lib/siteDoctorApi";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import {
   Cpu, Globe, Hash, MapPin, Network, AlertOctagon, AlertTriangle,
   CheckCircle2, XCircle, Loader2, Circle, MinusCircle, ChevronRight,
   Wrench, ListTree, FileText, KeyRound, ShieldAlert, ShieldCheck, Eye, EyeOff,
+  ChevronDown, Copy, Check, ClipboardList,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useState } from "react";
@@ -121,31 +126,49 @@ function RcCard({
       ) : (
         <ul className="mt-2 space-y-1.5">
           {report.findings.map((f, i) => (
-            <li key={i} className="rounded-md border border-border/50 bg-card/60 p-2 text-xs">
-              <div className="flex items-center gap-1.5">
-                {f.severity === "Critical"
-                  ? <AlertOctagon className="h-3.5 w-3.5 text-critical" />
-                  : f.severity === "Warning"
-                    ? <AlertTriangle className="h-3.5 w-3.5 text-warning" />
-                    : <CheckCircle2 className="h-3.5 w-3.5 text-info" />}
-                <span className="font-medium">{f.title}</span>
-                <Badge variant="outline" className="ml-auto text-[9px] uppercase tracking-wider">{f.area}</Badge>
-              </div>
-              <div className="mt-1 text-muted-foreground">{f.detail}</div>
-              {f.evidence.length > 0 && (
-                <ul className="mt-1 space-y-0.5 rounded bg-background/40 p-1.5 font-mono text-[10px]">
-                  {f.evidence.map((e, j) => <li key={j}>• {e}</li>)}
-                </ul>
-              )}
-              <div className="mt-1 flex items-start gap-1.5 text-[11px]">
-                <Wrench className="mt-0.5 h-3 w-3 text-muted-foreground" />
-                <span>{f.fix.join(" → ")}</span>
-              </div>
-            </li>
+            <FindingRow key={i} finding={f} />
           ))}
         </ul>
       )}
     </div>
+  );
+}
+
+/* ---------- Finding row (with expandable Config Evidence + copy) ---------- */
+
+function FindingRow({ finding: f }: { finding: RcFinding }) {
+  return (
+    <li className="rounded-md border border-border/50 bg-card/60 p-2 text-xs">
+      <div className="flex items-center gap-1.5">
+        {f.severity === "Critical"
+          ? <AlertOctagon className="h-3.5 w-3.5 text-critical" />
+          : f.severity === "Warning"
+            ? <AlertTriangle className="h-3.5 w-3.5 text-warning" />
+            : <CheckCircle2 className="h-3.5 w-3.5 text-info" />}
+        <span className="font-medium">{f.title}</span>
+        <Badge variant="outline" className="ml-auto text-[9px] uppercase tracking-wider">{f.area}</Badge>
+      </div>
+      <div className="mt-1 text-muted-foreground">{f.detail}</div>
+      {f.evidence.length > 0 && (
+        <ul className="mt-1 space-y-0.5 rounded bg-background/40 p-1.5 font-mono text-[10px]">
+          {f.evidence.map((e, j) => <li key={j}>• {e}</li>)}
+        </ul>
+      )}
+      <div className="mt-1 flex items-start gap-1.5 text-[11px]">
+        <Wrench className="mt-0.5 h-3 w-3 text-muted-foreground" />
+        <span>{f.fix.join(" → ")}</span>
+      </div>
+      <ConfigEvidenceBlock
+        evidence={f.configEvidence}
+        copyText={() => summarizeEvidence({
+          title: f.title,
+          controller: f.controller,
+          likelyCause: f.detail,
+          fix: f.fix,
+          configEvidence: f.configEvidence,
+        })}
+      />
+    </li>
   );
 }
 
@@ -299,6 +322,19 @@ export function RoomControllerBreakpointMap({
                 {breakpoint.fix.map((s, i) => <li key={i}>{s}</li>)}
               </ol>
             </div>
+            <ConfigEvidenceBlock
+              evidence={breakpoint.configEvidence}
+              copyText={() => summarizeEvidence({
+                title: `Break at ${breakpoint.breakPoint}`,
+                breakPoint: breakpoint.breakPoint,
+                previousStepPassed: breakpoint.previousStepPassed,
+                failedStep: breakpoint.failedStep,
+                likelyCause: breakpoint.likelyCause,
+                fix: breakpoint.fix,
+                configEvidence: breakpoint.configEvidence,
+                controller: callPoint.controller,
+              })}
+            />
           </CardContent>
         </Card>
       ) : (
@@ -491,6 +527,90 @@ function CredentialsEditor({
       {controller.authMessage && (
         <div className="mt-1 font-mono text-[10px] text-muted-foreground">{controller.authMessage}</div>
       )}
+    </div>
+  );
+}
+
+/* ---------- Config Evidence block (shared by findings + breakpoints) ---------- */
+
+function ConfigEvidenceBlock({
+  evidence, copyText,
+}: { evidence: ConfigEvidence[]; copyText: () => string }) {
+  const [open, setOpen] = useState(false);
+  const [copied, setCopied] = useState(false);
+
+  async function copy() {
+    try {
+      await navigator.clipboard.writeText(copyText());
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 1500);
+    } catch {
+      // Clipboard may be unavailable in some embedded contexts; fail silently.
+    }
+  }
+
+  return (
+    <div className="mt-2 rounded-md border border-border/50 bg-background/30">
+      <Collapsible open={open} onOpenChange={setOpen}>
+        <div className="flex items-center justify-between gap-2 px-2 py-1.5">
+          <CollapsibleTrigger asChild>
+            <button
+              type="button"
+              className="flex flex-1 items-center gap-1.5 text-left text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground hover:text-foreground"
+            >
+              <ClipboardList className="h-3.5 w-3.5" /> Config Evidence
+              <span className="font-normal normal-case text-muted-foreground">
+                ({evidence.length === 0 ? "not available" : `${evidence.length} row${evidence.length === 1 ? "" : "s"}`})
+              </span>
+              <ChevronDown className={cn("ml-auto h-3.5 w-3.5 transition-transform", open && "rotate-180")} />
+            </button>
+          </CollapsibleTrigger>
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            className="h-7 gap-1 text-[10px]"
+            onClick={copy}
+          >
+            {copied ? <Check className="h-3 w-3 text-success" /> : <Copy className="h-3 w-3" />}
+            {copied ? "Copied" : "Copy Evidence Summary"}
+          </Button>
+        </div>
+        <CollapsibleContent>
+          <div className="border-t border-border/40 px-2 py-2">
+            {evidence.length === 0 ? (
+              <div className="text-[11px] text-muted-foreground">
+                Config evidence not available — finding based on trace/log data only.
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="h-7 text-[10px] uppercase tracking-wider">Source</TableHead>
+                      <TableHead className="h-7 text-[10px] uppercase tracking-wider">Field</TableHead>
+                      <TableHead className="h-7 text-[10px] uppercase tracking-wider">Expected</TableHead>
+                      <TableHead className="h-7 text-[10px] uppercase tracking-wider">Actual</TableHead>
+                      <TableHead className="h-7 text-[10px] uppercase tracking-wider">Impact</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {evidence.map((e, i) => (
+                      <TableRow key={i} className="align-top">
+                        <TableCell className="py-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">{e.source}</TableCell>
+                        <TableCell className="py-1 font-mono text-[11px]">{e.field}</TableCell>
+                        <TableCell className="py-1 text-[11px]">{e.expected}</TableCell>
+                        <TableCell className="py-1 text-[11px]">{e.actual}</TableCell>
+                        <TableCell className="py-1 text-[11px] text-muted-foreground">{e.impact}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            )}
+          </div>
+        </CollapsibleContent>
+      </Collapsible>
     </div>
   );
 }
