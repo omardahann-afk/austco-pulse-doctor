@@ -31,7 +31,8 @@ export type ConfigEvidence = {
     | "Event Viewer"
     | "Auth Probe"
     | "Site Payload"
-    | "Trace Engine";
+    | "Trace Engine"
+    | "IPConnect CCP";
   field: string;
   expected: string;
   actual: string;
@@ -121,6 +122,8 @@ export type RcTraceStep = {
   detail: string;
   status: RcTraceStatus;
   evidence: string[];
+  /** Where this step's verdict came from. Defaults to "mock" via the UI mapper. */
+  source?: "scan" | "config" | "log" | "mock" | "manual";
 };
 
 export type RcTraceBreak = {
