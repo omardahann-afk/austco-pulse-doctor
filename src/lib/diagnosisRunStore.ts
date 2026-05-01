@@ -30,6 +30,8 @@ import {
   type ConfigEvidence,
 } from "./roomControllerDoctor";
 import type { ServiceTarget, ServiceLogResult } from "./logEngine";
+import { parseCcp, EMPTY_PARSE, type CcpParseResult } from "./ccpParser";
+import { validateCcp, type CcpFinding, type CcpValidationResult } from "./ccpDoctor";
 
 export type ModuleToggleKey =
   | "pulseGateway" | "ipconnect" | "inga" | "license"
@@ -79,6 +81,12 @@ export type DiagnosisRunSnapshot = {
   rcBreak: RcTraceBreak | null;
   rcConclusion: string;
   logAnalysis: ServiceLogResult[] | null;
+  /* CCP — config truth layer */
+  ccpParse: CcpParseResult;
+  ccpStep: RcTraceStep | null;
+  ccpFindings: CcpFinding[];
+  ccpOverride: CcpValidationResult["override"];
+  ccpConclusion: string;
 };
 
 let snap: DiagnosisRunSnapshot = {
@@ -103,6 +111,11 @@ let snap: DiagnosisRunSnapshot = {
   rcBreak: null,
   rcConclusion: "",
   logAnalysis: null,
+  ccpParse: { ...EMPTY_PARSE },
+  ccpStep: null,
+  ccpFindings: [],
+  ccpOverride: null,
+  ccpConclusion: "",
 };
 
 const listeners = new Set<() => void>();
@@ -142,10 +155,21 @@ export async function startDiagnosis(input: StartDiagnosisInput): Promise<void> 
     chainSteps: [], chainBreak: null, chainConclusion: "",
     arch: null, cpSteps: [], cpBreak: null, cpConclusion: "", tracedCallPoint: null,
     rcReports: null, rcSteps: [], rcBreak: null, rcConclusion: "", logAnalysis: null,
+    ccpParse: { ...EMPTY_PARSE }, ccpStep: null, ccpFindings: [], ccpOverride: null, ccpConclusion: "",
   });
 
   try {
     const { payload } = input;
+    /* ---- Parse CCP first so it can drive everything downstream ---- */
+    const ccpInput = payload.ccpConfig;
+    const ccpRaw = ccpInput?.rawText ?? "";
+    const ccpParse = parseCcp(ccpRaw);
+    const ccpResult = validateCcp(payload, ccpParse);
+    set({
+      ccpParse, ccpStep: ccpResult.step, ccpFindings: ccpResult.findings,
+      ccpOverride: ccpResult.override, ccpConclusion: ccpResult.conclusion,
+    });
+
     // Pick representative IPs for the hardware/breakpoint engines.
     const firstCtrl  = payload.knownDevices.find((d) => /controller/i.test(d.type))?.ip ?? "10.20.4.22";
     const firstApp1  = payload.knownDevices.find((d) => /app1/i.test(d.type))?.ip       ?? "10.20.6.30";
