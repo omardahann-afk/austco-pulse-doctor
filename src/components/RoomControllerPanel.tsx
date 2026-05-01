@@ -1,16 +1,21 @@
 import type {
   RcReport, RcTraceStep, RcTraceBreak,
+  ConfigEvidence, RcFinding,
 } from "@/lib/roomControllerDoctor";
+import { summarizeEvidence } from "@/lib/roomControllerDoctor";
 import type { CallPointEntry, RoomController, RcCredentials, RcAuthStatus } from "@/lib/siteDoctorApi";
 import { DEFAULT_RC_CREDENTIALS, shouldAutoApplyDefaultCreds } from "@/lib/siteDoctorApi";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import {
   Cpu, Globe, Hash, MapPin, Network, AlertOctagon, AlertTriangle,
   CheckCircle2, XCircle, Loader2, Circle, MinusCircle, ChevronRight,
   Wrench, ListTree, FileText, KeyRound, ShieldAlert, ShieldCheck, Eye, EyeOff,
+  ChevronDown, Copy, Check, ClipboardList,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useState } from "react";
