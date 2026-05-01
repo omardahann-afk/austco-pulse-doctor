@@ -23,7 +23,6 @@ import { Route as EscalationRouteImport } from './routes/escalation'
 import { Route as DiagnoseRouteImport } from './routes/diagnose'
 import { Route as ControllersRouteImport } from './routes/controllers'
 import { Route as CctRealityRouteImport } from './routes/cct-reality'
-import { Route as IndexRouteImport } from './routes/index'
 
 const TraceRoute = TraceRouteImport.update({
   id: '/trace',
@@ -95,14 +94,8 @@ const CctRealityRoute = CctRealityRouteImport.update({
   path: '/cct-reality',
   getParentRoute: () => rootRouteImport,
 } as any)
-const IndexRoute = IndexRouteImport.update({
-  id: '/',
-  path: '/',
-  getParentRoute: () => rootRouteImport,
-} as any)
 
 export interface FileRoutesByFullPath {
-  '/': typeof IndexRoute
   '/cct-reality': typeof CctRealityRoute
   '/controllers': typeof ControllersRoute
   '/diagnose': typeof DiagnoseRoute
@@ -119,7 +112,6 @@ export interface FileRoutesByFullPath {
   '/trace': typeof TraceRoute
 }
 export interface FileRoutesByTo {
-  '/': typeof IndexRoute
   '/cct-reality': typeof CctRealityRoute
   '/controllers': typeof ControllersRoute
   '/diagnose': typeof DiagnoseRoute
@@ -137,7 +129,6 @@ export interface FileRoutesByTo {
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
-  '/': typeof IndexRoute
   '/cct-reality': typeof CctRealityRoute
   '/controllers': typeof ControllersRoute
   '/diagnose': typeof DiagnoseRoute
@@ -156,7 +147,6 @@ export interface FileRoutesById {
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
-    | '/'
     | '/cct-reality'
     | '/controllers'
     | '/diagnose'
@@ -173,7 +163,6 @@ export interface FileRouteTypes {
     | '/trace'
   fileRoutesByTo: FileRoutesByTo
   to:
-    | '/'
     | '/cct-reality'
     | '/controllers'
     | '/diagnose'
@@ -190,7 +179,6 @@ export interface FileRouteTypes {
     | '/trace'
   id:
     | '__root__'
-    | '/'
     | '/cct-reality'
     | '/controllers'
     | '/diagnose'
@@ -208,7 +196,6 @@ export interface FileRouteTypes {
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
-  IndexRoute: typeof IndexRoute
   CctRealityRoute: typeof CctRealityRoute
   ControllersRoute: typeof ControllersRoute
   DiagnoseRoute: typeof DiagnoseRoute
@@ -325,18 +312,10 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof CctRealityRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/': {
-      id: '/'
-      path: '/'
-      fullPath: '/'
-      preLoaderRoute: typeof IndexRouteImport
-      parentRoute: typeof rootRouteImport
-    }
   }
 }
 
 const rootRouteChildren: RootRouteChildren = {
-  IndexRoute: IndexRoute,
   CctRealityRoute: CctRealityRoute,
   ControllersRoute: ControllersRoute,
   DiagnoseRoute: DiagnoseRoute,
