@@ -1,19 +1,39 @@
 import type {
   RcReport, RcTraceStep, RcTraceBreak,
 } from "@/lib/roomControllerDoctor";
-import type { CallPointEntry } from "@/lib/siteDoctorApi";
+import type { CallPointEntry, RoomController, RcCredentials, RcAuthStatus } from "@/lib/siteDoctorApi";
+import { DEFAULT_RC_CREDENTIALS, shouldAutoApplyDefaultCreds } from "@/lib/siteDoctorApi";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {
   Cpu, Globe, Hash, MapPin, Network, AlertOctagon, AlertTriangle,
   CheckCircle2, XCircle, Loader2, Circle, MinusCircle, ChevronRight,
-  Wrench, ListTree, FileText,
+  Wrench, ListTree, FileText, KeyRound, ShieldAlert, ShieldCheck, Eye, EyeOff,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useState } from "react";
+import { Textarea } from "@/components/ui/textarea";
+import { Button } from "@/components/ui/button";
 
 /* ---------- Doctor cards ---------- */
 
 export function RoomControllerDoctorPanel({ reports }: { reports: RcReport[] }) {
+  return <RoomControllerDoctorPanelEditable reports={reports} />;
+}
+
+/**
+ * Editable variant — accepts onUpdate to mutate a controller (credentials, etc).
+ * The non-editable export above renders read-only by passing no handler.
+ */
+export function RoomControllerDoctorPanelEditable({
+  reports, onUpdateController, onRetryAuth,
+}: {
+  reports: RcReport[];
+  onUpdateController?: (name: string, patch: Partial<RoomController>) => void;
+  onRetryAuth?: (name: string) => void;
+}) {
   if (reports.length === 0) {
     return (
       <Card className="bg-card/70">
@@ -37,13 +57,26 @@ export function RoomControllerDoctorPanel({ reports }: { reports: RcReport[] }) 
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-3">
-        {reports.map((r) => <RcCard key={r.controller.name} report={r} />)}
+        {reports.map((r) => (
+          <RcCard
+            key={r.controller.name}
+            report={r}
+            onUpdateController={onUpdateController}
+            onRetryAuth={onRetryAuth}
+          />
+        ))}
       </CardContent>
     </Card>
   );
 }
 
-function RcCard({ report }: { report: RcReport }) {
+function RcCard({
+  report, onUpdateController, onRetryAuth,
+}: {
+  report: RcReport;
+  onUpdateController?: (name: string, patch: Partial<RoomController>) => void;
+  onRetryAuth?: (name: string) => void;
+}) {
   const c = report.controller;
   const crit = report.findings.filter((f) => f.severity === "Critical").length;
   const warn = report.findings.filter((f) => f.severity === "Warning").length;
@@ -57,7 +90,18 @@ function RcCard({ report }: { report: RcReport }) {
         {c.mac && <Pair icon={Hash} label="MAC" value={c.mac} mono />}
         {c.location && <Pair icon={MapPin} label="Loc" value={c.location} />}
         <Pair icon={Globe} label="Web" value={c.hasWebAccess ? "OK" : "Unreachable"} ok={c.hasWebAccess} bad={!c.hasWebAccess} />
+        <AuthBadge status={c.authStatus} isDefault={c.credentials?.isDefault} />
+        {c.model && <Badge variant="outline" className="text-[9px] uppercase tracking-wider">{c.model}</Badge>}
       </div>
+
+      {/* SIM-046 — Credentials editor */}
+      {(shouldAutoApplyDefaultCreds(c.model) || c.credentials) && (
+        <CredentialsEditor
+          controller={c}
+          onChange={(patch) => onUpdateController?.(c.name, patch)}
+          onRetryAuth={onRetryAuth ? () => onRetryAuth(c.name) : undefined}
+        />
+      )}
 
       <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-4">
         <Stat label="IPnet devices" value={String(report.ipnetSummary.total)} />
@@ -280,10 +324,6 @@ function Box({ label, value, ok, bad }: { label: string; value: string; ok?: boo
 
 /* ---------- Event Viewer paste box ---------- */
 
-import { useState } from "react";
-import { Textarea } from "@/components/ui/textarea";
-import { Button } from "@/components/ui/button";
-
 export function EventViewerPaste({
   controllerName, value, onChange,
 }: { controllerName: string; value: string; onChange: (next: string) => void }) {
@@ -309,5 +349,143 @@ export function EventViewerPaste({
         </div>
       </CardContent>
     </Card>
+  );
+}
+
+/* ---------- Auth status badge ---------- */
+
+function AuthBadge({ status, isDefault }: { status?: RcAuthStatus; isDefault?: boolean }) {
+  const s = status ?? "untested";
+  const map: Record<RcAuthStatus, { label: string; cls: string; Icon: typeof KeyRound }> = {
+    untested:               { label: "Auth: untested",                cls: "bg-muted/30 text-muted-foreground", Icon: KeyRound },
+    authenticated:          { label: "Auth: success (admin/admin)",    cls: "bg-warning/15 text-warning",         Icon: ShieldAlert },
+    authenticated_custom:   { label: "Auth: success (custom)",         cls: "bg-success/15 text-success",         Icon: ShieldCheck },
+    auth_failed:            { label: "Auth: failed",                   cls: "bg-critical/15 text-critical",       Icon: XCircle },
+    unreachable:            { label: "Auth: unreachable",              cls: "bg-critical/15 text-critical",       Icon: XCircle },
+  };
+  const v = map[s];
+  // Override label if defaults are no longer in use after a successful login
+  const label = s === "authenticated" && !isDefault
+    ? "Auth: success (custom)"
+    : v.label;
+  return (
+    <span className={cn("inline-flex items-center gap-1 rounded px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider", v.cls)}>
+      <v.Icon className="h-3 w-3" /> {label}
+    </span>
+  );
+}
+
+/* ---------- Credentials editor (default admin/admin + override) ---------- */
+
+function CredentialsEditor({
+  controller, onChange, onRetryAuth,
+}: {
+  controller: RoomController;
+  onChange: (patch: Partial<RoomController>) => void;
+  onRetryAuth?: () => void;
+}) {
+  const creds: RcCredentials = controller.credentials ?? { ...DEFAULT_RC_CREDENTIALS };
+  const [show, setShow] = useState(false);
+  const usingDefaults = creds.username === DEFAULT_RC_CREDENTIALS.username
+    && creds.password === DEFAULT_RC_CREDENTIALS.password;
+
+  const apply = (next: Partial<RcCredentials>) => {
+    const merged: RcCredentials = { ...creds, ...next };
+    merged.isDefault = merged.username === DEFAULT_RC_CREDENTIALS.username
+      && merged.password === DEFAULT_RC_CREDENTIALS.password;
+    onChange({ credentials: merged });
+  };
+
+  return (
+    <div className="mt-2 rounded-md border border-border/50 bg-background/40 p-2">
+      <div className="flex flex-wrap items-center gap-2">
+        <KeyRound className="h-3.5 w-3.5 text-info" />
+        <span className="text-[10px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">Default credentials (SIM-046)</span>
+        {usingDefaults
+          ? <Badge variant="outline" className="text-[9px] uppercase tracking-wider text-warning">admin / admin</Badge>
+          : <Badge variant="outline" className="text-[9px] uppercase tracking-wider text-success">custom</Badge>}
+        {controller.authStatus === "auth_failed" && (
+          <span className="ml-auto text-[11px] text-critical">Default credentials rejected. Device may have custom credentials.</span>
+        )}
+      </div>
+
+      <div className="mt-2 grid gap-2 sm:grid-cols-[1fr_1fr_auto_auto]">
+        <div className="space-y-1">
+          <Label className="text-[10px] uppercase tracking-wider text-muted-foreground">Username</Label>
+          <Input
+            value={creds.username}
+            onChange={(e) => apply({ username: e.target.value.slice(0, 64) })}
+            placeholder="admin"
+            autoComplete="off"
+            className="h-8 font-mono text-xs"
+          />
+        </div>
+        <div className="space-y-1">
+          <Label className="text-[10px] uppercase tracking-wider text-muted-foreground">Password</Label>
+          <div className="relative">
+            <Input
+              type={show ? "text" : "password"}
+              value={creds.password}
+              onChange={(e) => apply({ password: e.target.value.slice(0, 128) })}
+              placeholder="admin"
+              autoComplete="off"
+              className="h-8 pr-8 font-mono text-xs"
+            />
+            <button
+              type="button"
+              onClick={() => setShow((v) => !v)}
+              className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+              aria-label={show ? "Hide password" : "Show password"}
+            >
+              {show ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+            </button>
+          </div>
+        </div>
+        <div className="flex items-end">
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            className="h-8"
+            onClick={() => apply({ ...DEFAULT_RC_CREDENTIALS })}
+          >
+            Reset to defaults
+          </Button>
+        </div>
+        <div className="flex items-end">
+          <Button
+            type="button"
+            size="sm"
+            className="h-8 bg-info text-info-foreground hover:bg-info/90"
+            onClick={() => onRetryAuth?.()}
+            disabled={!onRetryAuth}
+          >
+            Retry auth
+          </Button>
+        </div>
+      </div>
+
+      <label className="mt-2 flex items-center gap-2 text-[11px] text-muted-foreground">
+        <input
+          type="checkbox"
+          checked={!!creds.rememberForSession}
+          onChange={(e) => apply({ rememberForSession: e.target.checked })}
+          className="h-3 w-3"
+        />
+        Remember for this session only (never persisted to disk)
+      </label>
+
+      {usingDefaults && (controller.authStatus === "authenticated" || controller.authStatus === "untested") && (
+        <div className="mt-2 flex items-start gap-1.5 rounded border border-warning/40 bg-warning/10 p-2 text-[11px] text-warning">
+          <ShieldAlert className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+          <span>
+            Device is using default credentials (admin/admin). This is not recommended for production environments.
+          </span>
+        </div>
+      )}
+      {controller.authMessage && (
+        <div className="mt-1 font-mono text-[10px] text-muted-foreground">{controller.authMessage}</div>
+      )}
+    </div>
   );
 }

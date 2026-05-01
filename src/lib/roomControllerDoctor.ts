@@ -13,6 +13,7 @@
 import type {
   DiagnosisRequest, RoomController, IpnetDevice, CallPointEntry,
 } from "./siteDoctorApi";
+import { shouldAutoApplyDefaultCreds } from "./siteDoctorApi";
 
 export type RcSeverity = "Info" | "Warning" | "Critical";
 
@@ -153,6 +154,37 @@ function buildOne(c: RoomController, idCounts: Map<string, number>): RcReport {
       detail: "Duplicate Controller ID can cause event routing and zone/group signal issues across IPConnect deployments.",
       evidence: [`controller_id=${c.controllerId}`, `count=${idCounts.get(c.controllerId)}`],
       fix: ["Assign a unique Controller ID per Room Controller.", "Update IPConnect site config.", "Run Update All Controllers."],
+    });
+  }
+
+  // SIM-046 — Default credentials still active (security warning)
+  if (shouldAutoApplyDefaultCreds(c.model) && c.credentials?.isDefault &&
+      (c.authStatus === "authenticated" || c.authStatus === "untested")) {
+    f.push({
+      controller: c.name, area: "Credentials", severity: "Warning",
+      title: "Device is using default credentials (admin/admin)",
+      detail: "Default credentials are still active on this device. This is not recommended for production environments.",
+      evidence: [`model=${c.model}`, `username=${c.credentials.username}`, `password=***`],
+      fix: [
+        "Open the device web interface and change the admin password.",
+        "Update IPConnect / Pulse Manage with the new credentials.",
+        "Re-test diagnostics with the new credentials.",
+      ],
+    });
+  }
+
+  // SIM-046 — Authentication failed against device
+  if (c.authStatus === "auth_failed") {
+    f.push({
+      controller: c.name, area: "Credentials", severity: "Critical",
+      title: "Default credentials rejected. Device may have custom credentials.",
+      detail: c.authMessage ?? "Default admin/admin login was rejected by the device — diagnostics that require web access cannot run until valid credentials are supplied.",
+      evidence: [`auth_status=${c.authStatus}`, `model=${c.model ?? "unknown"}`],
+      fix: [
+        "Confirm the credentials with site documentation.",
+        "Enter the correct username/password in the Room Controller card override fields.",
+        "Re-run diagnosis. If unknown, factory reset only with site approval.",
+      ],
     });
   }
 

@@ -3,14 +3,14 @@ import { useMemo, useState } from "react";
 import { PageHeader } from "@/components/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Loader2, ScanLine } from "lucide-react";
-import { DEFAULT_PAYLOAD, type DiagnosisRequest } from "@/lib/siteDoctorApi";
+import { DEFAULT_PAYLOAD, type DiagnosisRequest, type RoomController, type RcAuthStatus, shouldAutoApplyDefaultCreds } from "@/lib/siteDoctorApi";
 import {
   buildRoomControllerReports,
   traceCallpointSim046,
   type RcTraceStep, type RcTraceBreak,
 } from "@/lib/roomControllerDoctor";
 import {
-  RoomControllerDoctorPanel,
+  RoomControllerDoctorPanelEditable,
   IpnetDeviceTreePanel,
   RoomControllerBreakpointMap,
   EventViewerPaste,
@@ -43,6 +43,35 @@ function RoomControllersPage() {
     }));
   }
 
+  function patchController(name: string, patch: Partial<RoomController>) {
+    setPayload((p) => ({
+      ...p,
+      roomControllers: (p.roomControllers ?? []).map((c) =>
+        c.name === name ? { ...c, ...patch } : c,
+      ),
+    }));
+  }
+
+  /**
+   * Browser-side auth retry stub. Real HTTP/HTTPS basic-auth probes against
+   * device VLANs must be performed by the local site-doctor.js Node bridge —
+   * browsers cannot perform cross-origin basic-auth probes against hospital
+   * device IPs. Here we surface intent + status; the bridge will overwrite
+   * authStatus on the next diagnosis run.
+   */
+  function retryAuth(name: string) {
+    const c = (payload.roomControllers ?? []).find((x) => x.name === name);
+    if (!c) return;
+    if (!shouldAutoApplyDefaultCreds(c.model)) {
+      patchController(name, { authStatus: "untested", authMessage: "Auth probe is only attempted for IP-CCT / IP-PST2 family." });
+      return;
+    }
+    patchController(name, {
+      authStatus: "untested" as RcAuthStatus,
+      authMessage: "Auth retry queued — will be performed by site-doctor.js on next Run Full Diagnosis.",
+    });
+  }
+
   async function runTrace() {
     if (!cp) return;
     setTracing(true); setSteps([]); setBp(null); setConclusion("");
@@ -63,7 +92,11 @@ function RoomControllersPage() {
         description="Validates Room Controllers against SIM-046 rules, maps IPnet devices, parses Event Viewer logs, and traces callpoint → output breakpoints."
       />
 
-      <RoomControllerDoctorPanel reports={reports} />
+      <RoomControllerDoctorPanelEditable
+        reports={reports}
+        onUpdateController={patchController}
+        onRetryAuth={retryAuth}
+      />
       <IpnetDeviceTreePanel reports={reports} />
 
       {(payload.roomControllers ?? []).map((c) => (
