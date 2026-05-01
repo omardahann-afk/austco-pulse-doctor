@@ -399,7 +399,7 @@ function ResultsPanel({
   rcBreak: RcTraceBreak | null;
   rcConclusion: string;
 }) {
-  const hasAnything = result || hwHealth || deployHealth || chainSteps.length > 0 || arch || cpSteps.length > 0;
+  const hasAnything = result || hwHealth || deployHealth || chainSteps.length > 0 || arch || cpSteps.length > 0 || (rcReports && rcReports.length > 0);
 
   if (error && !hasAnything) {
     return (
