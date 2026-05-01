@@ -13,6 +13,9 @@ import {
   Wrench, ListTree, FileText, KeyRound, ShieldAlert, ShieldCheck, Eye, EyeOff,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useState } from "react";
+import { Textarea } from "@/components/ui/textarea";
+import { Button } from "@/components/ui/button";
 
 /* ---------- Doctor cards ---------- */
 
@@ -320,10 +323,6 @@ function Box({ label, value, ok, bad }: { label: string; value: string; ok?: boo
 }
 
 /* ---------- Event Viewer paste box ---------- */
-
-import { useState } from "react";
-import { Textarea } from "@/components/ui/textarea";
-import { Button } from "@/components/ui/button";
 
 export function EventViewerPaste({
   controllerName, value, onChange,
