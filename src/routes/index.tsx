@@ -449,6 +449,16 @@ function ResultsPanel({
       {/* 1b. Architecture validation (Tacera/Pulse rules) */}
       {arch && <ArchitecturePanel report={arch} />}
 
+      {/* 1c. Real Log Analysis (SSH via local bridge + manual paste fallback) */}
+      <RealLogPanel
+        services={services}
+        onChange={onServicesChange}
+        results={result?.logAnalysis ?? null}
+        manualResults={manualLogs}
+        onManualAdd={onManualAdd}
+        onManualClear={onManualClear}
+      />
+
       {/* 2. Hardware Communication Health */}
       {hwHealth && (
         <Card className="bg-card/70">
