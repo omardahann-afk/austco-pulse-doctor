@@ -124,7 +124,7 @@ function CommandCenter() {
       }
 
       // Backend call may fail (laptop not running site-doctor.js) — degrade gracefully.
-      const backendPromise = runDiagnosis(payload, backendUrl).then(
+      const backendPromise = runDiagnosis({ ...payload, services }, backendUrl).then(
         (r) => { setResult(r); return null; },
         (err) => err instanceof Error ? err.message : String(err),
       );
@@ -341,6 +341,11 @@ function CommandCenter() {
             arch={arch}
             tracedCallPoint={tracedCallPoint}
             cpSteps={cpSteps} cpBreak={cpBreak} cpConclusion={cpConclusion}
+            services={services}
+            onServicesChange={setServices}
+            manualLogs={manualLogs}
+            onManualAdd={(r) => setManualLogs((prev) => [...prev, r])}
+            onManualClear={() => setManualLogs([])}
           />
         </div>
       </form>
