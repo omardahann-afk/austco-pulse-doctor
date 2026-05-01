@@ -509,6 +509,7 @@ export async function traceCallpointSim046(
     evidence: failed.evidence,
     likelyCause: fail!.cause,
     fix: fail!.fix,
+    configEvidence: fail!.configEvidence ?? [],
   };
   return {
     callPoint: cp, steps, breakpoint,
@@ -516,7 +517,15 @@ export async function traceCallpointSim046(
   };
 }
 
-type RcStepFail = { stepId: string; rule: RcTraceBreak["rule"]; detail: string; evidence: string[]; cause: string; fix: string[] };
+type RcStepFail = {
+  stepId: string;
+  rule: RcTraceBreak["rule"];
+  detail: string;
+  evidence: string[];
+  cause: string;
+  fix: string[];
+  configEvidence?: ConfigEvidence[];
+};
 
 function pickRcFailure(ctx: {
   rc?: RoomController;
@@ -536,6 +545,10 @@ function pickRcFailure(ctx: {
       evidence: [`expected=${cp.controller}`],
       cause: "Call point references a controller that is not part of the site payload.",
       fix: [`Add Room Controller "${cp.controller}" to the payload.`, "Re-run trace."],
+      configEvidence: [
+        { source: "Site Payload", field: "roomControllers[].name", expected: cp.controller, actual: NOT_VERIFIED, impact: "Trace cannot resolve the controller for this call point." },
+        { source: "Site Payload", field: "callPoints[].controller", expected: "matches an existing room controller", actual: cp.controller, impact: "Call point declaration references unknown controller." },
+      ],
     };
   }
 
@@ -552,6 +565,11 @@ function pickRcFailure(ctx: {
         "Re-address callpoint and run discovery.",
         "Swap with known-good callpoint if discovery still fails.",
       ],
+      configEvidence: [
+        { source: "IPnet Device List", field: "expected callpoint",   expected: cp.name, actual: NOT_VERIFIED, impact: "Callpoint is not seen on the IPnet bus." },
+        { source: "IPnet Device List", field: "ipnetDevices",         expected: "contains expected callpoint", actual: ipnetDevices.map((d) => `${d.name}@${d.address}`).join(", "), impact: "Discovered devices do not include the expected callpoint." },
+        { source: "Room Controller Config", field: "controllerId",    expected: "matches site config", actual: rc.controllerId, impact: "Affected controller for this callpoint." },
+      ],
     };
   }
 
@@ -567,6 +585,11 @@ function pickRcFailure(ctx: {
         "Check port run power/wiring.",
         "Activate callpoint locally and retest.",
       ],
+      configEvidence: [
+        { source: "Event Viewer",      field: "input-active",       expected: `event for ${matchedCallpoint.name}`, actual: "no matching event", impact: "Controller never saw the IPnet input." },
+        { source: "IPnet Device List", field: "callpoint status",   expected: "Online", actual: matchedCallpoint.status ?? NOT_VERIFIED, impact: "Online status is required to register events." },
+        { source: "IPnet Device List", field: "callpoint portRun",  expected: "A or B", actual: matchedCallpoint.portRun ?? NOT_VERIFIED, impact: "Identifies which IPnet run to inspect." },
+      ],
     };
   }
 
@@ -578,11 +601,17 @@ function pickRcFailure(ctx: {
       evidence: ["servers_configured=false"],
       cause: "Controller cannot forward events upstream — Network → Servers is empty or wrong.",
       fix: ["Open controller Network → Servers.", "Add IPConnect/Pulse server entries.", "Save and reboot if required."],
+      configEvidence: [
+        { source: "Network → Servers",      field: "parentIpConnect",   expected: rc.parentIpConnect ?? "site IPConnect VM", actual: NOT_VERIFIED, impact: "No upstream target for events." },
+        { source: "Network → Servers",      field: "serversConfigured", expected: "true",                                   actual: "false",       impact: "Forwarding chain is broken at the controller." },
+        { source: "Room Controller Config", field: "ip",                expected: "reachable from IPConnect",               actual: rc.ip,         impact: "Even with servers configured, controller IP must be reachable." },
+      ],
     };
   }
 
   // Rule C: IPConnect/PuGa output requires a matching group signal on this controller
   if (!targetGroup) {
+    const existing = (rc.groupSignals ?? []).map((g) => g.name).join(", ") || "none";
     return {
       stepId: "output-evt", rule: "C",
       detail: `Group "${cp.expectedOutputGroup}" is not configured on ${rc.name}.`,
@@ -592,6 +621,11 @@ function pickRcFailure(ctx: {
         "Verify zone exists for the callpoint.",
         "Add group signal with correct zones and target ODL/ZTS.",
         "Re-import IPConnect site config and Update All Controllers.",
+      ],
+      configEvidence: [
+        { source: "Room Controller Config", field: "groupSignals", expected: cp.expectedOutputGroup, actual: "missing", impact: "No output event can map to the expected group signal." },
+        { source: "Room Controller Config", field: "groupSignals (existing)", expected: `includes "${cp.expectedOutputGroup}"`, actual: existing, impact: "Currently defined group signals on this controller." },
+        { source: "Site Payload",           field: "callPoints[].expectedOutputGroup", expected: "matches a configured group signal", actual: cp.expectedOutputGroup, impact: "Affected callpoint/room: " + cp.name + "." },
       ],
     };
   }
@@ -604,6 +638,11 @@ function pickRcFailure(ctx: {
       evidence: [`group=${targetGroup.name}`, `target=${targetGroup.targetOdlOrZts}`],
       cause: "ODL/ZTS configured for Follow-Me Lighting must not also be a group signal target.",
       fix: ["Remove group signal for that ODL/ZTS, or remove Follow-Me Lighting from CCP.", "Reload site config and Update All Controllers."],
+      configEvidence: [
+        { source: "Room Controller Config", field: "groupSignals[].name",             expected: "no Follow-Me overlap", actual: targetGroup.name, impact: "Group signal collides with Follow-Me Lighting on the same target." },
+        { source: "Room Controller Config", field: "groupSignals[].targetOdlOrZts",   expected: "ODL/ZTS not used by Follow-Me", actual: targetGroup.targetOdlOrZts, impact: "Light/sounder behaviour will be unpredictable." },
+        { source: "Room Controller Config", field: "groupSignals[].followMeLighting", expected: "false",                actual: "true", impact: "Conflict flag set in CCP." },
+      ],
     };
   }
 
@@ -615,6 +654,11 @@ function pickRcFailure(ctx: {
       evidence: ["cancel_links=0"],
       cause: "Cancel group / cancel link missing or presence behaviour misconfigured.",
       fix: ["Configure Cancel Links on the controller.", "Verify Cancel Group on relevant call types.", "Re-test cancel from callpoint."],
+      configEvidence: [
+        { source: "Room Controller Config", field: "cancelLinks", expected: "≥1 cancel link", actual: "0", impact: "Calls cannot be cancelled from the expected source." },
+        { source: "Room Controller Config", field: "callTypes",   expected: "cancel group assigned", actual: `${(rc.callTypes ?? []).length} call types declared`, impact: "Cancel behaviour depends on call type configuration." },
+        { source: "Trace Engine",           field: "expected cancel behavior", expected: "cancel on callpoint reset / presence", actual: NOT_VERIFIED, impact: "Cancel chain unverified for this callpoint." },
+      ],
     };
   }
 
