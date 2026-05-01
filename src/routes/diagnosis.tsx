@@ -13,7 +13,8 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
-  useDiagnosisRun, deriveFinalResult, type DiagnosisRunSnapshot, type FinalResult,
+  useDiagnosisRun, deriveFinalResult,
+  type DiagnosisRunSnapshot, type FinalResult, type ModuleToggleKey,
 } from "@/lib/diagnosisRunStore";
 import type { ChainStep } from "@/lib/breakpointEngine";
 import type { CallPointStep } from "@/lib/callPointTrace";
@@ -42,6 +43,7 @@ function DiagnosisPage() {
     <div className="space-y-5">
       <TopBar snap={snap} />
       <FinalResultBlock final={final} snap={snap} />
+      <ConfigEvidenceTopCard final={final} />
       <TraceFlowSection snap={snap} />
       <RoomControllerSection snap={snap} />
       <IpnetTreeSection snap={snap} />
@@ -133,25 +135,37 @@ function FinalResultBlock({ final, snap }: { final: FinalResult; snap: Diagnosis
               "text-[10px] font-semibold uppercase tracking-[0.2em]",
               ok ? "text-success" : "text-critical",
             )}>
-              {ok ? "Diagnosis Passed" : "Break Found At"}
+              {ok ? "1 · Diagnosis Passed" : "1 · Break Found At"}
             </div>
             <h2 className="mt-0.5 text-xl font-bold leading-tight md:text-2xl">{final.breakAt}</h2>
+            {final.previousStepPassed && !ok && (
+              <div className="mt-1 text-[11px] text-muted-foreground">
+                Last working step: <span className="font-mono text-foreground">{final.previousStepPassed}</span>
+              </div>
+            )}
             {running && (
               <div className="mt-1 inline-flex items-center gap-1 text-[11px] text-muted-foreground">
                 <Loader2 className="h-3 w-3 animate-spin" /> Trace still running — result may refine as more layers report.
               </div>
             )}
-            <Badge variant="outline" className="mt-2 text-[10px] uppercase tracking-wider">
-              source: {final.source}
-            </Badge>
+            <div className="mt-2 flex flex-wrap items-center gap-1.5">
+              <SourceBadge source={final.source} />
+              <Badge variant="outline" className={cn(
+                "text-[10px] uppercase tracking-wider",
+                ok ? "border-success/60 text-success" : "border-critical/60 text-critical",
+              )}>status: {ok ? "passed" : "failed"}</Badge>
+              {final.failedLayer && !ok && (
+                <Badge variant="outline" className="text-[10px] uppercase tracking-wider">layer: {final.failedLayer}</Badge>
+              )}
+            </div>
           </div>
         </div>
 
         <div className="mt-4 grid gap-3 md:grid-cols-3">
-          <ResultBox label="Why" tone="muted">
+          <ResultBox label="2 · Why">
             <p>{final.why}</p>
           </ResultBox>
-          <ResultBox label="Evidence" tone="muted">
+          <ResultBox label="3 · Evidence">
             {final.evidence.length === 0
               ? <p className="text-muted-foreground">No evidence rows — finding based on trace data only.</p>
               : (
@@ -161,7 +175,7 @@ function FinalResultBlock({ final, snap }: { final: FinalResult; snap: Diagnosis
                 </ul>
               )}
           </ResultBox>
-          <ResultBox label="Fix" tone="muted">
+          <ResultBox label="4 · Fix Steps">
             {final.fix.length === 0
               ? <p className="text-muted-foreground">No fix required.</p>
               : (
@@ -176,13 +190,87 @@ function FinalResultBlock({ final, snap }: { final: FinalResult; snap: Diagnosis
   );
 }
 
-function ResultBox({ label, tone, children }: { label: string; tone: "muted"; children: React.ReactNode }) {
-  void tone;
+function ResultBox({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div className="rounded-md border border-border/50 bg-background/50 p-3">
       <div className="mb-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">{label}</div>
       <div className="text-sm">{children}</div>
     </div>
+  );
+}
+
+/* ---------- Source badge (single source of truth for source colors) ---------- */
+
+function SourceBadge({ source }: { source: string }) {
+  // Normalize known engine/source names to a common 5-tone palette.
+  const k = source.toLowerCase();
+  let tone: "scan" | "config" | "log" | "mock" | "manual" | "trace" = "trace";
+  if (k.includes("log"))                                 tone = "log";
+  else if (k.includes("config") || k.includes("sim-046")) tone = "config";
+  else if (k.includes("scan") || k.includes("real"))     tone = "scan";
+  else if (k.includes("manual") || k.includes("paste"))  tone = "manual";
+  else if (k.includes("mock") || k === "none")           tone = "mock";
+  const cls = {
+    scan:   "bg-info/15 text-info",
+    config: "bg-insight/15 text-insight",
+    log:    "bg-success/15 text-success",
+    mock:   "bg-muted/40 text-muted-foreground",
+    manual: "bg-warning/15 text-warning",
+    trace:  "bg-info/15 text-info",
+  }[tone];
+  return (
+    <span className={cn("inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider", cls)}>
+      source: {source}
+    </span>
+  );
+}
+
+/* =================================================================== */
+/*  TOP CONFIG EVIDENCE TABLE                                          */
+/* =================================================================== */
+
+function ConfigEvidenceTopCard({ final }: { final: FinalResult }) {
+  return (
+    <Card className="bg-card/70">
+      <CardHeader className="pb-3">
+        <CardTitle className="flex items-center gap-2 text-sm">
+          <Database className="h-4 w-4 text-info" /> Config Evidence — proves the finding
+          <Badge variant="outline" className="ml-auto text-[10px] uppercase tracking-wider">
+            {final.configEvidence.length} row{final.configEvidence.length === 1 ? "" : "s"}
+          </Badge>
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="p-0">
+        {final.configEvidence.length === 0 ? (
+          <div className="px-4 py-4 text-xs text-muted-foreground">
+            Config evidence not available — finding based on trace/log data only.
+          </div>
+        ) : (
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Source</TableHead>
+                <TableHead>Field</TableHead>
+                <TableHead>Expected</TableHead>
+                <TableHead>Actual</TableHead>
+                <TableHead>Impact</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {final.configEvidence.map((e, i) => (
+                <TableRow key={i}>
+                  <TableCell className="font-mono text-[11px]">{e.source}</TableCell>
+                  <TableCell className="font-mono text-[11px]">{e.field}</TableCell>
+                  <TableCell className="text-xs">{e.expected}</TableCell>
+                  <TableCell className="text-xs text-critical">{e.actual}</TableCell>
+                  <TableCell className="text-xs text-muted-foreground">{e.impact}</TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        )}
+      </CardContent>
+    </Card>
   );
 }
 
@@ -310,7 +398,7 @@ function BreakpointDetails({ step }: { step: UnifiedStep }) {
           failed && "border-critical/60 text-critical",
           step.status === "Passed" && "border-success/60 text-success",
         )}>{step.status}</Badge>
-        <Badge variant="outline" className="text-[10px] uppercase tracking-wider">source: {step.source}</Badge>
+        <SourceBadge source={step.source} />
       </div>
       <p className="mt-2 text-xs">
         <span className="text-muted-foreground">Why:</span>{" "}
@@ -434,7 +522,13 @@ function ExpandableFinding({
           <button type="button" className="flex w-full items-center gap-1.5 px-2 py-1.5 text-left text-xs hover:bg-muted/20">
             <Icon className={cn("h-3.5 w-3.5 shrink-0", iconCls)} />
             <span className="font-medium">{title}</span>
-            <Badge variant="outline" className="ml-auto text-[9px] uppercase tracking-wider">{area}</Badge>
+            <Badge variant="outline" className={cn(
+              "ml-auto text-[9px] uppercase tracking-wider",
+              severity === "Critical" && "border-critical/60 text-critical",
+              severity === "Warning" && "border-warning/60 text-warning",
+            )}>{severity}</Badge>
+            <Badge variant="outline" className="text-[9px] uppercase tracking-wider">{area}</Badge>
+            <SourceBadge source={configEvidence.length ? "config" : "trace"} />
             <ChevronDown className={cn("h-3.5 w-3.5 text-muted-foreground transition-transform", open && "rotate-180")} />
           </button>
         </CollapsibleTrigger>
@@ -540,20 +634,36 @@ function IpnetTreeSection({ snap }: { snap: DiagnosisRunSnapshot }) {
 
 function ServiceHealthSection({ snap }: { snap: DiagnosisRunSnapshot }) {
   const logs = snap.logAnalysis;
-  // Filter by enabled modules where we can map them.
   const enabled = snap.modules;
+  // Mandatory services always show; optional services are hidden unless the
+  // matching module is enabled OR the backend actually returned data for it
+  // (i.e. it was detected on the wire).
   const moduleMap: Record<string, keyof typeof enabled | undefined> = {
     "Pulse Gateway": "pulseGateway",
-    "IPConnect": "ipconnect",
+    "Pulse Manage":  "pulseGateway",
+    "IPConnect":     "ipconnect",
     "Integration Gateway": "ipconnect",
     "License Service": "license",
-    "Pulse Manage": "pulseGateway",
-    "Mobile Gateway": "webDevices",
+    // Optional → mapped to the toggle that gates them
+    "Mobile Gateway":  "webDevices",
+    "WebSocket MQTT Adapter": "webDevices",
+    "MQTT Broker":            "webDevices",
+    "Vocera":   "vocera",
+    "VoIP":     "voip",
+    "Paging":   "voip",
+    "HL7":      "voip",
+    "RTLS Gateway": "voip",
   };
+  const OPTIONAL: ModuleToggleKey[] = ["webDevices", "vocera", "voip"];
   const services = (logs ?? []).filter((s) => {
     const k = moduleMap[s.service];
-    return !k || enabled[k] !== false;
+    if (!k) return true;
+    if (!OPTIONAL.includes(k)) return enabled[k] !== false;
+    // Optional: hide unless explicitly enabled OR the service has data.
+    if (enabled[k]) return true;
+    return s.status === "reachable" || s.errors.length > 0 || s.warnings.length > 0;
   });
+  const hiddenCount = (logs ?? []).length - services.length;
 
   return (
     <Card className="bg-card/70">
@@ -573,6 +683,7 @@ function ServiceHealthSection({ snap }: { snap: DiagnosisRunSnapshot }) {
         ) : services.length === 0 ? (
           <div className="px-4 py-6 text-xs text-muted-foreground">No enabled services returned logs.</div>
         ) : (
+          <>
           <Table>
             <TableHeader>
               <TableRow>
@@ -587,6 +698,12 @@ function ServiceHealthSection({ snap }: { snap: DiagnosisRunSnapshot }) {
               {services.map((s) => <ServiceRow key={s.service} svc={s} />)}
             </TableBody>
           </Table>
+          {hiddenCount > 0 && (
+            <div className="border-t border-border/40 px-4 py-2 text-[10px] text-muted-foreground">
+              {hiddenCount} optional service{hiddenCount === 1 ? "" : "s"} hidden — enable on Command Center to show.
+            </div>
+          )}
+          </>
         )}
       </CardContent>
     </Card>
@@ -615,7 +732,7 @@ function ServiceRow({ svc }: { svc: ServiceLogResult }) {
           </span>
         </TableCell>
         <TableCell className="text-right font-mono text-xs">{svc.errors.length}</TableCell>
-        <TableCell><span className="rounded bg-muted/40 px-1.5 py-0.5 font-mono text-[10px] uppercase text-muted-foreground">log</span></TableCell>
+        <TableCell><SourceBadge source="log" /></TableCell>
       </TableRow>
       {open && (
         <TableRow className="bg-background/40">

@@ -27,6 +27,7 @@ import { traceCallPoint, type CallPointStep, type CallPointBreakpoint } from "./
 import {
   buildRoomControllerReports, traceCallpointSim046,
   type RcReport, type RcTraceStep, type RcTraceBreak,
+  type ConfigEvidence,
 } from "./roomControllerDoctor";
 import type { ServiceTarget, ServiceLogResult } from "./logEngine";
 
@@ -224,6 +225,12 @@ export type FinalResult = {
   evidence: string[];
   fix: string[];
   source: "SIM-046 Trace" | "Call Point Trace" | "Signal Chain" | "Backend Conclusion" | "None";
+  /** Source-attributed config evidence rows that prove the finding. */
+  configEvidence: ConfigEvidence[];
+  /** Layer where the break happened, e.g. "Room Controller". */
+  failedLayer?: string;
+  /** The previous step that *did* pass — useful context above the trace. */
+  previousStepPassed?: string;
 };
 
 /**
@@ -240,6 +247,9 @@ export function deriveFinalResult(s: DiagnosisRunSnapshot): FinalResult {
       evidence: s.rcBreak.evidence,
       fix: s.rcBreak.fix,
       source: "SIM-046 Trace",
+      configEvidence: s.rcBreak.configEvidence ?? [],
+      failedLayer: s.rcBreak.failedStep,
+      previousStepPassed: s.rcBreak.previousStepPassed,
     };
   }
   if (s.cpBreak) {
@@ -250,6 +260,9 @@ export function deriveFinalResult(s: DiagnosisRunSnapshot): FinalResult {
       evidence: s.cpBreak.evidence,
       fix: s.cpBreak.fix,
       source: "Call Point Trace",
+      configEvidence: [],
+      failedLayer: s.cpBreak.failedStep,
+      previousStepPassed: s.cpBreak.previousStepPassed,
     };
   }
   if (s.chainBreak) {
@@ -260,6 +273,9 @@ export function deriveFinalResult(s: DiagnosisRunSnapshot): FinalResult {
       evidence: s.chainBreak.evidence,
       fix: s.chainBreak.recommendedFix,
       source: "Signal Chain",
+      configEvidence: [],
+      failedLayer: s.chainBreak.failedLayer,
+      previousStepPassed: s.chainBreak.previousStepPassed,
     };
   }
   if (s.backendResult && s.backendResult.issues.some((i) => i.severity === "Critical")) {
@@ -271,6 +287,7 @@ export function deriveFinalResult(s: DiagnosisRunSnapshot): FinalResult {
       evidence: s.backendResult.issues.map((i) => `[${i.severity}] ${i.title}`),
       fix: ["Review backend issues list and remediate the highest-severity finding first."],
       source: "Backend Conclusion",
+      configEvidence: [],
     };
   }
   // No break detected anywhere.
@@ -281,5 +298,6 @@ export function deriveFinalResult(s: DiagnosisRunSnapshot): FinalResult {
     evidence: [],
     fix: [],
     source: s.rcConclusion ? "SIM-046 Trace" : s.cpConclusion ? "Call Point Trace" : s.chainConclusion ? "Signal Chain" : "None",
+    configEvidence: [],
   };
 }
