@@ -118,6 +118,23 @@ export type RcGroupSignal = { name: string; zones: string[]; targetOdlOrZts: str
 export type RcCallType    = { name: string; priority: number; tone: string; lightBehavior: string };
 export type RcLink        = { from: string; to: string };
 
+export type RcDeviceModel =
+  | "IP-CCT" | "IP-CCT/H" | "IP-CCT-SC" | "IP-PST2" | "Other";
+
+export type RcAuthStatus =
+  | "untested"
+  | "authenticated"     // default admin/admin worked
+  | "authenticated_custom" // tech-supplied credentials worked
+  | "auth_failed"
+  | "unreachable";
+
+export type RcCredentials = {
+  username: string;       // default "admin"
+  password: string;       // default "admin"
+  isDefault: boolean;     // true while username=admin && password=admin
+  rememberForSession?: boolean; // if false, do not persist outside this run
+};
+
 export type RoomController = {
   name: string;
   ip: string;
@@ -128,6 +145,10 @@ export type RoomController = {
   parentIpConnect?: string;
   webInterfaceUrl?: string;
   hasWebAccess?: boolean;
+  model?: RcDeviceModel;
+  credentials?: RcCredentials;
+  authStatus?: RcAuthStatus;
+  authMessage?: string;       // details from last auth attempt
   zones?: RcZone[];
   groupSignals?: RcGroupSignal[];
   callTypes?: RcCallType[];
@@ -139,6 +160,22 @@ export type RoomController = {
   ipnetDeviceListPopulated?: boolean;
   eventViewerText?: string;           // technician-pasted Event Viewer log
 };
+
+/** SIM-046 default credentials applied to IP-CCT / IP-PST2 family. */
+export const DEFAULT_RC_CREDENTIALS: RcCredentials = {
+  username: "admin",
+  password: "admin",
+  isDefault: true,
+  rememberForSession: true,
+};
+
+export const RC_DEFAULT_CRED_MODELS: RcDeviceModel[] = [
+  "IP-CCT", "IP-CCT/H", "IP-CCT-SC", "IP-PST2",
+];
+
+export function shouldAutoApplyDefaultCreds(model?: RcDeviceModel): boolean {
+  return !!model && RC_DEFAULT_CRED_MODELS.includes(model);
+}
 
 import type { ServiceTarget, ServiceLogResult } from "./logEngine";
 export type { ServiceTarget, ServiceLogResult };
