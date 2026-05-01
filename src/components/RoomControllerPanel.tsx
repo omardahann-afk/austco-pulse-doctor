@@ -358,14 +358,16 @@ function AuthBadge({ status, isDefault }: { status?: RcAuthStatus; isDefault?: b
   const s = status ?? "untested";
   const map: Record<RcAuthStatus, { label: string; cls: string; Icon: typeof KeyRound }> = {
     untested:               { label: "Auth: untested",                cls: "bg-muted/30 text-muted-foreground", Icon: KeyRound },
-    authenticated:          { label: "Auth: success (admin/admin)",    cls: "bg-warning/15 text-warning",         Icon: ShieldAlert },
+    authenticated_default:  { label: "Auth: success (admin/admin)",    cls: "bg-warning/15 text-warning",         Icon: ShieldAlert },
     authenticated_custom:   { label: "Auth: success (custom)",         cls: "bg-success/15 text-success",         Icon: ShieldCheck },
-    auth_failed:            { label: "Auth: failed",                   cls: "bg-critical/15 text-critical",       Icon: XCircle },
+    auth_failed:            { label: "Auth: failed (admin/admin)",     cls: "bg-critical/15 text-critical",       Icon: XCircle },
+    auth_failed_custom:     { label: "Auth: failed (custom)",          cls: "bg-critical/15 text-critical",       Icon: XCircle },
     unreachable:            { label: "Auth: unreachable",              cls: "bg-critical/15 text-critical",       Icon: XCircle },
   };
   const v = map[s];
-  // Override label if defaults are no longer in use after a successful login
-  const label = s === "authenticated" && !isDefault
+  // If a "default" success is reported but creds are no longer the defaults,
+  // present it as a custom success.
+  const label = s === "authenticated_default" && isDefault === false
     ? "Auth: success (custom)"
     : v.label;
   return (
@@ -406,6 +408,9 @@ function CredentialsEditor({
           : <Badge variant="outline" className="text-[9px] uppercase tracking-wider text-success">custom</Badge>}
         {controller.authStatus === "auth_failed" && (
           <span className="ml-auto text-[11px] text-critical">Default credentials rejected. Device may have custom credentials.</span>
+        )}
+        {controller.authStatus === "auth_failed_custom" && (
+          <span className="ml-auto text-[11px] text-critical">Custom credentials rejected by device.</span>
         )}
       </div>
 
@@ -475,7 +480,7 @@ function CredentialsEditor({
         Remember for this session only (never persisted to disk)
       </label>
 
-      {usingDefaults && (controller.authStatus === "authenticated" || controller.authStatus === "untested") && (
+      {usingDefaults && (controller.authStatus === "authenticated_default" || controller.authStatus === "untested") && (
         <div className="mt-2 flex items-start gap-1.5 rounded border border-warning/40 bg-warning/10 p-2 text-[11px] text-warning">
           <ShieldAlert className="mt-0.5 h-3.5 w-3.5 shrink-0" />
           <span>
