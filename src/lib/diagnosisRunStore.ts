@@ -30,6 +30,8 @@ import {
   type ConfigEvidence,
 } from "./roomControllerDoctor";
 import type { ServiceTarget, ServiceLogResult } from "./logEngine";
+import { parseCcp, EMPTY_PARSE, type CcpParseResult } from "./ccpParser";
+import { validateCcp, type CcpFinding, type CcpValidationResult } from "./ccpDoctor";
 
 export type ModuleToggleKey =
   | "pulseGateway" | "ipconnect" | "inga" | "license"
@@ -79,6 +81,12 @@ export type DiagnosisRunSnapshot = {
   rcBreak: RcTraceBreak | null;
   rcConclusion: string;
   logAnalysis: ServiceLogResult[] | null;
+  /* CCP — config truth layer */
+  ccpParse: CcpParseResult;
+  ccpStep: RcTraceStep | null;
+  ccpFindings: CcpFinding[];
+  ccpOverride: CcpValidationResult["override"];
+  ccpConclusion: string;
 };
 
 let snap: DiagnosisRunSnapshot = {
@@ -103,6 +111,11 @@ let snap: DiagnosisRunSnapshot = {
   rcBreak: null,
   rcConclusion: "",
   logAnalysis: null,
+  ccpParse: { ...EMPTY_PARSE },
+  ccpStep: null,
+  ccpFindings: [],
+  ccpOverride: null,
+  ccpConclusion: "",
 };
 
 const listeners = new Set<() => void>();
@@ -142,10 +155,21 @@ export async function startDiagnosis(input: StartDiagnosisInput): Promise<void> 
     chainSteps: [], chainBreak: null, chainConclusion: "",
     arch: null, cpSteps: [], cpBreak: null, cpConclusion: "", tracedCallPoint: null,
     rcReports: null, rcSteps: [], rcBreak: null, rcConclusion: "", logAnalysis: null,
+    ccpParse: { ...EMPTY_PARSE }, ccpStep: null, ccpFindings: [], ccpOverride: null, ccpConclusion: "",
   });
 
   try {
     const { payload } = input;
+    /* ---- Parse CCP first so it can drive everything downstream ---- */
+    const ccpInput = payload.ccpConfig;
+    const ccpRaw = ccpInput?.rawText ?? "";
+    const ccpParse = parseCcp(ccpRaw);
+    const ccpResult = validateCcp(payload, ccpParse);
+    set({
+      ccpParse, ccpStep: ccpResult.step, ccpFindings: ccpResult.findings,
+      ccpOverride: ccpResult.override, ccpConclusion: ccpResult.conclusion,
+    });
+
     // Pick representative IPs for the hardware/breakpoint engines.
     const firstCtrl  = payload.knownDevices.find((d) => /controller/i.test(d.type))?.ip ?? "10.20.4.22";
     const firstApp1  = payload.knownDevices.find((d) => /app1/i.test(d.type))?.ip       ?? "10.20.6.30";
@@ -224,7 +248,7 @@ export type FinalResult = {
   why: string;
   evidence: string[];
   fix: string[];
-  source: "SIM-046 Trace" | "Call Point Trace" | "Signal Chain" | "Backend Conclusion" | "None";
+  source: "IPConnect CCP" | "SIM-046 Trace" | "Call Point Trace" | "Signal Chain" | "Backend Conclusion" | "None";
   /** Source-attributed config evidence rows that prove the finding. */
   configEvidence: ConfigEvidence[];
   /** Layer where the break happened, e.g. "Room Controller". */
@@ -239,6 +263,20 @@ export type FinalResult = {
  * Priority: SIM-046 break > Call-point break > generic chain break > backend.
  */
 export function deriveFinalResult(s: DiagnosisRunSnapshot): FinalResult {
+  // CCP failures ALWAYS win — config truth overrides behavior.
+  if (s.ccpOverride) {
+    return {
+      ok: false,
+      breakAt: s.ccpOverride.breakPoint,
+      why: s.ccpOverride.likelyCause,
+      evidence: s.ccpOverride.evidence,
+      fix: s.ccpOverride.fix,
+      source: "IPConnect CCP",
+      configEvidence: s.ccpOverride.configEvidence,
+      failedLayer: s.ccpOverride.failedLayer,
+      previousStepPassed: s.ccpOverride.previousStepPassed,
+    };
+  }
   if (s.rcBreak) {
     return {
       ok: false,
@@ -291,13 +329,19 @@ export function deriveFinalResult(s: DiagnosisRunSnapshot): FinalResult {
     };
   }
   // No break detected anywhere.
+  // If CCP passed and no behavior break either, lead with that fact.
+  const ccpPassed = s.ccpParse.status === "parsed" || s.ccpParse.status === "parsed_low_confidence";
   return {
     ok: true,
-    breakAt: "End-to-end signal chain operational",
-    why: s.chainConclusion || s.cpConclusion || s.rcConclusion || "All probed layers responded as expected.",
+    breakAt: ccpPassed
+      ? "CCP confirms config is correct. No behavior failure detected."
+      : "End-to-end signal chain operational",
+    why: ccpPassed
+      ? "CCP validation passed and all probed layers responded as expected."
+      : (s.chainConclusion || s.cpConclusion || s.rcConclusion || "All probed layers responded as expected."),
     evidence: [],
     fix: [],
-    source: s.rcConclusion ? "SIM-046 Trace" : s.cpConclusion ? "Call Point Trace" : s.chainConclusion ? "Signal Chain" : "None",
+    source: ccpPassed ? "IPConnect CCP" : s.rcConclusion ? "SIM-046 Trace" : s.cpConclusion ? "Call Point Trace" : s.chainConclusion ? "Signal Chain" : "None",
     configEvidence: [],
   };
 }

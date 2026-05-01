@@ -181,6 +181,50 @@ export function shouldAutoApplyDefaultCreds(model?: RcDeviceModel): boolean {
 import type { ServiceTarget, ServiceLogResult } from "./logEngine";
 export type { ServiceTarget, ServiceLogResult };
 
+/* ============ IPConnect CCP (Site Config Truth Layer) ============ */
+
+export type CcpInputMode = "upload" | "paste" | "sftp";
+
+export type CcpConfigInput = {
+  mode: CcpInputMode;
+  ipconnectIp?: string;
+  sshPort?: number;        // default 22
+  username?: string;       // default "tech"
+  password?: string;       // default "tech"
+  ccpPath?: string;
+  rawText?: string;        // upload + paste (and sftp fallback)
+  fileName?: string;
+};
+
+export const DEFAULT_CCP_INPUT: CcpConfigInput = {
+  mode: "paste",
+  ipconnectIp: "",
+  sshPort: 22,
+  username: "tech",
+  password: "tech",
+  ccpPath: "/etc/ipconnect/site.ccp",
+  rawText: "",
+  fileName: "",
+};
+
+/** Backend-side CCP analysis (mirrors the local CCP parser shape). */
+export type CcpAnalysis = {
+  status: "not_provided" | "parsed" | "parsed_low_confidence" | "parse_failed" | "pulled" | "uploaded";
+  source: CcpInputMode | "none";
+  fileName?: string;
+  confidence: "high" | "medium" | "low" | "unknown";
+  parsedControllers: number;
+  parsedRooms: number;
+  parsedDevices: number;
+  parsedZones: number;
+  parsedGroupSignals: number;
+  parsedCallTypes: number;
+  parsedOutputs: number;
+  parsedCancelRules: number;
+  findings: { severity: "Critical" | "Warning" | "Info"; title: string; detail?: string }[];
+  evidence: { source: string; field: string; expected: string; actual: string; impact: string }[];
+};
+
 export type DiagnosisRequest = {
   name: string;
   vlans: VlanInput[];
@@ -202,6 +246,8 @@ export type DiagnosisRequest = {
   roomControllers?: RoomController[];
   // Real log collection (SSH targets handled by local site-doctor.js bridge)
   services?: ServiceTarget[];
+  // IPConnect CCP — config truth layer
+  ccpConfig?: CcpConfigInput;
 };
 
 export type ScannedDevice = {
@@ -226,6 +272,8 @@ export type DiagnosisResponse = {
   conclusion: string;
   // Optional — present when the local bridge has SSH log collection enabled
   logAnalysis?: ServiceLogResult[];
+  // Optional — present when the local bridge has parsed/pulled the CCP
+  ccpAnalysis?: CcpAnalysis;
 };
 
 const STORAGE_KEY = "austco.backendUrl";
