@@ -248,6 +248,54 @@ export type DiagnosisRequest = {
   services?: ServiceTarget[];
   // IPConnect CCP — config truth layer
   ccpConfig?: CcpConfigInput;
+  // Network infrastructure — switches, VLAN expectations, expected port mappings.
+  // Drives SNMP polling + auto port mapping (see src/lib/networkDoctor.ts).
+  networkInfrastructure?: NetworkInfrastructureInput;
+};
+
+/* ------------------------------------------------------------------ */
+/* Network infrastructure (Part 1 + Part 13 input contract)            */
+/* ------------------------------------------------------------------ */
+
+export type SwitchVendor = "Cisco Catalyst" | "Cisco SG" | "D-Link DGS" | "D-Link DES" | "Unknown";
+export type SnmpVersion = "v1" | "v2c";
+
+export type SwitchInput = {
+  name: string;
+  ip: string;
+  vendor?: SwitchVendor;
+  snmpEnabled: boolean;
+  snmpVersion?: SnmpVersion;
+  snmpCommunity?: string;       // default "public"
+  managementVlan?: string;
+  /** Optional manual port table — used when SNMP is unavailable. */
+  ports?: ManualSwitchPortInput[];
+};
+
+export type ManualSwitchPortInput = {
+  port: string;                 // e.g. "Gi1/0/12"
+  link?: "up" | "down" | "unknown";
+  vlan?: string;
+  poeEnabled?: boolean;
+  poeDelivering?: boolean;
+  macLearned?: string;
+};
+
+export type ExpectedConnectionInput = {
+  deviceName: string;
+  deviceIp?: string;
+  deviceMac?: string;
+  expectedSwitch?: string;      // switch name
+  expectedPort?: string;        // port name
+  expectedVlan?: string;
+  poeRequired?: boolean;
+  /** Required L4 ports (numbers). Used by Part 6 connectivity validation. */
+  requiredPorts?: number[];
+};
+
+export type NetworkInfrastructureInput = {
+  switches: SwitchInput[];
+  expectedConnections: ExpectedConnectionInput[];
 };
 
 export type ScannedDevice = {
