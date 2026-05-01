@@ -87,6 +87,9 @@ export type CallPointEntry = {
   expectedDisplay: string;     // IP-APP1 IP
 };
 
+import type { ServiceTarget, ServiceLogResult } from "./logEngine";
+export type { ServiceTarget, ServiceLogResult };
+
 export type DiagnosisRequest = {
   name: string;
   vlans: VlanInput[];
@@ -104,6 +107,8 @@ export type DiagnosisRequest = {
   pulseDevices?: PulseDevice[];
   controllers?: ControllerEntry[];
   callPoints?: CallPointEntry[];
+  // Real log collection (SSH targets handled by local site-doctor.js bridge)
+  services?: ServiceTarget[];
 };
 
 export type ScannedDevice = {
@@ -126,6 +131,8 @@ export type DiagnosisResponse = {
   truth: { chain: TruthChainStep[]; conclusion: string };
   issues: Issue[];
   conclusion: string;
+  // Optional — present when the local bridge has SSH log collection enabled
+  logAnalysis?: ServiceLogResult[];
 };
 
 const STORAGE_KEY = "austco.backendUrl";
