@@ -357,6 +357,7 @@ function ResultsPanel({
   result, error, scanning, backendUrl,
   hwHealth, deployHealth, chainSteps, breakpoint, chainConclusion,
   arch, tracedCallPoint, cpSteps, cpBreak, cpConclusion,
+  services, onServicesChange, manualLogs, onManualAdd, onManualClear,
 }: {
   result: DiagnosisResponse | null; error: string | null; scanning: boolean; backendUrl: string;
   hwHealth: HardwareHealthRow[] | null; deployHealth: DeploymentHealthCheck[] | null;
@@ -364,6 +365,11 @@ function ResultsPanel({
   arch: ArchitectureReport | null;
   tracedCallPoint: CallPointEntry | null;
   cpSteps: CallPointStep[]; cpBreak: CallPointBreakpoint | null; cpConclusion: string;
+  services: ServiceTarget[];
+  onServicesChange: (next: ServiceTarget[]) => void;
+  manualLogs: ServiceLogResult[];
+  onManualAdd: (r: ServiceLogResult) => void;
+  onManualClear: () => void;
 }) {
   const hasAnything = result || hwHealth || deployHealth || chainSteps.length > 0 || arch || cpSteps.length > 0;
 
