@@ -375,17 +375,24 @@ function ResultsPanel({
 
   if (error && !hasAnything) {
     return (
-      <Alert className="border-critical/40 bg-critical/10 text-critical">
-        <AlertOctagon className="h-4 w-4" />
-        <AlertTitle>Backend unreachable</AlertTitle>
-        <AlertDescription className="space-y-2 text-foreground/80">
-          <p className="font-mono text-xs">{error}</p>
-          <p className="text-xs">
-            Confirm <span className="font-mono">node site-doctor.js</span> is running and reachable at{" "}
-            <span className="font-mono">{backendUrl}</span>. Check CORS, firewall, and that you're on the site network.
-          </p>
-        </AlertDescription>
-      </Alert>
+      <div className="space-y-4">
+        <Alert className="border-critical/40 bg-critical/10 text-critical">
+          <AlertOctagon className="h-4 w-4" />
+          <AlertTitle>Backend unreachable</AlertTitle>
+          <AlertDescription className="space-y-2 text-foreground/80">
+            <p className="font-mono text-xs">{error}</p>
+            <p className="text-xs">
+              Confirm <span className="font-mono">node site-doctor.js</span> is running and reachable at{" "}
+              <span className="font-mono">{backendUrl}</span>. You can still paste logs manually below.
+            </p>
+          </AlertDescription>
+        </Alert>
+        <RealLogPanel
+          services={services} onChange={onServicesChange}
+          results={null} manualResults={manualLogs}
+          onManualAdd={onManualAdd} onManualClear={onManualClear}
+        />
+      </div>
     );
   }
 
