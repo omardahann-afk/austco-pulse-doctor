@@ -293,9 +293,108 @@ function CommandCenter() {
           </CardContent>
         </Card>
 
-        {/* SECTION 5 — Backend */}
+        {/* SECTION 5 — IPConnect CCP (config truth layer) */}
         <Card className="bg-card/70">
-          <CardHeader className="pb-3"><CardTitle className="flex items-center gap-2 text-sm"><Settings2 className="h-3.5 w-3.5 text-info" /> 5 · Backend</CardTitle></CardHeader>
+          <CardHeader className="pb-3">
+            <CardTitle className="flex items-center gap-2 text-sm">
+              <FileText className="h-3.5 w-3.5 text-info" /> 5 · IPConnect CCP Site Config
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <p className="text-[11px] text-muted-foreground">
+              CCP is the <span className="text-foreground font-medium">config truth layer</span>. The diagnosis cross-checks every controller, callpoint, group signal and output rule against it. Pick one input method.
+            </p>
+
+            {/* Mode picker */}
+            <div className="flex flex-wrap gap-2">
+              {(["upload", "paste", "sftp"] as CcpInputMode[]).map((m) => (
+                <button
+                  key={m} type="button"
+                  onClick={() => setCcp((c) => ({ ...c, mode: m }))}
+                  className={`rounded-md border px-3 py-1.5 text-xs uppercase tracking-wider ${
+                    ccp.mode === m
+                      ? "border-info bg-info/10 text-info"
+                      : "border-border/60 bg-background/40 text-muted-foreground hover:border-border"
+                  }`}
+                >
+                  {m === "upload" ? "Upload .ccp" : m === "paste" ? "Paste text" : "Pull via SFTP"}
+                </button>
+              ))}
+              <span className="ml-auto text-[10px] uppercase tracking-wider text-muted-foreground">
+                Status:{" "}
+                <span className={
+                  ccpStatus === "parse_failed" ? "text-critical" :
+                  ccpStatus === "uploaded" || ccpStatus === "pulled" ? "text-success" :
+                  "text-muted-foreground"
+                }>
+                  {ccpStatus === "idle" && !ccp.rawText ? "Not provided"
+                    : ccpStatus === "uploaded" ? `Uploaded (${ccp.fileName || "file"})`
+                    : ccpStatus === "pulled" ? `Pulled from IPConnect (${ccp.fileName || "site.ccp"})`
+                    : ccpStatus === "parse_failed" ? "Parse failed"
+                    : ccp.rawText ? `Pasted (${ccp.rawText.length} chars)` : "Not provided"}
+                </span>
+              </span>
+            </div>
+
+            {ccp.mode === "upload" && (
+              <div className="rounded-md border border-dashed border-border/60 bg-background/30 p-3">
+                <Label className="mb-2 inline-flex cursor-pointer items-center gap-2 rounded border border-border/60 bg-background/60 px-3 py-1.5 text-xs hover:bg-background">
+                  <Upload className="h-3.5 w-3.5" /> Upload CCP File
+                  <input
+                    type="file" accept=".ccp,.xml,.txt,application/xml,text/plain"
+                    className="hidden"
+                    onChange={(e) => { const f = e.target.files?.[0]; if (f) void onUploadCcp(f); }}
+                  />
+                </Label>
+                {ccp.fileName && <p className="mt-2 text-[11px] text-muted-foreground">Loaded: <span className="font-mono">{ccp.fileName}</span> ({ccp.rawText?.length ?? 0} chars)</p>}
+              </div>
+            )}
+
+            {ccp.mode === "paste" && (
+              <div>
+                <Label className="text-[11px] uppercase tracking-wider text-muted-foreground">Paste CCP / config text</Label>
+                <textarea
+                  value={ccp.rawText ?? ""}
+                  onChange={(e) => { setCcp((c) => ({ ...c, rawText: e.target.value, fileName: c.fileName || "pasted.ccp" })); setCcpStatus(e.target.value.trim() ? "uploaded" : "idle"); }}
+                  rows={6}
+                  placeholder="Paste exported CCP / IPConnect site config text here…"
+                  className="mt-1 w-full rounded-md border border-input bg-background px-3 py-2 font-mono text-[11px]"
+                />
+              </div>
+            )}
+
+            {ccp.mode === "sftp" && (
+              <div className="space-y-3">
+                <div className="grid gap-2 md:grid-cols-[1.2fr_100px_1fr_1fr]">
+                  <Input value={ccp.ipconnectIp ?? ""} placeholder="IPConnect VM IP" className="font-mono"
+                    onChange={(e) => setCcp((c) => ({ ...c, ipconnectIp: e.target.value }))} />
+                  <Input type="number" value={ccp.sshPort ?? 22} placeholder="22" className="font-mono"
+                    onChange={(e) => setCcp((c) => ({ ...c, sshPort: Number(e.target.value) || 22 }))} />
+                  <Input value={ccp.username ?? ""} placeholder="username (default: tech)"
+                    onChange={(e) => setCcp((c) => ({ ...c, username: e.target.value }))} />
+                  <Input type="password" value={ccp.password ?? ""} placeholder="password (default: tech)"
+                    onChange={(e) => setCcp((c) => ({ ...c, password: e.target.value }))} />
+                </div>
+                <Input value={ccp.ccpPath ?? ""} placeholder="/etc/ipconnect/site.ccp" className="font-mono text-xs"
+                  onChange={(e) => setCcp((c) => ({ ...c, ccpPath: e.target.value }))} />
+                <div className="flex items-center gap-2">
+                  <Button type="button" variant="outline" size="sm" onClick={onPullCcp} disabled={ccpPulling || !ccp.ipconnectIp}>
+                    {ccpPulling ? <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" /> : <Download className="mr-2 h-3.5 w-3.5" />}
+                    Pull CCP From IPConnect
+                  </Button>
+                  {ccpPullErr && <span className="text-[11px] text-critical">{ccpPullErr}</span>}
+                </div>
+                <p className="text-[10px] text-muted-foreground">
+                  Requires <span className="font-mono">node site-doctor.js</span> with the <span className="font-mono">/ccp/pull</span> SFTP route enabled.
+                </p>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* SECTION 6 — Backend */}
+        <Card className="bg-card/70">
+          <CardHeader className="pb-3"><CardTitle className="flex items-center gap-2 text-sm"><Settings2 className="h-3.5 w-3.5 text-info" /> 6 · Backend</CardTitle></CardHeader>
           <CardContent className="space-y-3">
             <div className="flex flex-col gap-2 md:flex-row">
               <Input value={backendUrl} onChange={(e) => setBackendUrlState(e.target.value)} placeholder={DEFAULT_BACKEND_URL} className="font-mono text-xs" />
