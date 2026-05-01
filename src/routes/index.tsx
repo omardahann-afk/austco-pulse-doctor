@@ -27,6 +27,8 @@ import { traceCallPoint, type CallPointStep, type CallPointBreakpoint } from "@/
 import { ArchitecturePanel } from "@/components/ArchitecturePanel";
 import { CallPointTracePanel } from "@/components/CallPointTracePanel";
 import type { CallPointEntry } from "@/lib/siteDoctorApi";
+import { RealLogPanel } from "@/components/RealLogPanel";
+import { defaultServiceTargets, type ServiceTarget, type ServiceLogResult } from "@/lib/logEngine";
 
 export const Route = createFileRoute("/")({
   head: () => ({ meta: [
@@ -70,6 +72,8 @@ function CommandCenter() {
   const [cpBreak, setCpBreak] = useState<CallPointBreakpoint | null>(null);
   const [cpConclusion, setCpConclusion] = useState<string>("");
   const [tracedCallPoint, setTracedCallPoint] = useState<CallPointEntry | null>(null);
+  const [services, setServices] = useState<ServiceTarget[]>(() => defaultServiceTargets());
+  const [manualLogs, setManualLogs] = useState<ServiceLogResult[]>([]);
 
   useEffect(() => { setBackendUrlState(getBackendUrl()); }, []);
 
