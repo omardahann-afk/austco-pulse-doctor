@@ -20,6 +20,7 @@ import { Route as IpIn8RouteImport } from './routes/ip-in8'
 import { Route as IpApp1RouteImport } from './routes/ip-app1'
 import { Route as EventsRouteImport } from './routes/events'
 import { Route as EscalationRouteImport } from './routes/escalation'
+import { Route as DiagnosisRouteImport } from './routes/diagnosis'
 import { Route as DiagnoseRouteImport } from './routes/diagnose'
 import { Route as ControllersRouteImport } from './routes/controllers'
 import { Route as CctRealityRouteImport } from './routes/cct-reality'
@@ -80,6 +81,11 @@ const EscalationRoute = EscalationRouteImport.update({
   path: '/escalation',
   getParentRoute: () => rootRouteImport,
 } as any)
+const DiagnosisRoute = DiagnosisRouteImport.update({
+  id: '/diagnosis',
+  path: '/diagnosis',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const DiagnoseRoute = DiagnoseRouteImport.update({
   id: '/diagnose',
   path: '/diagnose',
@@ -106,6 +112,7 @@ export interface FileRoutesByFullPath {
   '/cct-reality': typeof CctRealityRoute
   '/controllers': typeof ControllersRoute
   '/diagnose': typeof DiagnoseRoute
+  '/diagnosis': typeof DiagnosisRoute
   '/escalation': typeof EscalationRoute
   '/events': typeof EventsRoute
   '/ip-app1': typeof IpApp1Route
@@ -123,6 +130,7 @@ export interface FileRoutesByTo {
   '/cct-reality': typeof CctRealityRoute
   '/controllers': typeof ControllersRoute
   '/diagnose': typeof DiagnoseRoute
+  '/diagnosis': typeof DiagnosisRoute
   '/escalation': typeof EscalationRoute
   '/events': typeof EventsRoute
   '/ip-app1': typeof IpApp1Route
@@ -141,6 +149,7 @@ export interface FileRoutesById {
   '/cct-reality': typeof CctRealityRoute
   '/controllers': typeof ControllersRoute
   '/diagnose': typeof DiagnoseRoute
+  '/diagnosis': typeof DiagnosisRoute
   '/escalation': typeof EscalationRoute
   '/events': typeof EventsRoute
   '/ip-app1': typeof IpApp1Route
@@ -160,6 +169,7 @@ export interface FileRouteTypes {
     | '/cct-reality'
     | '/controllers'
     | '/diagnose'
+    | '/diagnosis'
     | '/escalation'
     | '/events'
     | '/ip-app1'
@@ -177,6 +187,7 @@ export interface FileRouteTypes {
     | '/cct-reality'
     | '/controllers'
     | '/diagnose'
+    | '/diagnosis'
     | '/escalation'
     | '/events'
     | '/ip-app1'
@@ -194,6 +205,7 @@ export interface FileRouteTypes {
     | '/cct-reality'
     | '/controllers'
     | '/diagnose'
+    | '/diagnosis'
     | '/escalation'
     | '/events'
     | '/ip-app1'
@@ -212,6 +224,7 @@ export interface RootRouteChildren {
   CctRealityRoute: typeof CctRealityRoute
   ControllersRoute: typeof ControllersRoute
   DiagnoseRoute: typeof DiagnoseRoute
+  DiagnosisRoute: typeof DiagnosisRoute
   EscalationRoute: typeof EscalationRoute
   EventsRoute: typeof EventsRoute
   IpApp1Route: typeof IpApp1Route
@@ -304,6 +317,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof EscalationRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/diagnosis': {
+      id: '/diagnosis'
+      path: '/diagnosis'
+      fullPath: '/diagnosis'
+      preLoaderRoute: typeof DiagnosisRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/diagnose': {
       id: '/diagnose'
       path: '/diagnose'
@@ -340,6 +360,7 @@ const rootRouteChildren: RootRouteChildren = {
   CctRealityRoute: CctRealityRoute,
   ControllersRoute: ControllersRoute,
   DiagnoseRoute: DiagnoseRoute,
+  DiagnosisRoute: DiagnosisRoute,
   EscalationRoute: EscalationRoute,
   EventsRoute: EventsRoute,
   IpApp1Route: IpApp1Route,

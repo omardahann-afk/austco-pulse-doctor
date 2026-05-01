@@ -1,12 +1,13 @@
 import { Link, useRouterState } from "@tanstack/react-router";
 import { Sidebar, SidebarContent, SidebarGroup, SidebarGroupContent, SidebarGroupLabel, SidebarMenu, SidebarMenuButton, SidebarMenuItem, SidebarHeader, SidebarFooter } from "@/components/ui/sidebar";
-import { Activity, ScanLine, Map as MapIcon, Search, ShieldCheck, Cpu, MonitorSmartphone, Radio, Lightbulb, Network, ListChecks, Clock, FileText, BookOpen, Stethoscope, Router } from "lucide-react";
+import { Activity, ScanLine, Map as MapIcon, Search, ShieldCheck, Cpu, MonitorSmartphone, Radio, Lightbulb, Network, ListChecks, Clock, FileText, BookOpen, Stethoscope, Router, Workflow } from "lucide-react";
 import { LAPTOP_IP, SITE_NAME, TECHNICIAN } from "@/data/mockSite";
 
 const NAV = [
   { group: "Overview", items: [
     { to: "/", label: "Command Center", icon: Activity },
-    { to: "/diagnose", label: "Run Full Diagnosis", icon: ScanLine },
+    { to: "/diagnosis", label: "Diagnosis Result", icon: Workflow },
+    { to: "/diagnose", label: "Legacy Diagnosis", icon: ScanLine },
     { to: "/site-map", label: "Live Site Map", icon: MapIcon },
     { to: "/trace", label: "Trace Signal Path", icon: Search },
   ]},
