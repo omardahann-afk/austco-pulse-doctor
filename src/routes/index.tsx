@@ -29,6 +29,13 @@ import { CallPointTracePanel } from "@/components/CallPointTracePanel";
 import type { CallPointEntry } from "@/lib/siteDoctorApi";
 import { RealLogPanel } from "@/components/RealLogPanel";
 import { defaultServiceTargets, type ServiceTarget, type ServiceLogResult } from "@/lib/logEngine";
+import {
+  buildRoomControllerReports, traceCallpointSim046,
+  type RcReport, type RcTraceStep, type RcTraceBreak,
+} from "@/lib/roomControllerDoctor";
+import {
+  RoomControllerDoctorPanel, IpnetDeviceTreePanel, RoomControllerBreakpointMap,
+} from "@/components/RoomControllerPanel";
 
 export const Route = createFileRoute("/")({
   head: () => ({ meta: [
@@ -74,6 +81,10 @@ function CommandCenter() {
   const [tracedCallPoint, setTracedCallPoint] = useState<CallPointEntry | null>(null);
   const [services, setServices] = useState<ServiceTarget[]>(() => defaultServiceTargets());
   const [manualLogs, setManualLogs] = useState<ServiceLogResult[]>([]);
+  const [rcReports, setRcReports] = useState<RcReport[] | null>(null);
+  const [rcSteps, setRcSteps] = useState<RcTraceStep[]>([]);
+  const [rcBreak, setRcBreak] = useState<RcTraceBreak | null>(null);
+  const [rcConclusion, setRcConclusion] = useState<string>("");
 
   useEffect(() => { setBackendUrlState(getBackendUrl()); }, []);
 
@@ -87,6 +98,7 @@ function CommandCenter() {
     setBackendUrl(backendUrl);
     setHwHealth(null); setDeployHealth(null); setChainSteps([]); setBreakpoint(null); setChainConclusion("");
     setArch(null); setCpSteps([]); setCpBreak(null); setCpConclusion(""); setTracedCallPoint(null);
+    setRcReports(null); setRcSteps([]); setRcBreak(null); setRcConclusion("");
     try {
       // Always run hardware/breakpoint engine — it works without the local backend.
       const firstCtrl = payload.knownDevices.find((d) => /controller/i.test(d.type))?.ip ?? "10.20.4.22";
@@ -121,6 +133,13 @@ function CommandCenter() {
         const cpResult = await traceCallPoint(payload, archReport, firstCp, setCpSteps, 160);
         setCpBreak(cpResult.breakpoint);
         setCpConclusion(cpResult.conclusion);
+        // SIM-046 Room Controller trace + reports
+        setRcReports(buildRoomControllerReports(payload));
+        const rcResult = await traceCallpointSim046(payload, firstCp, setRcSteps, 140);
+        setRcBreak(rcResult.breakpoint);
+        setRcConclusion(rcResult.conclusion);
+      } else {
+        setRcReports(buildRoomControllerReports(payload));
       }
 
       // Backend call may fail (laptop not running site-doctor.js) — degrade gracefully.
@@ -346,6 +365,10 @@ function CommandCenter() {
             manualLogs={manualLogs}
             onManualAdd={(r) => setManualLogs((prev) => [...prev, r])}
             onManualClear={() => setManualLogs([])}
+            rcReports={rcReports}
+            rcSteps={rcSteps}
+            rcBreak={rcBreak}
+            rcConclusion={rcConclusion}
           />
         </div>
       </form>
@@ -358,6 +381,7 @@ function ResultsPanel({
   hwHealth, deployHealth, chainSteps, breakpoint, chainConclusion,
   arch, tracedCallPoint, cpSteps, cpBreak, cpConclusion,
   services, onServicesChange, manualLogs, onManualAdd, onManualClear,
+  rcReports, rcSteps, rcBreak, rcConclusion,
 }: {
   result: DiagnosisResponse | null; error: string | null; scanning: boolean; backendUrl: string;
   hwHealth: HardwareHealthRow[] | null; deployHealth: DeploymentHealthCheck[] | null;
@@ -370,8 +394,12 @@ function ResultsPanel({
   manualLogs: ServiceLogResult[];
   onManualAdd: (r: ServiceLogResult) => void;
   onManualClear: () => void;
+  rcReports: RcReport[] | null;
+  rcSteps: RcTraceStep[];
+  rcBreak: RcTraceBreak | null;
+  rcConclusion: string;
 }) {
-  const hasAnything = result || hwHealth || deployHealth || chainSteps.length > 0 || arch || cpSteps.length > 0;
+  const hasAnything = result || hwHealth || deployHealth || chainSteps.length > 0 || arch || cpSteps.length > 0 || (rcReports && rcReports.length > 0);
 
   if (error && !hasAnything) {
     return (
@@ -523,6 +551,18 @@ function ResultsPanel({
           steps={cpSteps}
           breakpoint={cpBreak}
           conclusion={cpConclusion}
+        />
+      )}
+
+      {/* 3c. SIM-046 Room Controller Doctor + IPnet Tree + Breakpoint Map */}
+      {rcReports && rcReports.length > 0 && <RoomControllerDoctorPanel reports={rcReports} />}
+      {rcReports && rcReports.length > 0 && <IpnetDeviceTreePanel reports={rcReports} />}
+      {tracedCallPoint && rcSteps.length > 0 && (
+        <RoomControllerBreakpointMap
+          callPoint={tracedCallPoint}
+          steps={rcSteps}
+          breakpoint={rcBreak}
+          conclusion={rcConclusion}
         />
       )}
 

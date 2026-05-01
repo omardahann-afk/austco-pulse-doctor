@@ -87,6 +87,59 @@ export type CallPointEntry = {
   expectedDisplay: string;     // IP-APP1 IP
 };
 
+/* ============ SIM-046: Room Controller / IPnet Router ============ */
+
+export type IpnetDeviceType =
+  | "Callpoint"
+  | "Smart Callpoint"
+  | "Pendant"
+  | "Over Door Light"
+  | "Zone Tone Sounder"
+  | "Relay"
+  | "Input Bridge"
+  | "Presence Device"
+  | "Unknown IPnet Device";
+
+export type IpnetDeviceStatus = "Online" | "Offline" | "Fault" | "Not verified";
+
+export type IpnetDevice = {
+  name: string;
+  type: IpnetDeviceType;
+  address: string;            // IPnet address e.g. "1.04"
+  serialNumber?: string;
+  zone?: string;
+  callTypes?: string[];
+  portRun?: "A" | "B";        // which IPnet connector run
+  status?: IpnetDeviceStatus;
+};
+
+export type RcZone        = { name: string; type: "Room" | "Group Signal" };
+export type RcGroupSignal = { name: string; zones: string[]; targetOdlOrZts: string; followMeLighting?: boolean };
+export type RcCallType    = { name: string; priority: number; tone: string; lightBehavior: string };
+export type RcLink        = { from: string; to: string };
+
+export type RoomController = {
+  name: string;
+  ip: string;
+  mac?: string;
+  controllerId: string;       // must be unique site-wide
+  location?: string;
+  vlan: string;
+  parentIpConnect?: string;
+  webInterfaceUrl?: string;
+  hasWebAccess?: boolean;
+  zones?: RcZone[];
+  groupSignals?: RcGroupSignal[];
+  callTypes?: RcCallType[];
+  ipnetDevices?: IpnetDevice[];
+  links?: RcLink[];
+  cancelLinks?: RcLink[];
+  remoteRelays?: RcLink[];
+  serversConfigured?: boolean;        // Network → Servers populated
+  ipnetDeviceListPopulated?: boolean;
+  eventViewerText?: string;           // technician-pasted Event Viewer log
+};
+
 import type { ServiceTarget, ServiceLogResult } from "./logEngine";
 export type { ServiceTarget, ServiceLogResult };
 
@@ -107,6 +160,8 @@ export type DiagnosisRequest = {
   pulseDevices?: PulseDevice[];
   controllers?: ControllerEntry[];
   callPoints?: CallPointEntry[];
+  // SIM-046 Room Controller / IPnet Router doctors
+  roomControllers?: RoomController[];
   // Real log collection (SSH targets handled by local site-doctor.js bridge)
   services?: ServiceTarget[];
 };
@@ -247,6 +302,47 @@ export const DEFAULT_PAYLOAD: DiagnosisRequest = {
       name: "Room 230 Call Point", controller: "Controller-West", inputIndex: 3,
       expectedOutputGroup: "West Wing Signal Lights",
       expectedSignalLight: "10.1.3.50", expectedDisplay: "10.20.6.30",
+    },
+  ],
+  roomControllers: [
+    {
+      name: "Controller-West",
+      ip: "10.1.3.22",
+      mac: "00:1B:44:11:3A:B7",
+      controllerId: "RC-WEST-01",
+      location: "West Wing — Floor 2",
+      vlan: "10.1.3.0/24",
+      parentIpConnect: "IPConnect",
+      webInterfaceUrl: "http://10.1.3.22/",
+      hasWebAccess: true,
+      serversConfigured: true,
+      ipnetDeviceListPopulated: true,
+      zones: [
+        { name: "Room 230", type: "Room" },
+        { name: "West Wing", type: "Group Signal" },
+      ],
+      groupSignals: [
+        { name: "West Wing Signal Lights", zones: ["West Wing"], targetOdlOrZts: "ODL-Corridor-W", followMeLighting: false },
+      ],
+      callTypes: [
+        { name: "Patient Call", priority: 1, tone: "Standard", lightBehavior: "Solid Green" },
+        { name: "Emergency",    priority: 5, tone: "Urgent",   lightBehavior: "Flashing Red" },
+      ],
+      ipnetDevices: [
+        { name: "Room 230 Callpoint", type: "Callpoint",        address: "1.03", zone: "Room 230", callTypes: ["Patient Call"], portRun: "A", status: "Online" },
+        { name: "Room 230 Pendant",   type: "Pendant",          address: "1.04", zone: "Room 230", callTypes: ["Patient Call"], portRun: "A", status: "Online" },
+        { name: "Room 230 ODL",       type: "Over Door Light",  address: "1.05", zone: "Room 230", portRun: "A", status: "Online" },
+        { name: "Corridor ZTS West",  type: "Zone Tone Sounder",address: "2.01", zone: "West Wing", portRun: "B", status: "Online" },
+        { name: "Relay Output 1",     type: "Relay",            address: "2.02", portRun: "B", status: "Online" },
+      ],
+      links: [
+        { from: "Room 230 Callpoint", to: "West Wing Signal Lights" },
+      ],
+      cancelLinks: [
+        { from: "Room 230 Callpoint", to: "Room 230" },
+      ],
+      remoteRelays: [],
+      eventViewerText: "",
     },
   ],
 };
