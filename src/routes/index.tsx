@@ -8,11 +8,13 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import {
   ScanLine, Loader2, Plus, X, Settings2, Server, Network, CircuitBoard, Cpu,
-  Router, Workflow, CheckCircle2, XCircle, AlertCircle,
+  Router, Workflow, CheckCircle2, XCircle, AlertCircle, FileText, Upload, Download,
 } from "lucide-react";
 import {
   DEFAULT_PAYLOAD, getBackendUrl, setBackendUrl, DEFAULT_BACKEND_URL,
+  DEFAULT_CCP_INPUT,
   type DiagnosisRequest, type DeploymentType, type RoomController, type CallPointEntry,
+  type CcpConfigInput, type CcpInputMode,
 } from "@/lib/siteDoctorApi";
 import { defaultServiceTargets, type ServiceTarget } from "@/lib/logEngine";
 import {
@@ -59,6 +61,10 @@ function CommandCenter() {
   const [backendUrl, setBackendUrlState] = useState<string>(DEFAULT_BACKEND_URL);
   const [backendTest, setBackendTest] = useState<{ status: "idle" | "testing" | "ok" | "fail"; message?: string }>({ status: "idle" });
   const [submitting, setSubmitting] = useState(false);
+  const [ccp, setCcp] = useState<CcpConfigInput>(() => ({ ...DEFAULT_CCP_INPUT }));
+  const [ccpStatus, setCcpStatus] = useState<"idle" | "uploaded" | "pulled" | "parse_failed">("idle");
+  const [ccpPullErr, setCcpPullErr] = useState<string | null>(null);
+  const [ccpPulling, setCcpPulling] = useState(false);
 
   useEffect(() => { setBackendUrlState(getBackendUrl()); }, []);
 
@@ -86,8 +92,38 @@ function CommandCenter() {
     setBackendUrl(backendUrl);
     // Kick off; navigate immediately so user lands on the trace page while
     // engines stream their results into the store.
-    void startDiagnosis({ payload, services, modules, backendUrl });
+    const payloadWithCcp: DiagnosisRequest = { ...payload, ccpConfig: ccp };
+    void startDiagnosis({ payload: payloadWithCcp, services, modules, backendUrl });
     navigate({ to: "/diagnosis" });
+  }
+
+  async function onUploadCcp(file: File) {
+    const text = await file.text();
+    setCcp((c) => ({ ...c, mode: "upload", rawText: text, fileName: file.name }));
+    setCcpStatus(text.trim() ? "uploaded" : "parse_failed");
+  }
+
+  async function onPullCcp() {
+    setCcpPulling(true); setCcpPullErr(null);
+    try {
+      const url = backendUrl.replace(/\/api\/diagnosis.*$/, "") + "/ccp/pull";
+      const res = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          ipconnectIp: ccp.ipconnectIp, sshPort: ccp.sshPort,
+          username: ccp.username, password: ccp.password, ccpPath: ccp.ccpPath,
+        }),
+      });
+      if (!res.ok) throw new Error(`Bridge returned ${res.status}`);
+      const json = (await res.json()) as { rawText?: string; fileName?: string };
+      setCcp((c) => ({ ...c, mode: "sftp", rawText: json.rawText ?? "", fileName: json.fileName ?? "site.ccp" }));
+      setCcpStatus(json.rawText?.trim() ? "pulled" : "parse_failed");
+    } catch (err) {
+      setCcpPullErr(err instanceof Error ? err.message : String(err));
+    } finally {
+      setCcpPulling(false);
+    }
   }
 
   return (
