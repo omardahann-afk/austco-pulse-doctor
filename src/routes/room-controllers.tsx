@@ -92,7 +92,11 @@ function RoomControllersPage() {
         description="Validates Room Controllers against SIM-046 rules, maps IPnet devices, parses Event Viewer logs, and traces callpoint → output breakpoints."
       />
 
-      <RoomControllerDoctorPanel reports={reports} />
+      <RoomControllerDoctorPanelEditable
+        reports={reports}
+        onUpdateController={patchController}
+        onRetryAuth={retryAuth}
+      />
       <IpnetDeviceTreePanel reports={reports} />
 
       {(payload.roomControllers ?? []).map((c) => (
