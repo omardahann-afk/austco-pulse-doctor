@@ -32,6 +32,8 @@ import {
 import type { ServiceTarget, ServiceLogResult } from "./logEngine";
 import { parseCcp, EMPTY_PARSE, type CcpParseResult } from "./ccpParser";
 import { validateCcp, type CcpFinding, type CcpValidationResult } from "./ccpDoctor";
+import { analyzeNetwork, type NetworkAnalysis } from "./networkDoctor";
+import { pollSnmp } from "./snmpBridge";
 
 export type ModuleToggleKey =
   | "pulseGateway" | "ipconnect" | "inga" | "license"
@@ -87,6 +89,8 @@ export type DiagnosisRunSnapshot = {
   ccpFindings: CcpFinding[];
   ccpOverride: CcpValidationResult["override"];
   ccpConclusion: string;
+  /* Network infrastructure — physical/L2/L3 truth layer */
+  network: NetworkAnalysis | null;
 };
 
 let snap: DiagnosisRunSnapshot = {
@@ -116,6 +120,7 @@ let snap: DiagnosisRunSnapshot = {
   ccpFindings: [],
   ccpOverride: null,
   ccpConclusion: "",
+  network: null,
 };
 
 const listeners = new Set<() => void>();
@@ -156,6 +161,7 @@ export async function startDiagnosis(input: StartDiagnosisInput): Promise<void> 
     arch: null, cpSteps: [], cpBreak: null, cpConclusion: "", tracedCallPoint: null,
     rcReports: null, rcSteps: [], rcBreak: null, rcConclusion: "", logAnalysis: null,
     ccpParse: { ...EMPTY_PARSE }, ccpStep: null, ccpFindings: [], ccpOverride: null, ccpConclusion: "",
+    network: null,
   });
 
   try {
@@ -169,6 +175,23 @@ export async function startDiagnosis(input: StartDiagnosisInput): Promise<void> 
       ccpParse, ccpStep: ccpResult.step, ccpFindings: ccpResult.findings,
       ccpOverride: ccpResult.override, ccpConclusion: ccpResult.conclusion,
     });
+
+    /* ---- Network infrastructure (Parts 1-8 + 13). Best-effort SNMP. ---- */
+    const infra = payload.networkInfrastructure;
+    if (infra && (infra.switches.length > 0 || infra.expectedConnections.length > 0)) {
+      // Show preliminary network analysis built from manual data only,
+      // so the UI has something to show even before the SNMP poll returns.
+      set({ network: analyzeNetwork(payload) });
+      void pollSnmp({
+        switches: infra.switches,
+        arpHints: [
+          ...payload.knownDevices.map((d) => d.ip),
+          ...(payload.roomControllers ?? []).map((r) => r.ip).filter(Boolean) as string[],
+        ],
+      }).then((snmp) => {
+        set({ network: analyzeNetwork(payload, snmp) });
+      });
+    }
 
     // Pick representative IPs for the hardware/breakpoint engines.
     const firstCtrl  = payload.knownDevices.find((d) => /controller/i.test(d.type))?.ip ?? "10.20.4.22";
@@ -248,7 +271,14 @@ export type FinalResult = {
   why: string;
   evidence: string[];
   fix: string[];
-  source: "IPConnect CCP" | "SIM-046 Trace" | "Call Point Trace" | "Signal Chain" | "Backend Conclusion" | "None";
+  source:
+    | "Network Infrastructure"
+    | "IPConnect CCP"
+    | "SIM-046 Trace"
+    | "Call Point Trace"
+    | "Signal Chain"
+    | "Backend Conclusion"
+    | "None";
   /** Source-attributed config evidence rows that prove the finding. */
   configEvidence: ConfigEvidence[];
   /** Layer where the break happened, e.g. "Room Controller". */
@@ -263,7 +293,25 @@ export type FinalResult = {
  * Priority: SIM-046 break > Call-point break > generic chain break > backend.
  */
 export function deriveFinalResult(s: DiagnosisRunSnapshot): FinalResult {
-  // CCP failures ALWAYS win — config truth overrides behavior.
+  // Priority (per "Network > CCP only when network proven failed"):
+  //   1. Network override — but ONLY when the supporting evidence is
+  //      verified (SNMP / ARP / scan). networkDoctor already enforces
+  //      this: it never sets `override` from manual-only data.
+  //   2. CCP override (config truth).
+  //   3. SIM-046 trace, Call-point trace, Signal chain, Backend conclusion.
+  if (s.network?.override) {
+    return {
+      ok: false,
+      breakAt: s.network.override.breakPoint,
+      why: s.network.override.likelyCause,
+      evidence: s.network.override.evidence,
+      fix: s.network.override.fix,
+      source: "Network Infrastructure",
+      configEvidence: s.network.override.configEvidence,
+      failedLayer: s.network.override.failedLayer,
+      previousStepPassed: s.network.override.previousStepPassed,
+    };
+  }
   if (s.ccpOverride) {
     return {
       ok: false,
