@@ -159,7 +159,7 @@ function buildOne(c: RoomController, idCounts: Map<string, number>): RcReport {
 
   // SIM-046 — Default credentials still active (security warning)
   if (shouldAutoApplyDefaultCreds(c.model) && c.credentials?.isDefault &&
-      (c.authStatus === "authenticated" || c.authStatus === "untested")) {
+      (c.authStatus === "authenticated_default" || c.authStatus === "untested")) {
     f.push({
       controller: c.name, area: "Credentials", severity: "Warning",
       title: "Device is using default credentials (admin/admin)",
@@ -174,11 +174,15 @@ function buildOne(c: RoomController, idCounts: Map<string, number>): RcReport {
   }
 
   // SIM-046 — Authentication failed against device
-  if (c.authStatus === "auth_failed") {
+  if (c.authStatus === "auth_failed" || c.authStatus === "auth_failed_custom") {
     f.push({
       controller: c.name, area: "Credentials", severity: "Critical",
-      title: "Default credentials rejected. Device may have custom credentials.",
-      detail: c.authMessage ?? "Default admin/admin login was rejected by the device — diagnostics that require web access cannot run until valid credentials are supplied.",
+      title: c.authStatus === "auth_failed_custom"
+        ? "Custom credentials rejected by device."
+        : "Default credentials rejected. Device may have custom credentials.",
+      detail: c.authMessage ?? (c.authStatus === "auth_failed_custom"
+        ? "The technician-supplied credentials were rejected by the device."
+        : "Default admin/admin login was rejected by the device — diagnostics that require web access cannot run until valid credentials are supplied."),
       evidence: [`auth_status=${c.authStatus}`, `model=${c.model ?? "unknown"}`],
       fix: [
         "Confirm the credentials with site documentation.",
