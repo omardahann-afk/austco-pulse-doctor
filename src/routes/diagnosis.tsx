@@ -9,7 +9,7 @@ import {
   CheckCircle2, XCircle, AlertTriangle, AlertOctagon, Loader2, MinusCircle,
   Wrench, ChevronRight, ChevronDown, Workflow, Cpu, Network, ListTree,
   ServerCog, ShieldCheck, Activity, Clock, Database, Settings2, ArrowLeft,
-  Wifi, Search,
+  Wifi, Search, FileText,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
@@ -45,6 +45,7 @@ function DiagnosisPage() {
       <FinalResultBlock final={final} snap={snap} />
       <ConfigEvidenceTopCard final={final} />
       <TraceFlowSection snap={snap} />
+      <CcpAnalysisSection snap={snap} />
       <RoomControllerSection snap={snap} />
       <IpnetTreeSection snap={snap} />
       <ServiceHealthSection snap={snap} />
@@ -206,7 +207,7 @@ function SourceBadge({ source }: { source: string }) {
   const k = source.toLowerCase();
   let tone: "scan" | "config" | "log" | "mock" | "manual" | "trace" = "trace";
   if (k.includes("log"))                                 tone = "log";
-  else if (k.includes("config") || k.includes("sim-046")) tone = "config";
+  else if (k.includes("config") || k.includes("sim-046") || k.includes("ccp")) tone = "config";
   else if (k.includes("scan") || k.includes("real"))     tone = "scan";
   else if (k.includes("manual") || k.includes("paste"))  tone = "manual";
   else if (k.includes("mock") || k === "none")           tone = "mock";
@@ -290,9 +291,20 @@ type UnifiedStep = {
 
 function unifySteps(snap: DiagnosisRunSnapshot): UnifiedStep[] {
   // Prefer the SIM-046 trace (richest), fall back to call-point trace, then chain.
-  if (snap.rcSteps.length) return snap.rcSteps.map(toUnified);
-  if (snap.cpSteps.length) return snap.cpSteps.map(toUnified);
-  return snap.chainSteps.map(toUnified);
+  // The CCP step is inserted between Room Controller and Output layers.
+  const base =
+    snap.rcSteps.length ? snap.rcSteps.map(toUnified) :
+    snap.cpSteps.length ? snap.cpSteps.map(toUnified) :
+    snap.chainSteps.map(toUnified);
+  if (!snap.ccpStep) return base;
+  const ccpUnified = toUnified(snap.ccpStep);
+  // Insert after the last Room Controller / IPnet step, before Pulse Gateway.
+  const insertIdx = (() => {
+    const lastRc = [...base].map((s, i) => /room|ipnet|controller/i.test(s.layer) ? i : -1).filter((i) => i >= 0).pop();
+    if (lastRc !== undefined) return lastRc + 1;
+    return Math.min(2, base.length);
+  })();
+  return [...base.slice(0, insertIdx), ccpUnified, ...base.slice(insertIdx)];
 }
 
 function toUnified(s: RcTraceStep | CallPointStep | ChainStep): UnifiedStep {
