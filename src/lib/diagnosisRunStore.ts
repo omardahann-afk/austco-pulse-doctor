@@ -1,0 +1,285 @@
+/**
+ * Diagnosis Run Store
+ * --------------------
+ * Lightweight module-level store that holds the OUTPUT of the most recent
+ * `Run Full Diagnosis` invocation, so the input page (`/`) can hand off to
+ * the trace-first results page (`/diagnosis`) without prop drilling or a
+ * heavy state library.
+ *
+ * The store is also responsible for actually running the diagnosis (calling
+ * the existing engines: breakpoint, callPoint, roomController, architecture,
+ * and the optional local-bridge backend). Engines are unchanged — this is
+ * pure orchestration + storage.
+ */
+
+import { useSyncExternalStore } from "react";
+import {
+  type DiagnosisRequest, type DiagnosisResponse, runDiagnosis,
+  type CallPointEntry,
+} from "./siteDoctorApi";
+import {
+  traceSignalPath, readHardwareHealth, readDeploymentHealth,
+  type ChainStep, type Breakpoint,
+  type HardwareHealthRow, type DeploymentHealthCheck,
+} from "./breakpointEngine";
+import { validateArchitecture, type ArchitectureReport } from "./architectureValidator";
+import { traceCallPoint, type CallPointStep, type CallPointBreakpoint } from "./callPointTrace";
+import {
+  buildRoomControllerReports, traceCallpointSim046,
+  type RcReport, type RcTraceStep, type RcTraceBreak,
+} from "./roomControllerDoctor";
+import type { ServiceTarget, ServiceLogResult } from "./logEngine";
+
+export type ModuleToggleKey =
+  | "pulseGateway" | "ipconnect" | "inga" | "license"
+  | "controllers" | "webDevices" | "vocera" | "voip";
+
+export type ModuleToggles = Record<ModuleToggleKey, boolean>;
+
+export const DEFAULT_MODULE_TOGGLES: ModuleToggles = {
+  pulseGateway: true,
+  ipconnect: true,
+  inga: true,
+  license: true,
+  controllers: true,
+  webDevices: false,
+  vocera: false,
+  voip: false,
+};
+
+export type RunState =
+  | { status: "idle" }
+  | { status: "running"; startedAt: string }
+  | { status: "ready"; finishedAt: string; site: string; deploymentType: string; backendOk: boolean; backendMessage?: string }
+  | { status: "error"; message: string };
+
+export type DiagnosisRunSnapshot = {
+  state: RunState;
+  /** Snapshot of the inputs used for this run. */
+  payload: DiagnosisRequest | null;
+  services: ServiceTarget[];
+  modules: ModuleToggles;
+  backendUrl: string;
+
+  /** Outputs */
+  backendResult: DiagnosisResponse | null;
+  hwHealth: HardwareHealthRow[] | null;
+  deployHealth: DeploymentHealthCheck[] | null;
+  chainSteps: ChainStep[];
+  chainBreak: Breakpoint | null;
+  chainConclusion: string;
+  arch: ArchitectureReport | null;
+  cpSteps: CallPointStep[];
+  cpBreak: CallPointBreakpoint | null;
+  cpConclusion: string;
+  tracedCallPoint: CallPointEntry | null;
+  rcReports: RcReport[] | null;
+  rcSteps: RcTraceStep[];
+  rcBreak: RcTraceBreak | null;
+  rcConclusion: string;
+  logAnalysis: ServiceLogResult[] | null;
+};
+
+let snap: DiagnosisRunSnapshot = {
+  state: { status: "idle" },
+  payload: null,
+  services: [],
+  modules: { ...DEFAULT_MODULE_TOGGLES },
+  backendUrl: "",
+  backendResult: null,
+  hwHealth: null,
+  deployHealth: null,
+  chainSteps: [],
+  chainBreak: null,
+  chainConclusion: "",
+  arch: null,
+  cpSteps: [],
+  cpBreak: null,
+  cpConclusion: "",
+  tracedCallPoint: null,
+  rcReports: null,
+  rcSteps: [],
+  rcBreak: null,
+  rcConclusion: "",
+  logAnalysis: null,
+};
+
+const listeners = new Set<() => void>();
+const emit = () => listeners.forEach((l) => l());
+const set = (patch: Partial<DiagnosisRunSnapshot>) => { snap = { ...snap, ...patch }; emit(); };
+
+function subscribe(cb: () => void) { listeners.add(cb); return () => listeners.delete(cb); }
+const getSnapshot = () => snap;
+
+export function useDiagnosisRun() {
+  return useSyncExternalStore(subscribe, getSnapshot, getSnapshot);
+}
+
+/** Read latest snapshot outside React (e.g. navigation guards). */
+export function readDiagnosisRun() { return snap; }
+
+/* ------------------------------------------------------------------ */
+
+export type StartDiagnosisInput = {
+  payload: DiagnosisRequest;
+  services: ServiceTarget[];
+  modules: ModuleToggles;
+  backendUrl: string;
+};
+
+/** Run the full diagnostic pipeline and update the store as steps complete. */
+export async function startDiagnosis(input: StartDiagnosisInput): Promise<void> {
+  const startedAt = new Date().toISOString();
+  // Reset prior outputs but keep inputs.
+  set({
+    state: { status: "running", startedAt },
+    payload: input.payload,
+    services: input.services,
+    modules: input.modules,
+    backendUrl: input.backendUrl,
+    backendResult: null, hwHealth: null, deployHealth: null,
+    chainSteps: [], chainBreak: null, chainConclusion: "",
+    arch: null, cpSteps: [], cpBreak: null, cpConclusion: "", tracedCallPoint: null,
+    rcReports: null, rcSteps: [], rcBreak: null, rcConclusion: "", logAnalysis: null,
+  });
+
+  try {
+    const { payload } = input;
+    // Pick representative IPs for the hardware/breakpoint engines.
+    const firstCtrl  = payload.knownDevices.find((d) => /controller/i.test(d.type))?.ip ?? "10.20.4.22";
+    const firstApp1  = payload.knownDevices.find((d) => /app1/i.test(d.type))?.ip       ?? "10.20.6.30";
+    const firstIn8   = payload.knownDevices.find((d) => /in8/i.test(d.type))?.ip        ?? "10.20.5.40";
+    const firstLight = payload.knownDevices.find((d) => /light/i.test(d.type))?.ip      ?? "10.20.7.50";
+
+    // Deployment + architecture are synchronous.
+    const deployHealth = readDeploymentHealth();
+    const arch = validateArchitecture(payload);
+    set({ deployHealth, arch });
+
+    // Hardware probe (mock-deterministic).
+    const hwPromise = readHardwareHealth({
+      controllerIp: firstCtrl, ipapp1Ip: firstApp1, ipin8Ip: firstIn8,
+      signalLightIp: firstLight, pulseGatewayIp: payload.virtualIp ?? undefined,
+    });
+
+    // Live signal-chain trace, streaming step updates into the store.
+    const chainPromise = traceSignalPath(
+      {
+        room: "Room 230", expectedGroup: "East Wing Signal Lights",
+        ipin8Ip: firstIn8, controllerIp: firstCtrl,
+        ipapp1Ip: firstApp1, signalLightIp: firstLight,
+        pulseGatewayIp: payload.virtualIp ?? undefined,
+      },
+      (steps) => set({ chainSteps: steps }),
+      80,
+    );
+
+    // Call-point + SIM-046 traces, also streaming.
+    const firstCp = payload.callPoints?.[0] ?? null;
+    if (firstCp) {
+      set({ tracedCallPoint: firstCp, rcReports: buildRoomControllerReports(payload) });
+      void traceCallPoint(payload, arch, firstCp, (s) => set({ cpSteps: s }), 80)
+        .then((r) => set({ cpBreak: r.breakpoint, cpConclusion: r.conclusion }));
+      void traceCallpointSim046(payload, firstCp, (s) => set({ rcSteps: s }), 60)
+        .then((r) => set({ rcBreak: r.breakpoint, rcConclusion: r.conclusion }));
+    } else {
+      set({ rcReports: buildRoomControllerReports(payload) });
+    }
+
+    // Backend + SSH log collection (optional — degrades gracefully).
+    let backendOk = false;
+    let backendMessage: string | undefined;
+    const backendPromise = runDiagnosis({ ...payload, services: input.services }, input.backendUrl).then(
+      (r) => { set({ backendResult: r, logAnalysis: r.logAnalysis ?? null }); backendOk = true; return null; },
+      (err) => { backendMessage = err instanceof Error ? err.message : String(err); return backendMessage; },
+    );
+
+    const [hw, chain] = await Promise.all([hwPromise, chainPromise, backendPromise]);
+    set({
+      hwHealth: hw,
+      chainBreak: chain.breakpoint,
+      chainConclusion: chain.conclusion,
+      state: {
+        status: "ready",
+        finishedAt: new Date().toISOString(),
+        site: payload.name,
+        deploymentType: payload.deploymentType ?? "Standalone",
+        backendOk,
+        backendMessage,
+      },
+    });
+  } catch (err) {
+    set({ state: { status: "error", message: err instanceof Error ? err.message : String(err) } });
+  }
+}
+
+/* ------------------------------------------------------------------ */
+/* Final Result derivation                                            */
+/* ------------------------------------------------------------------ */
+
+export type FinalResult = {
+  ok: boolean;
+  breakAt: string;        // e.g. "Pulse Gateway → IPConnect"
+  why: string;
+  evidence: string[];
+  fix: string[];
+  source: "SIM-046 Trace" | "Call Point Trace" | "Signal Chain" | "Backend Conclusion" | "None";
+};
+
+/**
+ * Distill the highest-confidence break across all engines into a single
+ * "Where did the system break?" answer for the top of the diagnosis page.
+ * Priority: SIM-046 break > Call-point break > generic chain break > backend.
+ */
+export function deriveFinalResult(s: DiagnosisRunSnapshot): FinalResult {
+  if (s.rcBreak) {
+    return {
+      ok: false,
+      breakAt: s.rcBreak.breakPoint,
+      why: s.rcBreak.likelyCause,
+      evidence: s.rcBreak.evidence,
+      fix: s.rcBreak.fix,
+      source: "SIM-046 Trace",
+    };
+  }
+  if (s.cpBreak) {
+    return {
+      ok: false,
+      breakAt: s.cpBreak.breakPoint,
+      why: s.cpBreak.likelyRootCause,
+      evidence: s.cpBreak.evidence,
+      fix: s.cpBreak.fix,
+      source: "Call Point Trace",
+    };
+  }
+  if (s.chainBreak) {
+    return {
+      ok: false,
+      breakAt: s.chainBreak.breakPoint,
+      why: s.chainBreak.likelyCause,
+      evidence: s.chainBreak.evidence,
+      fix: s.chainBreak.recommendedFix,
+      source: "Signal Chain",
+    };
+  }
+  if (s.backendResult && s.backendResult.issues.some((i) => i.severity === "Critical")) {
+    const top = s.backendResult.issues.find((i) => i.severity === "Critical")!;
+    return {
+      ok: false,
+      breakAt: top.title,
+      why: s.backendResult.conclusion,
+      evidence: s.backendResult.issues.map((i) => `[${i.severity}] ${i.title}`),
+      fix: ["Review backend issues list and remediate the highest-severity finding first."],
+      source: "Backend Conclusion",
+    };
+  }
+  // No break detected anywhere.
+  return {
+    ok: true,
+    breakAt: "End-to-end signal chain operational",
+    why: s.chainConclusion || s.cpConclusion || s.rcConclusion || "All probed layers responded as expected.",
+    evidence: [],
+    fix: [],
+    source: s.rcConclusion ? "SIM-046 Trace" : s.cpConclusion ? "Call Point Trace" : s.chainConclusion ? "Signal Chain" : "None",
+  };
+}
