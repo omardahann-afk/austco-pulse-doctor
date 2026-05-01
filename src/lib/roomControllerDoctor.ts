@@ -137,10 +137,10 @@ export function buildRoomControllerReports(req: DiagnosisRequest): RcReport[] {
   const idCounts = new Map<string, number>();
   rcs.forEach((c) => idCounts.set(c.controllerId, (idCounts.get(c.controllerId) ?? 0) + 1));
 
-  return rcs.map((c) => buildOne(c, idCounts));
+  return rcs.map((c) => buildOne(c, idCounts, rcs));
 }
 
-function buildOne(c: RoomController, idCounts: Map<string, number>): RcReport {
+function buildOne(c: RoomController, idCounts: Map<string, number>, allRcs: RoomController[]): RcReport {
   const f: RcFinding[] = [];
   const devices: IpnetDevice[] = c.ipnetDevices ?? [];
 
