@@ -123,9 +123,10 @@ export type RcDeviceModel =
 
 export type RcAuthStatus =
   | "untested"
-  | "authenticated"     // default admin/admin worked
+  | "authenticated_default"     // default admin/admin worked
   | "authenticated_custom" // tech-supplied credentials worked
   | "auth_failed"
+  | "auth_failed_custom"
   | "unreachable";
 
 export type RcCredentials = {
