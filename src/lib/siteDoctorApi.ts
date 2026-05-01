@@ -87,6 +87,59 @@ export type CallPointEntry = {
   expectedDisplay: string;     // IP-APP1 IP
 };
 
+/* ============ SIM-046: Room Controller / IPnet Router ============ */
+
+export type IpnetDeviceType =
+  | "Callpoint"
+  | "Smart Callpoint"
+  | "Pendant"
+  | "Over Door Light"
+  | "Zone Tone Sounder"
+  | "Relay"
+  | "Input Bridge"
+  | "Presence Device"
+  | "Unknown IPnet Device";
+
+export type IpnetDeviceStatus = "Online" | "Offline" | "Fault" | "Not verified";
+
+export type IpnetDevice = {
+  name: string;
+  type: IpnetDeviceType;
+  address: string;            // IPnet address e.g. "1.04"
+  serialNumber?: string;
+  zone?: string;
+  callTypes?: string[];
+  portRun?: "A" | "B";        // which IPnet connector run
+  status?: IpnetDeviceStatus;
+};
+
+export type RcZone        = { name: string; type: "Room" | "Group Signal" };
+export type RcGroupSignal = { name: string; zones: string[]; targetOdlOrZts: string; followMeLighting?: boolean };
+export type RcCallType    = { name: string; priority: number; tone: string; lightBehavior: string };
+export type RcLink        = { from: string; to: string };
+
+export type RoomController = {
+  name: string;
+  ip: string;
+  mac?: string;
+  controllerId: string;       // must be unique site-wide
+  location?: string;
+  vlan: string;
+  parentIpConnect?: string;
+  webInterfaceUrl?: string;
+  hasWebAccess?: boolean;
+  zones?: RcZone[];
+  groupSignals?: RcGroupSignal[];
+  callTypes?: RcCallType[];
+  ipnetDevices?: IpnetDevice[];
+  links?: RcLink[];
+  cancelLinks?: RcLink[];
+  remoteRelays?: RcLink[];
+  serversConfigured?: boolean;        // Network → Servers populated
+  ipnetDeviceListPopulated?: boolean;
+  eventViewerText?: string;           // technician-pasted Event Viewer log
+};
+
 import type { ServiceTarget, ServiceLogResult } from "./logEngine";
 export type { ServiceTarget, ServiceLogResult };
 
@@ -107,6 +160,8 @@ export type DiagnosisRequest = {
   pulseDevices?: PulseDevice[];
   controllers?: ControllerEntry[];
   callPoints?: CallPointEntry[];
+  // SIM-046 Room Controller / IPnet Router doctors
+  roomControllers?: RoomController[];
   // Real log collection (SSH targets handled by local site-doctor.js bridge)
   services?: ServiceTarget[];
 };
