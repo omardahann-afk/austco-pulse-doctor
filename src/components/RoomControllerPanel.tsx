@@ -1,19 +1,36 @@
 import type {
   RcReport, RcTraceStep, RcTraceBreak,
 } from "@/lib/roomControllerDoctor";
-import type { CallPointEntry } from "@/lib/siteDoctorApi";
+import type { CallPointEntry, RoomController, RcCredentials, RcAuthStatus } from "@/lib/siteDoctorApi";
+import { DEFAULT_RC_CREDENTIALS, shouldAutoApplyDefaultCreds } from "@/lib/siteDoctorApi";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {
   Cpu, Globe, Hash, MapPin, Network, AlertOctagon, AlertTriangle,
   CheckCircle2, XCircle, Loader2, Circle, MinusCircle, ChevronRight,
-  Wrench, ListTree, FileText,
+  Wrench, ListTree, FileText, KeyRound, ShieldAlert, ShieldCheck, Eye, EyeOff,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 /* ---------- Doctor cards ---------- */
 
 export function RoomControllerDoctorPanel({ reports }: { reports: RcReport[] }) {
+  return <RoomControllerDoctorPanelEditable reports={reports} />;
+}
+
+/**
+ * Editable variant — accepts onUpdate to mutate a controller (credentials, etc).
+ * The non-editable export above renders read-only by passing no handler.
+ */
+export function RoomControllerDoctorPanelEditable({
+  reports, onUpdateController, onRetryAuth,
+}: {
+  reports: RcReport[];
+  onUpdateController?: (name: string, patch: Partial<RoomController>) => void;
+  onRetryAuth?: (name: string) => void;
+}) {
   if (reports.length === 0) {
     return (
       <Card className="bg-card/70">
@@ -37,13 +54,26 @@ export function RoomControllerDoctorPanel({ reports }: { reports: RcReport[] }) 
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-3">
-        {reports.map((r) => <RcCard key={r.controller.name} report={r} />)}
+        {reports.map((r) => (
+          <RcCard
+            key={r.controller.name}
+            report={r}
+            onUpdateController={onUpdateController}
+            onRetryAuth={onRetryAuth}
+          />
+        ))}
       </CardContent>
     </Card>
   );
 }
 
-function RcCard({ report }: { report: RcReport }) {
+function RcCard({
+  report, onUpdateController, onRetryAuth,
+}: {
+  report: RcReport;
+  onUpdateController?: (name: string, patch: Partial<RoomController>) => void;
+  onRetryAuth?: (name: string) => void;
+}) {
   const c = report.controller;
   const crit = report.findings.filter((f) => f.severity === "Critical").length;
   const warn = report.findings.filter((f) => f.severity === "Warning").length;
@@ -57,7 +87,18 @@ function RcCard({ report }: { report: RcReport }) {
         {c.mac && <Pair icon={Hash} label="MAC" value={c.mac} mono />}
         {c.location && <Pair icon={MapPin} label="Loc" value={c.location} />}
         <Pair icon={Globe} label="Web" value={c.hasWebAccess ? "OK" : "Unreachable"} ok={c.hasWebAccess} bad={!c.hasWebAccess} />
+        <AuthBadge status={c.authStatus} isDefault={c.credentials?.isDefault} />
+        {c.model && <Badge variant="outline" className="text-[9px] uppercase tracking-wider">{c.model}</Badge>}
       </div>
+
+      {/* SIM-046 — Credentials editor */}
+      {(shouldAutoApplyDefaultCreds(c.model) || c.credentials) && (
+        <CredentialsEditor
+          controller={c}
+          onChange={(patch) => onUpdateController?.(c.name, patch)}
+          onRetryAuth={onRetryAuth ? () => onRetryAuth(c.name) : undefined}
+        />
+      )}
 
       <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-4">
         <Stat label="IPnet devices" value={String(report.ipnetSummary.total)} />
