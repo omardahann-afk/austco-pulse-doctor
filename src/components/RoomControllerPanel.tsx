@@ -126,31 +126,49 @@ function RcCard({
       ) : (
         <ul className="mt-2 space-y-1.5">
           {report.findings.map((f, i) => (
-            <li key={i} className="rounded-md border border-border/50 bg-card/60 p-2 text-xs">
-              <div className="flex items-center gap-1.5">
-                {f.severity === "Critical"
-                  ? <AlertOctagon className="h-3.5 w-3.5 text-critical" />
-                  : f.severity === "Warning"
-                    ? <AlertTriangle className="h-3.5 w-3.5 text-warning" />
-                    : <CheckCircle2 className="h-3.5 w-3.5 text-info" />}
-                <span className="font-medium">{f.title}</span>
-                <Badge variant="outline" className="ml-auto text-[9px] uppercase tracking-wider">{f.area}</Badge>
-              </div>
-              <div className="mt-1 text-muted-foreground">{f.detail}</div>
-              {f.evidence.length > 0 && (
-                <ul className="mt-1 space-y-0.5 rounded bg-background/40 p-1.5 font-mono text-[10px]">
-                  {f.evidence.map((e, j) => <li key={j}>• {e}</li>)}
-                </ul>
-              )}
-              <div className="mt-1 flex items-start gap-1.5 text-[11px]">
-                <Wrench className="mt-0.5 h-3 w-3 text-muted-foreground" />
-                <span>{f.fix.join(" → ")}</span>
-              </div>
-            </li>
+            <FindingRow key={i} finding={f} />
           ))}
         </ul>
       )}
     </div>
+  );
+}
+
+/* ---------- Finding row (with expandable Config Evidence + copy) ---------- */
+
+function FindingRow({ finding: f }: { finding: RcFinding }) {
+  return (
+    <li className="rounded-md border border-border/50 bg-card/60 p-2 text-xs">
+      <div className="flex items-center gap-1.5">
+        {f.severity === "Critical"
+          ? <AlertOctagon className="h-3.5 w-3.5 text-critical" />
+          : f.severity === "Warning"
+            ? <AlertTriangle className="h-3.5 w-3.5 text-warning" />
+            : <CheckCircle2 className="h-3.5 w-3.5 text-info" />}
+        <span className="font-medium">{f.title}</span>
+        <Badge variant="outline" className="ml-auto text-[9px] uppercase tracking-wider">{f.area}</Badge>
+      </div>
+      <div className="mt-1 text-muted-foreground">{f.detail}</div>
+      {f.evidence.length > 0 && (
+        <ul className="mt-1 space-y-0.5 rounded bg-background/40 p-1.5 font-mono text-[10px]">
+          {f.evidence.map((e, j) => <li key={j}>• {e}</li>)}
+        </ul>
+      )}
+      <div className="mt-1 flex items-start gap-1.5 text-[11px]">
+        <Wrench className="mt-0.5 h-3 w-3 text-muted-foreground" />
+        <span>{f.fix.join(" → ")}</span>
+      </div>
+      <ConfigEvidenceBlock
+        evidence={f.configEvidence}
+        copyText={() => summarizeEvidence({
+          title: f.title,
+          controller: f.controller,
+          likelyCause: f.detail,
+          fix: f.fix,
+          configEvidence: f.configEvidence,
+        })}
+      />
+    </li>
   );
 }
 
