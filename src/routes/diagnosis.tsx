@@ -398,7 +398,7 @@ function BreakpointDetails({ step }: { step: UnifiedStep }) {
           failed && "border-critical/60 text-critical",
           step.status === "Passed" && "border-success/60 text-success",
         )}>{step.status}</Badge>
-        <Badge variant="outline" className="text-[10px] uppercase tracking-wider">source: {step.source}</Badge>
+        <SourceBadge source={step.source} />
       </div>
       <p className="mt-2 text-xs">
         <span className="text-muted-foreground">Why:</span>{" "}
@@ -522,7 +522,13 @@ function ExpandableFinding({
           <button type="button" className="flex w-full items-center gap-1.5 px-2 py-1.5 text-left text-xs hover:bg-muted/20">
             <Icon className={cn("h-3.5 w-3.5 shrink-0", iconCls)} />
             <span className="font-medium">{title}</span>
-            <Badge variant="outline" className="ml-auto text-[9px] uppercase tracking-wider">{area}</Badge>
+            <Badge variant="outline" className={cn(
+              "ml-auto text-[9px] uppercase tracking-wider",
+              severity === "Critical" && "border-critical/60 text-critical",
+              severity === "Warning" && "border-warning/60 text-warning",
+            )}>{severity}</Badge>
+            <Badge variant="outline" className="text-[9px] uppercase tracking-wider">{area}</Badge>
+            <SourceBadge source={configEvidence.length ? "config" : "trace"} />
             <ChevronDown className={cn("h-3.5 w-3.5 text-muted-foreground transition-transform", open && "rotate-180")} />
           </button>
         </CollapsibleTrigger>
