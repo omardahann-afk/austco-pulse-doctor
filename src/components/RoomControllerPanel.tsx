@@ -530,3 +530,87 @@ function CredentialsEditor({
     </div>
   );
 }
+
+/* ---------- Config Evidence block (shared by findings + breakpoints) ---------- */
+
+function ConfigEvidenceBlock({
+  evidence, copyText,
+}: { evidence: ConfigEvidence[]; copyText: () => string }) {
+  const [open, setOpen] = useState(false);
+  const [copied, setCopied] = useState(false);
+
+  async function copy() {
+    try {
+      await navigator.clipboard.writeText(copyText());
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 1500);
+    } catch {
+      // Clipboard may be unavailable in some embedded contexts; fail silently.
+    }
+  }
+
+  return (
+    <div className="mt-2 rounded-md border border-border/50 bg-background/30">
+      <Collapsible open={open} onOpenChange={setOpen}>
+        <div className="flex items-center justify-between gap-2 px-2 py-1.5">
+          <CollapsibleTrigger asChild>
+            <button
+              type="button"
+              className="flex flex-1 items-center gap-1.5 text-left text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground hover:text-foreground"
+            >
+              <ClipboardList className="h-3.5 w-3.5" /> Config Evidence
+              <span className="font-normal normal-case text-muted-foreground">
+                ({evidence.length === 0 ? "not available" : `${evidence.length} row${evidence.length === 1 ? "" : "s"}`})
+              </span>
+              <ChevronDown className={cn("ml-auto h-3.5 w-3.5 transition-transform", open && "rotate-180")} />
+            </button>
+          </CollapsibleTrigger>
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            className="h-7 gap-1 text-[10px]"
+            onClick={copy}
+          >
+            {copied ? <Check className="h-3 w-3 text-success" /> : <Copy className="h-3 w-3" />}
+            {copied ? "Copied" : "Copy Evidence Summary"}
+          </Button>
+        </div>
+        <CollapsibleContent>
+          <div className="border-t border-border/40 px-2 py-2">
+            {evidence.length === 0 ? (
+              <div className="text-[11px] text-muted-foreground">
+                Config evidence not available — finding based on trace/log data only.
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="h-7 text-[10px] uppercase tracking-wider">Source</TableHead>
+                      <TableHead className="h-7 text-[10px] uppercase tracking-wider">Field</TableHead>
+                      <TableHead className="h-7 text-[10px] uppercase tracking-wider">Expected</TableHead>
+                      <TableHead className="h-7 text-[10px] uppercase tracking-wider">Actual</TableHead>
+                      <TableHead className="h-7 text-[10px] uppercase tracking-wider">Impact</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {evidence.map((e, i) => (
+                      <TableRow key={i} className="align-top">
+                        <TableCell className="py-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">{e.source}</TableCell>
+                        <TableCell className="py-1 font-mono text-[11px]">{e.field}</TableCell>
+                        <TableCell className="py-1 text-[11px]">{e.expected}</TableCell>
+                        <TableCell className="py-1 text-[11px]">{e.actual}</TableCell>
+                        <TableCell className="py-1 text-[11px] text-muted-foreground">{e.impact}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            )}
+          </div>
+        </CollapsibleContent>
+      </Collapsible>
+    </div>
+  );
+}
