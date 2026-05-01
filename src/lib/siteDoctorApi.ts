@@ -352,6 +352,9 @@ export const DEFAULT_PAYLOAD: DiagnosisRequest = {
       parentIpConnect: "IPConnect",
       webInterfaceUrl: "http://10.1.3.22/",
       hasWebAccess: true,
+      model: "IP-CCT",
+      credentials: { username: "admin", password: "admin", isDefault: true, rememberForSession: true },
+      authStatus: "untested",
       serversConfigured: true,
       ipnetDeviceListPopulated: true,
       zones: [
