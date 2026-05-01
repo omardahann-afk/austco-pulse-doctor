@@ -248,7 +248,7 @@ export type FinalResult = {
   why: string;
   evidence: string[];
   fix: string[];
-  source: "SIM-046 Trace" | "Call Point Trace" | "Signal Chain" | "Backend Conclusion" | "None";
+  source: "IPConnect CCP" | "SIM-046 Trace" | "Call Point Trace" | "Signal Chain" | "Backend Conclusion" | "None";
   /** Source-attributed config evidence rows that prove the finding. */
   configEvidence: ConfigEvidence[];
   /** Layer where the break happened, e.g. "Room Controller". */
@@ -263,6 +263,20 @@ export type FinalResult = {
  * Priority: SIM-046 break > Call-point break > generic chain break > backend.
  */
 export function deriveFinalResult(s: DiagnosisRunSnapshot): FinalResult {
+  // CCP failures ALWAYS win — config truth overrides behavior.
+  if (s.ccpOverride) {
+    return {
+      ok: false,
+      breakAt: s.ccpOverride.breakPoint,
+      why: s.ccpOverride.likelyCause,
+      evidence: s.ccpOverride.evidence,
+      fix: s.ccpOverride.fix,
+      source: "IPConnect CCP",
+      configEvidence: s.ccpOverride.configEvidence,
+      failedLayer: s.ccpOverride.failedLayer,
+      previousStepPassed: s.ccpOverride.previousStepPassed,
+    };
+  }
   if (s.rcBreak) {
     return {
       ok: false,
@@ -315,13 +329,19 @@ export function deriveFinalResult(s: DiagnosisRunSnapshot): FinalResult {
     };
   }
   // No break detected anywhere.
+  // If CCP passed and no behavior break either, lead with that fact.
+  const ccpPassed = s.ccpParse.status === "parsed" || s.ccpParse.status === "parsed_low_confidence";
   return {
     ok: true,
-    breakAt: "End-to-end signal chain operational",
-    why: s.chainConclusion || s.cpConclusion || s.rcConclusion || "All probed layers responded as expected.",
+    breakAt: ccpPassed
+      ? "CCP confirms config is correct. No behavior failure detected."
+      : "End-to-end signal chain operational",
+    why: ccpPassed
+      ? "CCP validation passed and all probed layers responded as expected."
+      : (s.chainConclusion || s.cpConclusion || s.rcConclusion || "All probed layers responded as expected."),
     evidence: [],
     fix: [],
-    source: s.rcConclusion ? "SIM-046 Trace" : s.cpConclusion ? "Call Point Trace" : s.chainConclusion ? "Signal Chain" : "None",
+    source: ccpPassed ? "IPConnect CCP" : s.rcConclusion ? "SIM-046 Trace" : s.cpConclusion ? "Call Point Trace" : s.chainConclusion ? "Signal Chain" : "None",
     configEvidence: [],
   };
 }
