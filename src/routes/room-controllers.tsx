@@ -66,9 +66,12 @@ function RoomControllersPage() {
       patchController(name, { authStatus: "untested", authMessage: "Auth probe is only attempted for IP-CCT / IP-PST2 family." });
       return;
     }
+    const usingDefaults = !!c.credentials?.isDefault;
     patchController(name, {
       authStatus: "untested" as RcAuthStatus,
-      authMessage: "Auth retry queued — will be performed by site-doctor.js on next Run Full Diagnosis.",
+      authMessage: usingDefaults
+        ? "Auth retry queued (admin/admin) — will be performed by site-doctor.js on next Run Full Diagnosis."
+        : "Auth retry queued (custom credentials) — will be performed by site-doctor.js on next Run Full Diagnosis.",
     });
   }
 
