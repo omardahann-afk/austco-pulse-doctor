@@ -391,20 +391,27 @@ function ResultsPanel({
 
   if (!hasAnything) {
     return (
-      <Card className="bg-card/70">
-        <CardHeader className="pb-3"><CardTitle className="text-base">Diagnosis Results</CardTitle></CardHeader>
-        <CardContent>
-          <div className="flex flex-col items-center justify-center gap-3 rounded-lg border border-dashed border-border/60 bg-muted/10 p-8 text-center">
-            {scanning ? <Loader2 className="h-6 w-6 animate-spin text-info" /> : <ScanLine className="h-6 w-6 text-muted-foreground" />}
-            <div className="text-sm font-medium">{scanning ? "Scanning site…" : "No diagnosis run yet"}</div>
-            <div className="max-w-xs text-xs text-muted-foreground">
-              {scanning
-                ? "Pinging hosts, scanning common ports across each VLAN, and walking the truth chain."
-                : "Configure the site on the left and press Run Full Diagnosis. Results appear here."}
+      <div className="space-y-4">
+        <Card className="bg-card/70">
+          <CardHeader className="pb-3"><CardTitle className="text-base">Diagnosis Results</CardTitle></CardHeader>
+          <CardContent>
+            <div className="flex flex-col items-center justify-center gap-3 rounded-lg border border-dashed border-border/60 bg-muted/10 p-8 text-center">
+              {scanning ? <Loader2 className="h-6 w-6 animate-spin text-info" /> : <ScanLine className="h-6 w-6 text-muted-foreground" />}
+              <div className="text-sm font-medium">{scanning ? "Scanning site…" : "No diagnosis run yet"}</div>
+              <div className="max-w-xs text-xs text-muted-foreground">
+                {scanning
+                  ? "Pinging hosts, scanning common ports across each VLAN, and walking the truth chain."
+                  : "Configure the site on the left and press Run Full Diagnosis. Results appear here."}
+              </div>
             </div>
-          </div>
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
+        <RealLogPanel
+          services={services} onChange={onServicesChange}
+          results={null} manualResults={manualLogs}
+          onManualAdd={onManualAdd} onManualClear={onManualClear}
+        />
+      </div>
     );
   }
 
