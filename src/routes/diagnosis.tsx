@@ -774,6 +774,179 @@ function ServiceRow({ svc }: { svc: ServiceLogResult }) {
 }
 
 /* =================================================================== */
+/*  CCP ANALYSIS                                                       */
+/* =================================================================== */
+
+function CcpAnalysisSection({ snap }: { snap: DiagnosisRunSnapshot }) {
+  const ccp = snap.ccpParse;
+  const findings = snap.ccpFindings;
+  const provided = ccp.status !== "not_provided";
+
+  return (
+    <Card className="bg-card/70">
+      <CardHeader className="pb-3">
+        <CardTitle className="flex items-center gap-2 text-sm">
+          <FileText className="h-4 w-4 text-info" /> CCP Analysis
+          <Badge variant="outline" className="ml-2 text-[10px] uppercase tracking-wider">
+            {ccp.status === "not_provided" ? "Not provided"
+              : ccp.status === "parsed" ? "Parsed"
+              : ccp.status === "parsed_low_confidence" ? "Low confidence"
+              : "Parse failed"}
+          </Badge>
+          <SourceBadge source="IPConnect CCP" />
+          <span className="ml-auto text-[10px] font-normal text-muted-foreground">
+            confidence: <span className="font-semibold text-foreground">{ccp.confidence}</span>
+          </span>
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        {!provided ? (
+          <div className="rounded border border-dashed border-border/60 bg-muted/10 px-3 py-3 text-xs text-muted-foreground">
+            CCP not provided — configuration validation skipped. Upload, paste, or pull a CCP from the Command Center to enable config-truth diagnostics.
+          </div>
+        ) : (
+          <>
+            <div className="grid gap-2 sm:grid-cols-2 md:grid-cols-4">
+              <CcpStat label="Controllers" value={ccp.controllers.length} />
+              <CcpStat label="Rooms" value={ccp.rooms.length} />
+              <CcpStat label="Devices" value={ccp.devices.length} />
+              <CcpStat label="Zones" value={ccp.zones.length} />
+              <CcpStat label="Group Signals" value={ccp.groupSignals.length} />
+              <CcpStat label="Call Types" value={ccp.callTypes.length} />
+              <CcpStat label="Output Rules" value={ccp.outputRules.length} />
+              <CcpStat label="Cancel Rules" value={ccp.cancelRules.length} />
+            </div>
+
+            {ccp.controllers.length + ccp.devices.length + ccp.groupSignals.length > 0 && (
+              <div className="overflow-x-auto rounded-md border border-border/50 bg-background/30">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Entity</TableHead>
+                      <TableHead>Name</TableHead>
+                      <TableHead>Controller</TableHead>
+                      <TableHead>Room/Zone</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead>Confidence</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {ccp.controllers.slice(0, 10).map((c, i) => (
+                      <TableRow key={`c${i}`}>
+                        <TableCell className="text-[11px] uppercase tracking-wider">Controller</TableCell>
+                        <TableCell className="text-xs font-medium">{c.name}</TableCell>
+                        <TableCell className="font-mono text-[11px]">{c.controllerId}</TableCell>
+                        <TableCell className="text-xs text-muted-foreground">{c.location}</TableCell>
+                        <TableCell><span className="text-[10px] uppercase tracking-wider text-success">in CCP</span></TableCell>
+                        <TableCell className="text-[11px]">{c.confidence}</TableCell>
+                      </TableRow>
+                    ))}
+                    {ccp.devices.slice(0, 10).map((d, i) => (
+                      <TableRow key={`d${i}`}>
+                        <TableCell className="text-[11px] uppercase tracking-wider">Device</TableCell>
+                        <TableCell className="text-xs font-medium">{d.name}</TableCell>
+                        <TableCell className="font-mono text-[11px]">{d.controllerId}</TableCell>
+                        <TableCell className="text-xs text-muted-foreground">{d.room}</TableCell>
+                        <TableCell><span className="text-[10px] uppercase tracking-wider text-success">in CCP</span></TableCell>
+                        <TableCell className="text-[11px]">{d.confidence}</TableCell>
+                      </TableRow>
+                    ))}
+                    {ccp.groupSignals.slice(0, 10).map((g, i) => (
+                      <TableRow key={`g${i}`}>
+                        <TableCell className="text-[11px] uppercase tracking-wider">Group Signal</TableCell>
+                        <TableCell className="text-xs font-medium">{g.name}</TableCell>
+                        <TableCell className="font-mono text-[11px]">{g.targetController}</TableCell>
+                        <TableCell className="text-xs text-muted-foreground">{g.includedZones.join(", ") || "—"}</TableCell>
+                        <TableCell><span className="text-[10px] uppercase tracking-wider text-success">in CCP</span></TableCell>
+                        <TableCell className="text-[11px]">{g.confidence}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            )}
+
+            {findings.length > 0 ? (
+              <div className="space-y-2">
+                <div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">CCP Findings</div>
+                {findings.map((f, i) => (
+                  <div key={i} className={cn(
+                    "rounded border p-2.5",
+                    f.severity === "Critical" ? "border-critical/50 bg-critical/5" :
+                    f.severity === "Warning"  ? "border-warning/50 bg-warning/5" :
+                                                "border-border/50 bg-background/30",
+                  )}>
+                    <div className="flex items-center gap-2">
+                      <Badge variant="outline" className={cn("text-[10px] uppercase tracking-wider",
+                        f.severity === "Critical" && "border-critical/60 text-critical",
+                        f.severity === "Warning"  && "border-warning/60 text-warning",
+                      )}>{f.severity}</Badge>
+                      <span className="text-sm font-medium">{f.title}</span>
+                      <span className="ml-auto text-[10px] text-muted-foreground">rule {f.rule}</span>
+                    </div>
+                    <p className="mt-1 text-xs text-muted-foreground">{f.detail}</p>
+                    {f.evidence.length > 0 && (
+                      <div className="mt-2 overflow-x-auto rounded border border-border/40 bg-background/40">
+                        <Table>
+                          <TableHeader>
+                            <TableRow>
+                              <TableHead>Source</TableHead>
+                              <TableHead>Field</TableHead>
+                              <TableHead>Expected</TableHead>
+                              <TableHead>Actual</TableHead>
+                              <TableHead>Impact</TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {f.evidence.map((e, k) => (
+                              <TableRow key={k}>
+                                <TableCell className="font-mono text-[11px]">{e.source}</TableCell>
+                                <TableCell className="font-mono text-[11px]">{e.field}</TableCell>
+                                <TableCell className="text-xs">{e.expected}</TableCell>
+                                <TableCell className="text-xs text-critical">{e.actual}</TableCell>
+                                <TableCell className="text-xs text-muted-foreground">{e.impact}</TableCell>
+                              </TableRow>
+                            ))}
+                          </TableBody>
+                        </Table>
+                      </div>
+                    )}
+                    {f.fix.length > 0 && (
+                      <ol className="mt-2 list-decimal space-y-0.5 pl-5 text-[11px] text-muted-foreground">
+                        {f.fix.map((s, k) => <li key={k}>{s}</li>)}
+                      </ol>
+                    )}
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="flex items-center gap-1.5 text-xs text-success">
+                <CheckCircle2 className="h-3.5 w-3.5" /> CCP validation passed — config matches site payload.
+              </div>
+            )}
+
+            {ccp.warnings.length > 0 && (
+              <ul className="rounded border border-warning/40 bg-warning/5 p-2 text-[11px] text-warning">
+                {ccp.warnings.map((w, i) => <li key={i}>• {w}</li>)}
+              </ul>
+            )}
+          </>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+function CcpStat({ label, value }: { label: string; value: number }) {
+  return (
+    <div className="rounded border border-border/40 bg-background/30 px-2.5 py-1.5">
+      <div className="text-[10px] uppercase tracking-wider text-muted-foreground">{label}</div>
+      <div className="text-base font-semibold tabular-nums">{value}</div>
+    </div>
+  );
+}
+
+/* =================================================================== */
 /*  DEPLOYMENT HEALTH                                                  */
 /* =================================================================== */
 
