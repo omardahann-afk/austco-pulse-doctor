@@ -322,6 +322,19 @@ export function RoomControllerBreakpointMap({
                 {breakpoint.fix.map((s, i) => <li key={i}>{s}</li>)}
               </ol>
             </div>
+            <ConfigEvidenceBlock
+              evidence={breakpoint.configEvidence}
+              copyText={() => summarizeEvidence({
+                title: `Break at ${breakpoint.breakPoint}`,
+                breakPoint: breakpoint.breakPoint,
+                previousStepPassed: breakpoint.previousStepPassed,
+                failedStep: breakpoint.failedStep,
+                likelyCause: breakpoint.likelyCause,
+                fix: breakpoint.fix,
+                configEvidence: breakpoint.configEvidence,
+                controller: callPoint.controller,
+              })}
+            />
           </CardContent>
         </Card>
       ) : (
