@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as TraceRouteImport } from './routes/trace'
 import { Route as SiteMapRouteImport } from './routes/site-map'
 import { Route as SignalLightsRouteImport } from './routes/signal-lights'
+import { Route as RoomControllersRouteImport } from './routes/room-controllers'
 import { Route as RedundancyRouteImport } from './routes/redundancy'
 import { Route as NetworkRouteImport } from './routes/network'
 import { Route as KnowledgeRouteImport } from './routes/knowledge'
@@ -37,6 +38,11 @@ const SiteMapRoute = SiteMapRouteImport.update({
 const SignalLightsRoute = SignalLightsRouteImport.update({
   id: '/signal-lights',
   path: '/signal-lights',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const RoomControllersRoute = RoomControllersRouteImport.update({
+  id: '/room-controllers',
+  path: '/room-controllers',
   getParentRoute: () => rootRouteImport,
 } as any)
 const RedundancyRoute = RedundancyRouteImport.update({
@@ -107,6 +113,7 @@ export interface FileRoutesByFullPath {
   '/knowledge': typeof KnowledgeRoute
   '/network': typeof NetworkRoute
   '/redundancy': typeof RedundancyRoute
+  '/room-controllers': typeof RoomControllersRoute
   '/signal-lights': typeof SignalLightsRoute
   '/site-map': typeof SiteMapRoute
   '/trace': typeof TraceRoute
@@ -123,6 +130,7 @@ export interface FileRoutesByTo {
   '/knowledge': typeof KnowledgeRoute
   '/network': typeof NetworkRoute
   '/redundancy': typeof RedundancyRoute
+  '/room-controllers': typeof RoomControllersRoute
   '/signal-lights': typeof SignalLightsRoute
   '/site-map': typeof SiteMapRoute
   '/trace': typeof TraceRoute
@@ -140,6 +148,7 @@ export interface FileRoutesById {
   '/knowledge': typeof KnowledgeRoute
   '/network': typeof NetworkRoute
   '/redundancy': typeof RedundancyRoute
+  '/room-controllers': typeof RoomControllersRoute
   '/signal-lights': typeof SignalLightsRoute
   '/site-map': typeof SiteMapRoute
   '/trace': typeof TraceRoute
@@ -158,6 +167,7 @@ export interface FileRouteTypes {
     | '/knowledge'
     | '/network'
     | '/redundancy'
+    | '/room-controllers'
     | '/signal-lights'
     | '/site-map'
     | '/trace'
@@ -174,6 +184,7 @@ export interface FileRouteTypes {
     | '/knowledge'
     | '/network'
     | '/redundancy'
+    | '/room-controllers'
     | '/signal-lights'
     | '/site-map'
     | '/trace'
@@ -190,6 +201,7 @@ export interface FileRouteTypes {
     | '/knowledge'
     | '/network'
     | '/redundancy'
+    | '/room-controllers'
     | '/signal-lights'
     | '/site-map'
     | '/trace'
@@ -207,6 +219,7 @@ export interface RootRouteChildren {
   KnowledgeRoute: typeof KnowledgeRoute
   NetworkRoute: typeof NetworkRoute
   RedundancyRoute: typeof RedundancyRoute
+  RoomControllersRoute: typeof RoomControllersRoute
   SignalLightsRoute: typeof SignalLightsRoute
   SiteMapRoute: typeof SiteMapRoute
   TraceRoute: typeof TraceRoute
@@ -233,6 +246,13 @@ declare module '@tanstack/react-router' {
       path: '/signal-lights'
       fullPath: '/signal-lights'
       preLoaderRoute: typeof SignalLightsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/room-controllers': {
+      id: '/room-controllers'
+      path: '/room-controllers'
+      fullPath: '/room-controllers'
+      preLoaderRoute: typeof RoomControllersRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/redundancy': {
@@ -327,6 +347,7 @@ const rootRouteChildren: RootRouteChildren = {
   KnowledgeRoute: KnowledgeRoute,
   NetworkRoute: NetworkRoute,
   RedundancyRoute: RedundancyRoute,
+  RoomControllersRoute: RoomControllersRoute,
   SignalLightsRoute: SignalLightsRoute,
   SiteMapRoute: SiteMapRoute,
   TraceRoute: TraceRoute,
