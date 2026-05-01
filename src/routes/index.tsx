@@ -554,6 +554,18 @@ function ResultsPanel({
         />
       )}
 
+      {/* 3c. SIM-046 Room Controller Doctor + IPnet Tree + Breakpoint Map */}
+      {rcReports && rcReports.length > 0 && <RoomControllerDoctorPanel reports={rcReports} />}
+      {rcReports && rcReports.length > 0 && <IpnetDeviceTreePanel reports={rcReports} />}
+      {tracedCallPoint && rcSteps.length > 0 && (
+        <RoomControllerBreakpointMap
+          callPoint={tracedCallPoint}
+          steps={rcSteps}
+          breakpoint={rcBreak}
+          conclusion={rcConclusion}
+        />
+      )}
+
       {/* 4. Root Cause Analysis */}
       {(breakpoint || chainConclusion) && (
         <BreakpointReport bp={breakpoint} conclusion={chainConclusion} />
