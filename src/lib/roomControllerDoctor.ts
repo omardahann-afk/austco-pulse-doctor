@@ -17,6 +17,29 @@ import { shouldAutoApplyDefaultCreds } from "./siteDoctorApi";
 
 export type RcSeverity = "Info" | "Warning" | "Critical";
 
+/**
+ * Verifiable, source-attributed config evidence row that proves a finding.
+ * Each row should map to a specific field in declared/parsed config.
+ * Never invent values — if missing, omit the row or use the explicit
+ * "Not verified" sentinel ({@link NOT_VERIFIED}).
+ */
+export type ConfigEvidence = {
+  source:
+    | "Room Controller Config"
+    | "IPnet Device List"
+    | "Network → Servers"
+    | "Event Viewer"
+    | "Auth Probe"
+    | "Site Payload"
+    | "Trace Engine";
+  field: string;
+  expected: string;
+  actual: string;
+  impact: string;
+};
+
+export const NOT_VERIFIED = "Not verified";
+
 export type RcFinding = {
   controller: string;
   area: string;
@@ -25,6 +48,7 @@ export type RcFinding = {
   detail: string;
   evidence: string[];
   fix: string[];
+  configEvidence: ConfigEvidence[];
 };
 
 export type RcEventViewerEntry = {
@@ -67,6 +91,7 @@ export type RcTraceBreak = {
   evidence: string[];
   likelyCause: string;
   fix: string[];
+  configEvidence: ConfigEvidence[];
 };
 
 export type RcTraceResult = {
