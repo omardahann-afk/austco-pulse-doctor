@@ -40,6 +40,46 @@ export type ConfigEvidence = {
 
 export const NOT_VERIFIED = "Not verified";
 
+/**
+ * Build a plain-text summary suitable for clipboard / escalation tickets.
+ * Used by both Findings and Trace Breakpoints.
+ */
+export function summarizeEvidence(input: {
+  title: string;
+  breakPoint?: string;
+  previousStepPassed?: string;
+  failedStep?: string;
+  likelyCause: string;
+  fix: string[];
+  configEvidence: ConfigEvidence[];
+  controller?: string;
+}): string {
+  const lines: string[] = [];
+  if (input.breakPoint) lines.push(`Break found at: ${input.breakPoint}`);
+  else lines.push(`Finding: ${input.title}`);
+  if (input.controller) lines.push(`Controller: ${input.controller}`);
+  if (input.previousStepPassed) lines.push(`Previous step passed: ${input.previousStepPassed}`);
+  if (input.failedStep) lines.push(`Failed step: ${input.failedStep}`);
+  lines.push("");
+  lines.push("Config Evidence:");
+  if (input.configEvidence.length === 0) {
+    lines.push("  (Config evidence not available — finding based on trace/log data only.)");
+  } else {
+    for (const e of input.configEvidence) {
+      lines.push(`  - [${e.source}] ${e.field}`);
+      lines.push(`      expected: ${e.expected}`);
+      lines.push(`      actual:   ${e.actual}`);
+      lines.push(`      impact:   ${e.impact}`);
+    }
+  }
+  lines.push("");
+  lines.push(`Likely cause: ${input.likelyCause}`);
+  lines.push("");
+  lines.push("Technician fix:");
+  input.fix.forEach((s, i) => lines.push(`  ${i + 1}. ${s}`));
+  return lines.join("\n");
+}
+
 export type RcFinding = {
   controller: string;
   area: string;
