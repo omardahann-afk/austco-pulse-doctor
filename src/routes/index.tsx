@@ -1,49 +1,46 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
+import { useNavigate } from "@tanstack/react-router";
 import { PageHeader } from "@/components/PageHeader";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Switch } from "@/components/ui/switch";
 import {
-  ScanLine, Loader2, Plus, X, Settings2, ShieldCheck, AlertOctagon, Server,
-  Network, CircuitBoard, Cable, ChevronRight, CheckCircle2, XCircle, AlertTriangle,
-  HardDrive, Workflow,
+  ScanLine, Loader2, Plus, X, Settings2, Server, Network, CircuitBoard, Cpu,
+  Router, Workflow, ShieldCheck, CheckCircle2, XCircle, AlertCircle,
 } from "lucide-react";
 import {
-  DEFAULT_PAYLOAD, runDiagnosis, getBackendUrl, setBackendUrl, DEFAULT_BACKEND_URL,
-  type DiagnosisRequest, type DiagnosisResponse,
+  DEFAULT_PAYLOAD, getBackendUrl, setBackendUrl, DEFAULT_BACKEND_URL,
+  type DiagnosisRequest, type DeploymentType, type RoomController, type CallPointEntry,
 } from "@/lib/siteDoctorApi";
+import { defaultServiceTargets } from "@/lib/logEngine";
 import {
-  traceSignalPath, readHardwareHealth, readDeploymentHealth,
-  type ChainStep, type Breakpoint, type HardwareHealthRow, type DeploymentHealthCheck,
-} from "@/lib/breakpointEngine";
-import { BreakpointMap } from "@/components/BreakpointMap";
-import { BreakpointReport } from "@/components/BreakpointReport";
-import { validateArchitecture, type ArchitectureReport } from "@/lib/architectureValidator";
-import { traceCallPoint, type CallPointStep, type CallPointBreakpoint } from "@/lib/callPointTrace";
-import { ArchitecturePanel } from "@/components/ArchitecturePanel";
-import { CallPointTracePanel } from "@/components/CallPointTracePanel";
-import type { CallPointEntry } from "@/lib/siteDoctorApi";
-import { RealLogPanel } from "@/components/RealLogPanel";
-import { defaultServiceTargets, type ServiceTarget, type ServiceLogResult } from "@/lib/logEngine";
-import {
-  buildRoomControllerReports, traceCallpointSim046,
-  type RcReport, type RcTraceStep, type RcTraceBreak,
-} from "@/lib/roomControllerDoctor";
-import {
-  RoomControllerDoctorPanel, IpnetDeviceTreePanel, RoomControllerBreakpointMap,
-} from "@/components/RoomControllerPanel";
+  startDiagnosis, DEFAULT_MODULE_TOGGLES, type ModuleToggleKey, type ModuleToggles,
+} from "@/lib/diagnosisRunStore";
 
 export const Route = createFileRoute("/")({
   head: () => ({ meta: [
     { title: "Command Center — Austco Site Doctor" },
-    { name: "description", content: "Configure site network layout and run a full Austco diagnosis against the local diagnostic backend." },
+    { name: "description", content: "Configure the site, then run a full Austco diagnosis. Results open in the trace-first diagnosis view." },
   ]}),
   component: CommandCenter,
 });
+
+const DEPLOYMENT_OPTIONS: DeploymentType[] = ["Standalone", "Redundant Pair", "Multi-PuGa", "Floor Controller", "Integration Server Big"];
+
+const MODULE_LABELS: Record<ModuleToggleKey, string> = {
+  pulseGateway: "Pulse Gateway",
+  ipconnect: "IPConnect",
+  inga: "INGA",
+  license: "License",
+  controllers: "Controllers",
+  webDevices: "WebDevices",
+  vocera: "Vocera",
+  voip: "VoIP",
+};
+const OPTIONAL_MODULES: ModuleToggleKey[] = ["webDevices", "vocera", "voip"];
 
 function SectionTitle({ icon: Icon, title, sub }: { icon: typeof Server; title: string; sub?: string }) {
   return (
