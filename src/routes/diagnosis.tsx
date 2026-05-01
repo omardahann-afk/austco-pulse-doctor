@@ -627,20 +627,36 @@ function IpnetTreeSection({ snap }: { snap: DiagnosisRunSnapshot }) {
 
 function ServiceHealthSection({ snap }: { snap: DiagnosisRunSnapshot }) {
   const logs = snap.logAnalysis;
-  // Filter by enabled modules where we can map them.
   const enabled = snap.modules;
+  // Mandatory services always show; optional services are hidden unless the
+  // matching module is enabled OR the backend actually returned data for it
+  // (i.e. it was detected on the wire).
   const moduleMap: Record<string, keyof typeof enabled | undefined> = {
     "Pulse Gateway": "pulseGateway",
-    "IPConnect": "ipconnect",
+    "Pulse Manage":  "pulseGateway",
+    "IPConnect":     "ipconnect",
     "Integration Gateway": "ipconnect",
     "License Service": "license",
-    "Pulse Manage": "pulseGateway",
-    "Mobile Gateway": "webDevices",
+    // Optional → mapped to the toggle that gates them
+    "Mobile Gateway":  "webDevices",
+    "WebSocket MQTT Adapter": "webDevices",
+    "MQTT Broker":            "webDevices",
+    "Vocera":   "vocera",
+    "VoIP":     "voip",
+    "Paging":   "voip",
+    "HL7":      "voip",
+    "RTLS Gateway": "voip",
   };
+  const OPTIONAL: ModuleToggleKey[] = ["webDevices", "vocera", "voip"];
   const services = (logs ?? []).filter((s) => {
     const k = moduleMap[s.service];
-    return !k || enabled[k] !== false;
+    if (!k) return true;
+    if (!OPTIONAL.includes(k)) return enabled[k] !== false;
+    // Optional: hide unless explicitly enabled OR the service has data.
+    if (enabled[k]) return true;
+    return s.status === "reachable" || s.errors.length > 0 || s.warnings.length > 0;
   });
+  const hiddenCount = (logs ?? []).length - services.length;
 
   return (
     <Card className="bg-card/70">
@@ -660,6 +676,7 @@ function ServiceHealthSection({ snap }: { snap: DiagnosisRunSnapshot }) {
         ) : services.length === 0 ? (
           <div className="px-4 py-6 text-xs text-muted-foreground">No enabled services returned logs.</div>
         ) : (
+          <>
           <Table>
             <TableHeader>
               <TableRow>
@@ -674,6 +691,12 @@ function ServiceHealthSection({ snap }: { snap: DiagnosisRunSnapshot }) {
               {services.map((s) => <ServiceRow key={s.service} svc={s} />)}
             </TableBody>
           </Table>
+          {hiddenCount > 0 && (
+            <div className="border-t border-border/40 px-4 py-2 text-[10px] text-muted-foreground">
+              {hiddenCount} optional service{hiddenCount === 1 ? "" : "s"} hidden — enable on Command Center to show.
+            </div>
+          )}
+          </>
         )}
       </CardContent>
     </Card>
@@ -702,7 +725,7 @@ function ServiceRow({ svc }: { svc: ServiceLogResult }) {
           </span>
         </TableCell>
         <TableCell className="text-right font-mono text-xs">{svc.errors.length}</TableCell>
-        <TableCell><span className="rounded bg-muted/40 px-1.5 py-0.5 font-mono text-[10px] uppercase text-muted-foreground">log</span></TableCell>
+        <TableCell><SourceBadge source="log" /></TableCell>
       </TableRow>
       {open && (
         <TableRow className="bg-background/40">
