@@ -27,6 +27,8 @@ import { traceCallPoint, type CallPointStep, type CallPointBreakpoint } from "@/
 import { ArchitecturePanel } from "@/components/ArchitecturePanel";
 import { CallPointTracePanel } from "@/components/CallPointTracePanel";
 import type { CallPointEntry } from "@/lib/siteDoctorApi";
+import { RealLogPanel } from "@/components/RealLogPanel";
+import { defaultServiceTargets, type ServiceTarget, type ServiceLogResult } from "@/lib/logEngine";
 
 export const Route = createFileRoute("/")({
   head: () => ({ meta: [
@@ -70,6 +72,8 @@ function CommandCenter() {
   const [cpBreak, setCpBreak] = useState<CallPointBreakpoint | null>(null);
   const [cpConclusion, setCpConclusion] = useState<string>("");
   const [tracedCallPoint, setTracedCallPoint] = useState<CallPointEntry | null>(null);
+  const [services, setServices] = useState<ServiceTarget[]>(() => defaultServiceTargets());
+  const [manualLogs, setManualLogs] = useState<ServiceLogResult[]>([]);
 
   useEffect(() => { setBackendUrlState(getBackendUrl()); }, []);
 
@@ -120,7 +124,7 @@ function CommandCenter() {
       }
 
       // Backend call may fail (laptop not running site-doctor.js) — degrade gracefully.
-      const backendPromise = runDiagnosis(payload, backendUrl).then(
+      const backendPromise = runDiagnosis({ ...payload, services }, backendUrl).then(
         (r) => { setResult(r); return null; },
         (err) => err instanceof Error ? err.message : String(err),
       );
@@ -337,6 +341,11 @@ function CommandCenter() {
             arch={arch}
             tracedCallPoint={tracedCallPoint}
             cpSteps={cpSteps} cpBreak={cpBreak} cpConclusion={cpConclusion}
+            services={services}
+            onServicesChange={setServices}
+            manualLogs={manualLogs}
+            onManualAdd={(r) => setManualLogs((prev) => [...prev, r])}
+            onManualClear={() => setManualLogs([])}
           />
         </div>
       </form>
@@ -348,6 +357,7 @@ function ResultsPanel({
   result, error, scanning, backendUrl,
   hwHealth, deployHealth, chainSteps, breakpoint, chainConclusion,
   arch, tracedCallPoint, cpSteps, cpBreak, cpConclusion,
+  services, onServicesChange, manualLogs, onManualAdd, onManualClear,
 }: {
   result: DiagnosisResponse | null; error: string | null; scanning: boolean; backendUrl: string;
   hwHealth: HardwareHealthRow[] | null; deployHealth: DeploymentHealthCheck[] | null;
@@ -355,41 +365,60 @@ function ResultsPanel({
   arch: ArchitectureReport | null;
   tracedCallPoint: CallPointEntry | null;
   cpSteps: CallPointStep[]; cpBreak: CallPointBreakpoint | null; cpConclusion: string;
+  services: ServiceTarget[];
+  onServicesChange: (next: ServiceTarget[]) => void;
+  manualLogs: ServiceLogResult[];
+  onManualAdd: (r: ServiceLogResult) => void;
+  onManualClear: () => void;
 }) {
   const hasAnything = result || hwHealth || deployHealth || chainSteps.length > 0 || arch || cpSteps.length > 0;
 
   if (error && !hasAnything) {
     return (
-      <Alert className="border-critical/40 bg-critical/10 text-critical">
-        <AlertOctagon className="h-4 w-4" />
-        <AlertTitle>Backend unreachable</AlertTitle>
-        <AlertDescription className="space-y-2 text-foreground/80">
-          <p className="font-mono text-xs">{error}</p>
-          <p className="text-xs">
-            Confirm <span className="font-mono">node site-doctor.js</span> is running and reachable at{" "}
-            <span className="font-mono">{backendUrl}</span>. Check CORS, firewall, and that you're on the site network.
-          </p>
-        </AlertDescription>
-      </Alert>
+      <div className="space-y-4">
+        <Alert className="border-critical/40 bg-critical/10 text-critical">
+          <AlertOctagon className="h-4 w-4" />
+          <AlertTitle>Backend unreachable</AlertTitle>
+          <AlertDescription className="space-y-2 text-foreground/80">
+            <p className="font-mono text-xs">{error}</p>
+            <p className="text-xs">
+              Confirm <span className="font-mono">node site-doctor.js</span> is running and reachable at{" "}
+              <span className="font-mono">{backendUrl}</span>. You can still paste logs manually below.
+            </p>
+          </AlertDescription>
+        </Alert>
+        <RealLogPanel
+          services={services} onChange={onServicesChange}
+          results={null} manualResults={manualLogs}
+          onManualAdd={onManualAdd} onManualClear={onManualClear}
+        />
+      </div>
     );
   }
 
   if (!hasAnything) {
     return (
-      <Card className="bg-card/70">
-        <CardHeader className="pb-3"><CardTitle className="text-base">Diagnosis Results</CardTitle></CardHeader>
-        <CardContent>
-          <div className="flex flex-col items-center justify-center gap-3 rounded-lg border border-dashed border-border/60 bg-muted/10 p-8 text-center">
-            {scanning ? <Loader2 className="h-6 w-6 animate-spin text-info" /> : <ScanLine className="h-6 w-6 text-muted-foreground" />}
-            <div className="text-sm font-medium">{scanning ? "Scanning site…" : "No diagnosis run yet"}</div>
-            <div className="max-w-xs text-xs text-muted-foreground">
-              {scanning
-                ? "Pinging hosts, scanning common ports across each VLAN, and walking the truth chain."
-                : "Configure the site on the left and press Run Full Diagnosis. Results appear here."}
+      <div className="space-y-4">
+        <Card className="bg-card/70">
+          <CardHeader className="pb-3"><CardTitle className="text-base">Diagnosis Results</CardTitle></CardHeader>
+          <CardContent>
+            <div className="flex flex-col items-center justify-center gap-3 rounded-lg border border-dashed border-border/60 bg-muted/10 p-8 text-center">
+              {scanning ? <Loader2 className="h-6 w-6 animate-spin text-info" /> : <ScanLine className="h-6 w-6 text-muted-foreground" />}
+              <div className="text-sm font-medium">{scanning ? "Scanning site…" : "No diagnosis run yet"}</div>
+              <div className="max-w-xs text-xs text-muted-foreground">
+                {scanning
+                  ? "Pinging hosts, scanning common ports across each VLAN, and walking the truth chain."
+                  : "Configure the site on the left and press Run Full Diagnosis. Results appear here."}
+              </div>
             </div>
-          </div>
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
+        <RealLogPanel
+          services={services} onChange={onServicesChange}
+          results={null} manualResults={manualLogs}
+          onManualAdd={onManualAdd} onManualClear={onManualClear}
+        />
+      </div>
     );
   }
 
@@ -433,6 +462,16 @@ function ResultsPanel({
 
       {/* 1b. Architecture validation (Tacera/Pulse rules) */}
       {arch && <ArchitecturePanel report={arch} />}
+
+      {/* 1c. Real Log Analysis (SSH via local bridge + manual paste fallback) */}
+      <RealLogPanel
+        services={services}
+        onChange={onServicesChange}
+        results={result?.logAnalysis ?? null}
+        manualResults={manualLogs}
+        onManualAdd={onManualAdd}
+        onManualClear={onManualClear}
+      />
 
       {/* 2. Hardware Communication Health */}
       {hwHealth && (
