@@ -285,7 +285,89 @@ export type FinalResult = {
   failedLayer?: string;
   /** The previous step that *did* pass — useful context above the trace. */
   previousStepPassed?: string;
+  /** Truth-state pillars rendered under the Final Result block. */
+  truth: TruthStates;
+  /** Other verified failures that did NOT win primary, surfaced inline. */
+  secondaryFindings: SecondaryFinding[];
 };
+
+/** Per-pillar truth states. See user spec "Truth states". */
+export type NetworkTruth  = "PASS" | "FAIL_VERIFIED" | "NOT_VERIFIED";
+export type CcpTruth      = "PASS" | "FAIL_VERIFIED" | "NOT_PROVIDED" | "LOW_CONFIDENCE";
+export type BehaviorTruth = "PASS" | "FAIL" | "MOCK";
+
+export type TruthStates = {
+  network: NetworkTruth;
+  ccp: CcpTruth;
+  behavior: BehaviorTruth;
+};
+
+export type SecondaryFinding = {
+  source: FinalResult["source"];
+  breakAt: string;
+  why: string;
+  evidence: string[];
+  fix: string[];
+  configEvidence: ConfigEvidence[];
+};
+
+/* ------------------------------------------------------------------ */
+/* Truth-state computation                                            */
+/* ------------------------------------------------------------------ */
+
+/** Network truth: PASS / FAIL_VERIFIED / NOT_VERIFIED. */
+function computeNetworkTruth(s: DiagnosisRunSnapshot): NetworkTruth {
+  const n = s.network;
+  if (!n) return "NOT_VERIFIED";
+  if (n.override) return "FAIL_VERIFIED"; // networkDoctor only emits override from verified evidence
+  const haveVerified = n.switches.some((sw) => sw.source === "snmp")
+    || n.resolvedConnections.some((c) => c.source === "SNMP MAC Table" || c.source === "ARP Table" || c.source === "Network Scan");
+  return haveVerified ? "PASS" : "NOT_VERIFIED";
+}
+
+/** CCP truth: PASS / FAIL_VERIFIED / NOT_PROVIDED / LOW_CONFIDENCE. */
+function computeCcpTruth(s: DiagnosisRunSnapshot): CcpTruth {
+  if (s.ccpParse.status === "not_provided") return "NOT_PROVIDED";
+  if (s.ccpParse.status === "parse_failed") return "LOW_CONFIDENCE";
+  if (s.ccpParse.status === "parsed_low_confidence") {
+    // Low-confidence CCP can never produce a verified failure.
+    return "LOW_CONFIDENCE";
+  }
+  return s.ccpOverride ? "FAIL_VERIFIED" : "PASS";
+}
+
+/** Behavior truth: real backend logs vs deterministic mock data. */
+function computeBehaviorTruth(s: DiagnosisRunSnapshot): BehaviorTruth {
+  const anyBreak = !!(s.rcBreak || s.cpBreak || s.chainBreak
+    || (s.backendResult && s.backendResult.issues.some((i) => i.severity === "Critical")));
+  if (s.logAnalysis && s.logAnalysis.length > 0) return anyBreak ? "FAIL" : "PASS";
+  // No real log analysis available — chain/CP/RC engines are deterministic mocks.
+  return anyBreak ? "FAIL" : "MOCK";
+}
+
+function networkSecondary(s: DiagnosisRunSnapshot): SecondaryFinding | null {
+  if (!s.network?.override) return null;
+  return {
+    source: "Network Infrastructure",
+    breakAt: s.network.override.breakPoint,
+    why: s.network.override.likelyCause,
+    evidence: s.network.override.evidence,
+    fix: s.network.override.fix,
+    configEvidence: s.network.override.configEvidence,
+  };
+}
+
+function ccpSecondary(s: DiagnosisRunSnapshot): SecondaryFinding | null {
+  if (!s.ccpOverride) return null;
+  return {
+    source: "IPConnect CCP",
+    breakAt: s.ccpOverride.breakPoint,
+    why: s.ccpOverride.likelyCause,
+    evidence: s.ccpOverride.evidence,
+    fix: s.ccpOverride.fix,
+    configEvidence: s.ccpOverride.configEvidence,
+  };
+}
 
 /**
  * Distill the highest-confidence break across all engines into a single
@@ -293,13 +375,21 @@ export type FinalResult = {
  * Priority: SIM-046 break > Call-point break > generic chain break > backend.
  */
 export function deriveFinalResult(s: DiagnosisRunSnapshot): FinalResult {
-  // Priority (per "Network > CCP only when network proven failed"):
-  //   1. Network override — but ONLY when the supporting evidence is
-  //      verified (SNMP / ARP / scan). networkDoctor already enforces
-  //      this: it never sets `override` from manual-only data.
-  //   2. CCP override (config truth).
-  //   3. SIM-046 trace, Call-point trace, Signal chain, Backend conclusion.
-  if (s.network?.override) {
+  // Verified-priority logic. Truth pillars first.
+  const truth: TruthStates = {
+    network:  computeNetworkTruth(s),
+    ccp:      computeCcpTruth(s),
+    behavior: computeBehaviorTruth(s),
+  };
+
+  // 1. Network FAIL_VERIFIED wins. networkDoctor already enforces "override
+  //    only from SNMP / ARP / scan" — manual-only never reaches this branch.
+  if (truth.network === "FAIL_VERIFIED" && s.network?.override) {
+    const secondary: SecondaryFinding[] = [];
+    if (truth.ccp === "FAIL_VERIFIED") {
+      const sf = ccpSecondary(s);
+      if (sf) secondary.push(sf);
+    }
     return {
       ok: false,
       breakAt: s.network.override.breakPoint,
@@ -310,9 +400,19 @@ export function deriveFinalResult(s: DiagnosisRunSnapshot): FinalResult {
       configEvidence: s.network.override.configEvidence,
       failedLayer: s.network.override.failedLayer,
       previousStepPassed: s.network.override.previousStepPassed,
+      truth, secondaryFindings: secondary,
     };
   }
-  if (s.ccpOverride) {
+
+  // 2. CCP FAIL_VERIFIED wins next. Low-confidence CCP cannot reach here
+  //    because computeCcpTruth caps it at LOW_CONFIDENCE.
+  if (truth.ccp === "FAIL_VERIFIED" && s.ccpOverride) {
+    const secondary: SecondaryFinding[] = [];
+    // Network may have unverified findings — never promote, but surface as secondary.
+    if (s.network && (s.network.findings.length > 0 || s.network.override)) {
+      const sf = networkSecondary(s);
+      if (sf) secondary.push(sf);
+    }
     return {
       ok: false,
       breakAt: s.ccpOverride.breakPoint,
@@ -323,8 +423,11 @@ export function deriveFinalResult(s: DiagnosisRunSnapshot): FinalResult {
       configEvidence: s.ccpOverride.configEvidence,
       failedLayer: s.ccpOverride.failedLayer,
       previousStepPassed: s.ccpOverride.previousStepPassed,
+      truth, secondaryFindings: secondary,
     };
   }
+
+  // 3. Room Controller / IPnet behavior failure.
   if (s.rcBreak) {
     return {
       ok: false,
@@ -336,8 +439,11 @@ export function deriveFinalResult(s: DiagnosisRunSnapshot): FinalResult {
       configEvidence: s.rcBreak.configEvidence ?? [],
       failedLayer: s.rcBreak.failedStep,
       previousStepPassed: s.rcBreak.previousStepPassed,
+      truth, secondaryFindings: [],
     };
   }
+
+  // 4. Output / physical hardware (call-point + chain).
   if (s.cpBreak) {
     return {
       ok: false,
@@ -349,6 +455,7 @@ export function deriveFinalResult(s: DiagnosisRunSnapshot): FinalResult {
       configEvidence: [],
       failedLayer: s.cpBreak.failedStep,
       previousStepPassed: s.cpBreak.previousStepPassed,
+      truth, secondaryFindings: [],
     };
   }
   if (s.chainBreak) {
@@ -362,6 +469,7 @@ export function deriveFinalResult(s: DiagnosisRunSnapshot): FinalResult {
       configEvidence: [],
       failedLayer: s.chainBreak.failedLayer,
       previousStepPassed: s.chainBreak.previousStepPassed,
+      truth, secondaryFindings: [],
     };
   }
   if (s.backendResult && s.backendResult.issues.some((i) => i.severity === "Critical")) {
@@ -374,10 +482,10 @@ export function deriveFinalResult(s: DiagnosisRunSnapshot): FinalResult {
       fix: ["Review backend issues list and remediate the highest-severity finding first."],
       source: "Backend Conclusion",
       configEvidence: [],
+      truth, secondaryFindings: [],
     };
   }
   // No break detected anywhere.
-  // If CCP passed and no behavior break either, lead with that fact.
   const ccpPassed = s.ccpParse.status === "parsed" || s.ccpParse.status === "parsed_low_confidence";
   return {
     ok: true,
@@ -391,5 +499,6 @@ export function deriveFinalResult(s: DiagnosisRunSnapshot): FinalResult {
     fix: [],
     source: ccpPassed ? "IPConnect CCP" : s.rcConclusion ? "SIM-046 Trace" : s.cpConclusion ? "Call Point Trace" : s.chainConclusion ? "Signal Chain" : "None",
     configEvidence: [],
+    truth, secondaryFindings: [],
   };
 }
