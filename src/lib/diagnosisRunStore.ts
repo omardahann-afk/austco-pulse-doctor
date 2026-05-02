@@ -289,6 +289,12 @@ export type FinalResult = {
   truth: TruthStates;
   /** Other verified failures that did NOT win primary, surfaced inline. */
   secondaryFindings: SecondaryFinding[];
+  /** 0-100 confidence score for the primary diagnosis. */
+  confidence: number;
+  /** Bullet reasons explaining how the confidence was derived. */
+  confidenceReasons: string[];
+  /** Plain-English explanation of why this source won the priority. */
+  priorityExplanation: string;
 };
 
 /** Per-pillar truth states. See user spec "Truth states". */
