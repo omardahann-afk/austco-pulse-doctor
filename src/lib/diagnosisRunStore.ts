@@ -146,8 +146,18 @@ export type StartDiagnosisInput = {
   backendUrl: string;
 };
 
+/** Cached last-run input so the diagnosis page can offer a one-tap re-run. */
+let lastInput: StartDiagnosisInput | null = null;
+export function getLastDiagnosisInput(): StartDiagnosisInput | null { return lastInput; }
+export async function rerunLastDiagnosis(): Promise<boolean> {
+  if (!lastInput) return false;
+  await startDiagnosis(lastInput);
+  return true;
+}
+
 /** Run the full diagnostic pipeline and update the store as steps complete. */
 export async function startDiagnosis(input: StartDiagnosisInput): Promise<void> {
+  lastInput = input;
   const startedAt = new Date().toISOString();
   // Reset prior outputs but keep inputs.
   set({
