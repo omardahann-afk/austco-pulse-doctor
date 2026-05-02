@@ -375,6 +375,80 @@ function ccpSecondary(s: DiagnosisRunSnapshot): SecondaryFinding | null {
   };
 }
 
+/* ------------------------------------------------------------------ */
+/* Confidence scoring                                                 */
+/* ------------------------------------------------------------------ */
+
+function scoreConfidence(
+  source: FinalResult["source"], truth: TruthStates, evidenceCount: number,
+): { score: number; reasons: string[] } {
+  const reasons: string[] = [];
+  let score = 50;
+  if (source === "Network Infrastructure") {
+    score = 95; reasons.push("Network failure verified by SNMP / ARP / scan");
+    if (truth.ccp === "FAIL_VERIFIED") { score = 98; reasons.push("CCP also reports a verified failure (corroborates)"); }
+  } else if (source === "IPConnect CCP") {
+    score = 90; reasons.push("CCP parsed and validated against site payload");
+    if (truth.behavior === "FAIL") { score = 96; reasons.push("Behavior trace confirms the configuration gap"); }
+    if (truth.network === "NOT_VERIFIED") { reasons.push("Network truth not verified — cannot rule out an upstream network issue"); score = Math.min(score, 88); }
+  } else if (source === "SIM-046 Trace") {
+    score = truth.behavior === "FAIL" ? 82 : 70;
+    reasons.push("SIM-046 / Room-Controller trace identified the failed step");
+    if (truth.behavior === "MOCK") { score -= 15; reasons.push("Behavior truth is mock — no real log analysis returned"); }
+  } else if (source === "Call Point Trace") {
+    score = truth.behavior === "FAIL" ? 78 : 65;
+    reasons.push("Call-point trace identified the failed step");
+    if (truth.behavior === "MOCK") { score -= 15; reasons.push("Behavior truth is mock — no real log analysis returned"); }
+  } else if (source === "Signal Chain") {
+    score = 60; reasons.push("Signal-chain trace identified the failed layer");
+    if (truth.behavior === "MOCK") { score -= 10; reasons.push("Behavior truth is mock — no real log analysis returned"); }
+  } else if (source === "Backend Conclusion") {
+    score = 70; reasons.push("Backend service returned a critical issue");
+  } else {
+    score = 55; reasons.push("No verified evidence — provisional finding");
+  }
+  if (evidenceCount >= 3) { score = Math.min(100, score + 3); reasons.push(`${evidenceCount} evidence rows support the finding`); }
+  return { score: Math.max(0, Math.min(100, Math.round(score))), reasons };
+}
+
+function priorityExplanationFor(source: FinalResult["source"], truth: TruthStates): string {
+  if (source === "Network Infrastructure") return "Network is primary because SNMP / ARP / scan verified the failure.";
+  if (source === "IPConnect CCP") {
+    if (truth.network === "NOT_VERIFIED") return "CCP is primary because the configuration failure is verified and network is not verified.";
+    return "CCP is primary because configuration failure is verified and network is not failed.";
+  }
+  if (source === "SIM-046 Trace" || source === "Call Point Trace" || source === "Signal Chain")
+    return "Behavior trace is primary because no verified network or CCP failure was found.";
+  if (source === "Backend Conclusion") return "Backend reported a critical issue and no higher-priority verified failure exists.";
+  return "No verified failure detected at any layer.";
+}
+
+function decorateOk(base: Omit<FinalResult, "confidence" | "confidenceReasons" | "priorityExplanation">): FinalResult {
+  const reasons: string[] = [];
+  if (base.truth.network === "PASS")  reasons.push("Network truth: PASS (verified)");
+  if (base.truth.ccp === "PASS")      reasons.push("CCP truth: PASS (validated)");
+  if (base.truth.behavior === "PASS") reasons.push("Behavior truth: PASS (real logs)");
+  return {
+    ...base,
+    confidence: base.truth.behavior === "MOCK" ? 75 : 95,
+    confidenceReasons: reasons.length ? reasons : ["No failure detected at any traced layer"],
+    priorityExplanation: base.truth.behavior === "MOCK"
+      ? "Behavior truth is mock — no real log analysis returned. Result reflects verified config + reachable layers only."
+      : "All truth pillars verified or passing.",
+  };
+}
+
+function decorate(base: Omit<FinalResult, "confidence" | "confidenceReasons" | "priorityExplanation">): FinalResult {
+  if (base.ok) return decorateOk(base);
+  const { score, reasons } = scoreConfidence(base.source, base.truth, base.evidence.length + base.configEvidence.length);
+  return {
+    ...base,
+    confidence: score,
+    confidenceReasons: reasons,
+    priorityExplanation: priorityExplanationFor(base.source, base.truth),
+  };
+}
+
 /**
  * Distill the highest-confidence break across all engines into a single
  * "Where did the system break?" answer for the top of the diagnosis page.
@@ -396,7 +470,7 @@ export function deriveFinalResult(s: DiagnosisRunSnapshot): FinalResult {
       const sf = ccpSecondary(s);
       if (sf) secondary.push(sf);
     }
-    return {
+    return decorate({
       ok: false,
       breakAt: s.network.override.breakPoint,
       why: s.network.override.likelyCause,
@@ -407,7 +481,7 @@ export function deriveFinalResult(s: DiagnosisRunSnapshot): FinalResult {
       failedLayer: s.network.override.failedLayer,
       previousStepPassed: s.network.override.previousStepPassed,
       truth, secondaryFindings: secondary,
-    };
+    });
   }
 
   // 2. CCP FAIL_VERIFIED wins next. Low-confidence CCP cannot reach here
@@ -419,7 +493,7 @@ export function deriveFinalResult(s: DiagnosisRunSnapshot): FinalResult {
       const sf = networkSecondary(s);
       if (sf) secondary.push(sf);
     }
-    return {
+    return decorate({
       ok: false,
       breakAt: s.ccpOverride.breakPoint,
       why: s.ccpOverride.likelyCause,
@@ -430,12 +504,12 @@ export function deriveFinalResult(s: DiagnosisRunSnapshot): FinalResult {
       failedLayer: s.ccpOverride.failedLayer,
       previousStepPassed: s.ccpOverride.previousStepPassed,
       truth, secondaryFindings: secondary,
-    };
+    });
   }
 
   // 3. Room Controller / IPnet behavior failure.
   if (s.rcBreak) {
-    return {
+    return decorate({
       ok: false,
       breakAt: s.rcBreak.breakPoint,
       why: s.rcBreak.likelyCause,
@@ -446,12 +520,12 @@ export function deriveFinalResult(s: DiagnosisRunSnapshot): FinalResult {
       failedLayer: s.rcBreak.failedStep,
       previousStepPassed: s.rcBreak.previousStepPassed,
       truth, secondaryFindings: [],
-    };
+    });
   }
 
   // 4. Output / physical hardware (call-point + chain).
   if (s.cpBreak) {
-    return {
+    return decorate({
       ok: false,
       breakAt: s.cpBreak.breakPoint,
       why: s.cpBreak.likelyRootCause,
@@ -462,10 +536,10 @@ export function deriveFinalResult(s: DiagnosisRunSnapshot): FinalResult {
       failedLayer: s.cpBreak.failedStep,
       previousStepPassed: s.cpBreak.previousStepPassed,
       truth, secondaryFindings: [],
-    };
+    });
   }
   if (s.chainBreak) {
-    return {
+    return decorate({
       ok: false,
       breakAt: s.chainBreak.breakPoint,
       why: s.chainBreak.likelyCause,
@@ -476,11 +550,11 @@ export function deriveFinalResult(s: DiagnosisRunSnapshot): FinalResult {
       failedLayer: s.chainBreak.failedLayer,
       previousStepPassed: s.chainBreak.previousStepPassed,
       truth, secondaryFindings: [],
-    };
+    });
   }
   if (s.backendResult && s.backendResult.issues.some((i) => i.severity === "Critical")) {
     const top = s.backendResult.issues.find((i) => i.severity === "Critical")!;
-    return {
+    return decorate({
       ok: false,
       breakAt: top.title,
       why: s.backendResult.conclusion,
@@ -489,11 +563,11 @@ export function deriveFinalResult(s: DiagnosisRunSnapshot): FinalResult {
       source: "Backend Conclusion",
       configEvidence: [],
       truth, secondaryFindings: [],
-    };
+    });
   }
   // No break detected anywhere.
   const ccpPassed = s.ccpParse.status === "parsed" || s.ccpParse.status === "parsed_low_confidence";
-  return {
+  return decorate({
     ok: true,
     breakAt: ccpPassed
       ? "CCP confirms config is correct. No behavior failure detected."
@@ -506,5 +580,5 @@ export function deriveFinalResult(s: DiagnosisRunSnapshot): FinalResult {
     source: ccpPassed ? "IPConnect CCP" : s.rcConclusion ? "SIM-046 Trace" : s.cpConclusion ? "Call Point Trace" : s.chainConclusion ? "Signal Chain" : "None",
     configEvidence: [],
     truth, secondaryFindings: [],
-  };
+  });
 }
