@@ -9,74 +9,11 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
-import { Route as TraceRouteImport } from './routes/trace'
-import { Route as SiteMapRouteImport } from './routes/site-map'
-import { Route as SignalLightsRouteImport } from './routes/signal-lights'
-import { Route as RoomControllersRouteImport } from './routes/room-controllers'
-import { Route as RedundancyRouteImport } from './routes/redundancy'
-import { Route as NetworkRouteImport } from './routes/network'
-import { Route as KnowledgeRouteImport } from './routes/knowledge'
-import { Route as IpIn8RouteImport } from './routes/ip-in8'
-import { Route as IpApp1RouteImport } from './routes/ip-app1'
-import { Route as EventsRouteImport } from './routes/events'
 import { Route as EscalationRouteImport } from './routes/escalation'
 import { Route as DiagnosisRouteImport } from './routes/diagnosis'
-import { Route as DiagnoseRouteImport } from './routes/diagnose'
-import { Route as ControllersRouteImport } from './routes/controllers'
-import { Route as CctRealityRouteImport } from './routes/cct-reality'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as ApiPublicSnmpBridgeRouteImport } from './routes/api/public/snmp-bridge'
 
-const TraceRoute = TraceRouteImport.update({
-  id: '/trace',
-  path: '/trace',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const SiteMapRoute = SiteMapRouteImport.update({
-  id: '/site-map',
-  path: '/site-map',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const SignalLightsRoute = SignalLightsRouteImport.update({
-  id: '/signal-lights',
-  path: '/signal-lights',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const RoomControllersRoute = RoomControllersRouteImport.update({
-  id: '/room-controllers',
-  path: '/room-controllers',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const RedundancyRoute = RedundancyRouteImport.update({
-  id: '/redundancy',
-  path: '/redundancy',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const NetworkRoute = NetworkRouteImport.update({
-  id: '/network',
-  path: '/network',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const KnowledgeRoute = KnowledgeRouteImport.update({
-  id: '/knowledge',
-  path: '/knowledge',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const IpIn8Route = IpIn8RouteImport.update({
-  id: '/ip-in8',
-  path: '/ip-in8',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const IpApp1Route = IpApp1RouteImport.update({
-  id: '/ip-app1',
-  path: '/ip-app1',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const EventsRoute = EventsRouteImport.update({
-  id: '/events',
-  path: '/events',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const EscalationRoute = EscalationRouteImport.update({
   id: '/escalation',
   path: '/escalation',
@@ -85,21 +22,6 @@ const EscalationRoute = EscalationRouteImport.update({
 const DiagnosisRoute = DiagnosisRouteImport.update({
   id: '/diagnosis',
   path: '/diagnosis',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const DiagnoseRoute = DiagnoseRouteImport.update({
-  id: '/diagnose',
-  path: '/diagnose',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ControllersRoute = ControllersRouteImport.update({
-  id: '/controllers',
-  path: '/controllers',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const CctRealityRoute = CctRealityRouteImport.update({
-  id: '/cct-reality',
-  path: '/cct-reality',
   getParentRoute: () => rootRouteImport,
 } as any)
 const IndexRoute = IndexRouteImport.update({
@@ -115,214 +37,45 @@ const ApiPublicSnmpBridgeRoute = ApiPublicSnmpBridgeRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
-  '/cct-reality': typeof CctRealityRoute
-  '/controllers': typeof ControllersRoute
-  '/diagnose': typeof DiagnoseRoute
   '/diagnosis': typeof DiagnosisRoute
   '/escalation': typeof EscalationRoute
-  '/events': typeof EventsRoute
-  '/ip-app1': typeof IpApp1Route
-  '/ip-in8': typeof IpIn8Route
-  '/knowledge': typeof KnowledgeRoute
-  '/network': typeof NetworkRoute
-  '/redundancy': typeof RedundancyRoute
-  '/room-controllers': typeof RoomControllersRoute
-  '/signal-lights': typeof SignalLightsRoute
-  '/site-map': typeof SiteMapRoute
-  '/trace': typeof TraceRoute
   '/api/public/snmp-bridge': typeof ApiPublicSnmpBridgeRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
-  '/cct-reality': typeof CctRealityRoute
-  '/controllers': typeof ControllersRoute
-  '/diagnose': typeof DiagnoseRoute
   '/diagnosis': typeof DiagnosisRoute
   '/escalation': typeof EscalationRoute
-  '/events': typeof EventsRoute
-  '/ip-app1': typeof IpApp1Route
-  '/ip-in8': typeof IpIn8Route
-  '/knowledge': typeof KnowledgeRoute
-  '/network': typeof NetworkRoute
-  '/redundancy': typeof RedundancyRoute
-  '/room-controllers': typeof RoomControllersRoute
-  '/signal-lights': typeof SignalLightsRoute
-  '/site-map': typeof SiteMapRoute
-  '/trace': typeof TraceRoute
   '/api/public/snmp-bridge': typeof ApiPublicSnmpBridgeRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
-  '/cct-reality': typeof CctRealityRoute
-  '/controllers': typeof ControllersRoute
-  '/diagnose': typeof DiagnoseRoute
   '/diagnosis': typeof DiagnosisRoute
   '/escalation': typeof EscalationRoute
-  '/events': typeof EventsRoute
-  '/ip-app1': typeof IpApp1Route
-  '/ip-in8': typeof IpIn8Route
-  '/knowledge': typeof KnowledgeRoute
-  '/network': typeof NetworkRoute
-  '/redundancy': typeof RedundancyRoute
-  '/room-controllers': typeof RoomControllersRoute
-  '/signal-lights': typeof SignalLightsRoute
-  '/site-map': typeof SiteMapRoute
-  '/trace': typeof TraceRoute
   '/api/public/snmp-bridge': typeof ApiPublicSnmpBridgeRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths:
-    | '/'
-    | '/cct-reality'
-    | '/controllers'
-    | '/diagnose'
-    | '/diagnosis'
-    | '/escalation'
-    | '/events'
-    | '/ip-app1'
-    | '/ip-in8'
-    | '/knowledge'
-    | '/network'
-    | '/redundancy'
-    | '/room-controllers'
-    | '/signal-lights'
-    | '/site-map'
-    | '/trace'
-    | '/api/public/snmp-bridge'
+  fullPaths: '/' | '/diagnosis' | '/escalation' | '/api/public/snmp-bridge'
   fileRoutesByTo: FileRoutesByTo
-  to:
-    | '/'
-    | '/cct-reality'
-    | '/controllers'
-    | '/diagnose'
-    | '/diagnosis'
-    | '/escalation'
-    | '/events'
-    | '/ip-app1'
-    | '/ip-in8'
-    | '/knowledge'
-    | '/network'
-    | '/redundancy'
-    | '/room-controllers'
-    | '/signal-lights'
-    | '/site-map'
-    | '/trace'
-    | '/api/public/snmp-bridge'
+  to: '/' | '/diagnosis' | '/escalation' | '/api/public/snmp-bridge'
   id:
     | '__root__'
     | '/'
-    | '/cct-reality'
-    | '/controllers'
-    | '/diagnose'
     | '/diagnosis'
     | '/escalation'
-    | '/events'
-    | '/ip-app1'
-    | '/ip-in8'
-    | '/knowledge'
-    | '/network'
-    | '/redundancy'
-    | '/room-controllers'
-    | '/signal-lights'
-    | '/site-map'
-    | '/trace'
     | '/api/public/snmp-bridge'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
-  CctRealityRoute: typeof CctRealityRoute
-  ControllersRoute: typeof ControllersRoute
-  DiagnoseRoute: typeof DiagnoseRoute
   DiagnosisRoute: typeof DiagnosisRoute
   EscalationRoute: typeof EscalationRoute
-  EventsRoute: typeof EventsRoute
-  IpApp1Route: typeof IpApp1Route
-  IpIn8Route: typeof IpIn8Route
-  KnowledgeRoute: typeof KnowledgeRoute
-  NetworkRoute: typeof NetworkRoute
-  RedundancyRoute: typeof RedundancyRoute
-  RoomControllersRoute: typeof RoomControllersRoute
-  SignalLightsRoute: typeof SignalLightsRoute
-  SiteMapRoute: typeof SiteMapRoute
-  TraceRoute: typeof TraceRoute
   ApiPublicSnmpBridgeRoute: typeof ApiPublicSnmpBridgeRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/trace': {
-      id: '/trace'
-      path: '/trace'
-      fullPath: '/trace'
-      preLoaderRoute: typeof TraceRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/site-map': {
-      id: '/site-map'
-      path: '/site-map'
-      fullPath: '/site-map'
-      preLoaderRoute: typeof SiteMapRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/signal-lights': {
-      id: '/signal-lights'
-      path: '/signal-lights'
-      fullPath: '/signal-lights'
-      preLoaderRoute: typeof SignalLightsRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/room-controllers': {
-      id: '/room-controllers'
-      path: '/room-controllers'
-      fullPath: '/room-controllers'
-      preLoaderRoute: typeof RoomControllersRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/redundancy': {
-      id: '/redundancy'
-      path: '/redundancy'
-      fullPath: '/redundancy'
-      preLoaderRoute: typeof RedundancyRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/network': {
-      id: '/network'
-      path: '/network'
-      fullPath: '/network'
-      preLoaderRoute: typeof NetworkRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/knowledge': {
-      id: '/knowledge'
-      path: '/knowledge'
-      fullPath: '/knowledge'
-      preLoaderRoute: typeof KnowledgeRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/ip-in8': {
-      id: '/ip-in8'
-      path: '/ip-in8'
-      fullPath: '/ip-in8'
-      preLoaderRoute: typeof IpIn8RouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/ip-app1': {
-      id: '/ip-app1'
-      path: '/ip-app1'
-      fullPath: '/ip-app1'
-      preLoaderRoute: typeof IpApp1RouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/events': {
-      id: '/events'
-      path: '/events'
-      fullPath: '/events'
-      preLoaderRoute: typeof EventsRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/escalation': {
       id: '/escalation'
       path: '/escalation'
@@ -335,27 +88,6 @@ declare module '@tanstack/react-router' {
       path: '/diagnosis'
       fullPath: '/diagnosis'
       preLoaderRoute: typeof DiagnosisRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/diagnose': {
-      id: '/diagnose'
-      path: '/diagnose'
-      fullPath: '/diagnose'
-      preLoaderRoute: typeof DiagnoseRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/controllers': {
-      id: '/controllers'
-      path: '/controllers'
-      fullPath: '/controllers'
-      preLoaderRoute: typeof ControllersRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/cct-reality': {
-      id: '/cct-reality'
-      path: '/cct-reality'
-      fullPath: '/cct-reality'
-      preLoaderRoute: typeof CctRealityRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/': {
@@ -377,21 +109,8 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
-  CctRealityRoute: CctRealityRoute,
-  ControllersRoute: ControllersRoute,
-  DiagnoseRoute: DiagnoseRoute,
   DiagnosisRoute: DiagnosisRoute,
   EscalationRoute: EscalationRoute,
-  EventsRoute: EventsRoute,
-  IpApp1Route: IpApp1Route,
-  IpIn8Route: IpIn8Route,
-  KnowledgeRoute: KnowledgeRoute,
-  NetworkRoute: NetworkRoute,
-  RedundancyRoute: RedundancyRoute,
-  RoomControllersRoute: RoomControllersRoute,
-  SignalLightsRoute: SignalLightsRoute,
-  SiteMapRoute: SiteMapRoute,
-  TraceRoute: TraceRoute,
   ApiPublicSnmpBridgeRoute: ApiPublicSnmpBridgeRoute,
 }
 export const routeTree = rootRouteImport
