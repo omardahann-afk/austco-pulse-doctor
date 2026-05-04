@@ -249,7 +249,7 @@ function CommandCenter() {
           <CardHeader className="pb-3"><CardTitle className="text-sm">4 · Controllers</CardTitle></CardHeader>
           <CardContent className="space-y-5">
             <div>
-              <SectionHeader icon={Cpu} title="Known Devices" sub="Controllers, IP-APP1, IP-IN8, signal lights, etc." />
+              <SectionHeader icon={Cpu} title="Known Devices" sub="Controllers, IP-IN8, signal lights, room controllers, etc." />
               <div className="mt-2 space-y-2">
                 {payload.knownDevices.map((d, i) => (
                   <div key={i} className="grid gap-2 grid-cols-[1.2fr_1fr_1fr_auto]">
