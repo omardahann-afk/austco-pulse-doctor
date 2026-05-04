@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as EscalationRouteImport } from './routes/escalation'
 import { Route as DiagnosisRouteImport } from './routes/diagnosis'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as ApiDiagnosisRouteImport } from './routes/api/diagnosis'
 import { Route as ApiPublicSnmpBridgeRouteImport } from './routes/api/public/snmp-bridge'
 
 const EscalationRoute = EscalationRouteImport.update({
@@ -29,6 +30,11 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiDiagnosisRoute = ApiDiagnosisRouteImport.update({
+  id: '/api/diagnosis',
+  path: '/api/diagnosis',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiPublicSnmpBridgeRoute = ApiPublicSnmpBridgeRouteImport.update({
   id: '/api/public/snmp-bridge',
   path: '/api/public/snmp-bridge',
@@ -39,12 +45,14 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/diagnosis': typeof DiagnosisRoute
   '/escalation': typeof EscalationRoute
+  '/api/diagnosis': typeof ApiDiagnosisRoute
   '/api/public/snmp-bridge': typeof ApiPublicSnmpBridgeRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/diagnosis': typeof DiagnosisRoute
   '/escalation': typeof EscalationRoute
+  '/api/diagnosis': typeof ApiDiagnosisRoute
   '/api/public/snmp-bridge': typeof ApiPublicSnmpBridgeRoute
 }
 export interface FileRoutesById {
@@ -52,18 +60,30 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/diagnosis': typeof DiagnosisRoute
   '/escalation': typeof EscalationRoute
+  '/api/diagnosis': typeof ApiDiagnosisRoute
   '/api/public/snmp-bridge': typeof ApiPublicSnmpBridgeRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/diagnosis' | '/escalation' | '/api/public/snmp-bridge'
+  fullPaths:
+    | '/'
+    | '/diagnosis'
+    | '/escalation'
+    | '/api/diagnosis'
+    | '/api/public/snmp-bridge'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/diagnosis' | '/escalation' | '/api/public/snmp-bridge'
+  to:
+    | '/'
+    | '/diagnosis'
+    | '/escalation'
+    | '/api/diagnosis'
+    | '/api/public/snmp-bridge'
   id:
     | '__root__'
     | '/'
     | '/diagnosis'
     | '/escalation'
+    | '/api/diagnosis'
     | '/api/public/snmp-bridge'
   fileRoutesById: FileRoutesById
 }
@@ -71,6 +91,7 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   DiagnosisRoute: typeof DiagnosisRoute
   EscalationRoute: typeof EscalationRoute
+  ApiDiagnosisRoute: typeof ApiDiagnosisRoute
   ApiPublicSnmpBridgeRoute: typeof ApiPublicSnmpBridgeRoute
 }
 
@@ -97,6 +118,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/diagnosis': {
+      id: '/api/diagnosis'
+      path: '/api/diagnosis'
+      fullPath: '/api/diagnosis'
+      preLoaderRoute: typeof ApiDiagnosisRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/snmp-bridge': {
       id: '/api/public/snmp-bridge'
       path: '/api/public/snmp-bridge'
@@ -111,6 +139,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   DiagnosisRoute: DiagnosisRoute,
   EscalationRoute: EscalationRoute,
+  ApiDiagnosisRoute: ApiDiagnosisRoute,
   ApiPublicSnmpBridgeRoute: ApiPublicSnmpBridgeRoute,
 }
 export const routeTree = rootRouteImport
