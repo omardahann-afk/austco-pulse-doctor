@@ -1,6 +1,5 @@
 /**
  * Site-config-driven diagnosis types + localStorage store.
- *
  * No defaults. No hardcoded IPs. Empty config = empty diagnosis.
  */
 
@@ -19,6 +18,7 @@ export type ModuleEntry = {
   ip: string;
   hostname: string;
   vlan: string;
+  expectedPorts: number[];
   notes: string;
 };
 
@@ -28,6 +28,7 @@ export type ControllerEntry = {
   ip: string;
   controllerId: string;
   area: string;
+  expectedPorts: number[];
   notes: string;
 };
 
@@ -36,6 +37,16 @@ export type IpIn8Entry = {
   name: string;
   ip: string;
   vlan: string;
+  expectedPorts: number[];
+  notes: string;
+};
+
+export type DisplayEntry = {
+  id: string;
+  name: string;
+  ip: string;
+  vlan: string;
+  expectedPorts: number[];
   notes: string;
 };
 
@@ -46,164 +57,194 @@ export type SwitchEntry = {
   vendor: string;
   snmpEnabled: boolean;
   community: string;
+  expectedPorts: number[];
   notes: string;
 };
 
-export type VlanEntry = {
-  id: string;
-  name: string;
-  cidr: string;
-};
+export type VlanEntry = { id: string; name: string; cidr: string };
 
 export type SiteConfig = {
   siteName: string;
+  technician: string;
+  siteNotes: string;
   vlans: VlanEntry[];
   modules: ModuleEntry[];
   controllers: ControllerEntry[];
   ipin8s: IpIn8Entry[];
+  displays: DisplayEntry[];
   switches: SwitchEntry[];
-  displaysEnabled: boolean;
 };
 
 export const EMPTY_SITE_CONFIG: SiteConfig = {
-  siteName: "",
-  vlans: [],
-  modules: [],
-  controllers: [],
-  ipin8s: [],
-  switches: [],
-  displaysEnabled: false,
+  siteName: "", technician: "", siteNotes: "",
+  vlans: [], modules: [], controllers: [], ipin8s: [], displays: [], switches: [],
 };
 
-const STORAGE_KEY = "tacera.siteConfig.v1";
-const RESULT_KEY = "tacera.diagnosisResult.v1";
+const CFG_KEY = "tacera.siteConfig.v2";
+const RESULT_KEY = "tacera.diagnosisResult.v2";
+const LOGS_KEY = "tacera.logResult.v2";
+const BACKEND_KEY = "tacera.backendUrl.v1";
+
+export const DEFAULT_BACKEND_URL = "http://localhost:3001";
+
+export function getBackendUrl(): string {
+  if (typeof window === "undefined") return DEFAULT_BACKEND_URL;
+  return localStorage.getItem(BACKEND_KEY) || DEFAULT_BACKEND_URL;
+}
+export function setBackendUrl(u: string) {
+  if (typeof window === "undefined") return;
+  localStorage.setItem(BACKEND_KEY, u);
+}
 
 export function loadSiteConfig(): SiteConfig {
   if (typeof window === "undefined") return structuredClone(EMPTY_SITE_CONFIG);
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
+    const raw = localStorage.getItem(CFG_KEY);
     if (!raw) return structuredClone(EMPTY_SITE_CONFIG);
     const parsed = JSON.parse(raw) as Partial<SiteConfig>;
-    return { ...EMPTY_SITE_CONFIG, ...parsed };
-  } catch {
-    return structuredClone(EMPTY_SITE_CONFIG);
-  }
+    return { ...EMPTY_SITE_CONFIG, ...parsed,
+      vlans: parsed.vlans ?? [], modules: parsed.modules ?? [],
+      controllers: parsed.controllers ?? [], ipin8s: parsed.ipin8s ?? [],
+      displays: parsed.displays ?? [], switches: parsed.switches ?? [],
+    };
+  } catch { return structuredClone(EMPTY_SITE_CONFIG); }
 }
-
 export function saveSiteConfig(cfg: SiteConfig) {
   if (typeof window === "undefined") return;
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(cfg));
+  localStorage.setItem(CFG_KEY, JSON.stringify(cfg));
 }
-
 export function clearSiteConfig() {
   if (typeof window === "undefined") return;
-  localStorage.removeItem(STORAGE_KEY);
+  localStorage.removeItem(CFG_KEY);
 }
 
-export function newId(): string {
-  return Math.random().toString(36).slice(2, 10);
-}
+export function newId(): string { return Math.random().toString(36).slice(2, 10); }
 
-export function isConfigEmpty(cfg: SiteConfig): boolean {
-  return (
-    cfg.modules.length === 0 &&
-    cfg.controllers.length === 0 &&
-    cfg.ipin8s.length === 0 &&
-    cfg.switches.length === 0
-  );
-}
-
-/** Total number of devices that have at least an IP or hostname to test. */
 export function countTestableDevices(cfg: SiteConfig): number {
-  const has = (ip: string, hn = "") => Boolean(ip.trim() || hn.trim());
+  const has = (ip = "", hn = "") => Boolean((ip || "").trim() || (hn || "").trim());
   return (
     cfg.modules.filter((m) => has(m.ip, m.hostname)).length +
     cfg.controllers.filter((c) => has(c.ip)).length +
     cfg.ipin8s.filter((d) => has(d.ip)).length +
+    cfg.displays.filter((d) => has(d.ip)).length +
     cfg.switches.filter((s) => has(s.ip)).length
   );
 }
 
-/* ===== Diagnosis result (response from /api/diagnosis) ===== */
+/* ===== Result types (mirror server response) ===== */
 
-export type TestStatus = "PASS" | "FAIL" | "WARN" | "UNKNOWN";
-
-export type DeviceTestResult = {
-  deviceId: string;
-  name: string;
-  role: string;
-  ip: string;
-  hostname: string;
-  ping: { performed: boolean; alive: boolean; latencyMs: number | null; error?: string };
-  dns: { performed: boolean; resolved: string | null; error?: string };
-  ports: { port: number; open: boolean; service?: string; error?: string }[];
-  status: TestStatus;
+export type DeviceResult = {
+  deviceId: string; name: string; role: string; ip: string; hostname: string;
+  ping: { performed: boolean; reachable: boolean; packetLossPct: number | null; avgLatencyMs: number | null; raw: string; error?: string | null };
+  dns: { performed: boolean; resolved: string[]; error: string | null };
+  ports: { port: number; open: boolean; service?: string; latencyMs: number | null; error: string | null }[];
+  status: "PASS" | "WARN" | "FAIL" | "UNKNOWN";
   message: string;
   timestamp: string;
   source: "REAL TEST";
 };
 
-export type DiagnosisResponse = {
+export type DiagnosisMode = "REAL TEST" | "MANUAL DATA" | "LOG ANALYSIS" | "INSUFFICIENT DATA" | "DEMO";
+
+export type DiagnosisResult = {
   ok: true;
+  mode: DiagnosisMode;
   siteName: string;
+  technician: string;
+  siteNotes?: string;
+  vm: { hostname: string; addrs: string[]; platform: string };
   startedAt: string;
   finishedAt: string;
-  results: DeviceTestResult[];
-  summary: {
-    total: number;
-    pass: number;
-    warn: number;
-    fail: number;
-    unknown: number;
-  };
+  summary: { total: number; pass: number; warn: number; fail: number };
+  breakFoundAt: { name: string; role: string; ip: string; hostname: string } | null;
+  confidence: "HIGH" | "MEDIUM" | "LOW";
+  evidence: string[];
+  devices: DeviceResult[];
+  traceSteps: { id: string; label: string; status: string; detail: string }[];
+  fixActions: string[];
+  warnings: string[];
 };
 
 export type DiagnosisError = { ok: false; reason: string; message: string };
 
-export function loadLastDiagnosis(): DiagnosisResponse | null {
+export function loadLastDiagnosis(): DiagnosisResult | null {
   if (typeof window === "undefined") return null;
-  try {
-    const raw = localStorage.getItem(RESULT_KEY);
-    if (!raw) return null;
-    return JSON.parse(raw) as DiagnosisResponse;
-  } catch {
-    return null;
-  }
+  try { const raw = localStorage.getItem(RESULT_KEY); return raw ? JSON.parse(raw) as DiagnosisResult : null; }
+  catch { return null; }
 }
-
-export function saveLastDiagnosis(res: DiagnosisResponse) {
+export function saveLastDiagnosis(r: DiagnosisResult) {
   if (typeof window === "undefined") return;
-  localStorage.setItem(RESULT_KEY, JSON.stringify(res));
+  localStorage.setItem(RESULT_KEY, JSON.stringify(r));
 }
 
-export function clearLastDiagnosis() {
+/* ===== Log analysis result ===== */
+
+export type LogFileResult = {
+  file: string;
+  detectedType: string;
+  userType: string | null;
+  sizeBytes: number;
+  lineCount: number;
+  ips: string[];
+  hosts: string[];
+  timestamps: string[];
+  errors: { line: number; text: string }[];
+  warnings: { line: number; text: string }[];
+  events: { line: number; tag: string; text: string }[];
+  eventCounts: Record<string, number>;
+  controllerIds: string[];
+  callpointIds: string[];
+};
+
+export type LogResult = {
+  ok: true;
+  mode: "LOG ANALYSIS";
+  vm: { hostname: string; addrs: string[]; platform: string };
+  startedAt: string;
+  finishedAt: string;
+  summary: string;
+  confidence: "HIGH" | "MEDIUM" | "LOW";
+  evidence: string[];
+  files: LogFileResult[];
+  aggregate: {
+    totalErrors: number;
+    totalWarnings: number;
+    eventCounts: Record<string, number>;
+    uniqueIps: string[];
+    uniqueHosts: string[];
+    uniqueControllerIds: string[];
+    uniqueCallpointIds: string[];
+  };
+};
+
+export function loadLastLogResult(): LogResult | null {
+  if (typeof window === "undefined") return null;
+  try { const raw = localStorage.getItem(LOGS_KEY); return raw ? JSON.parse(raw) as LogResult : null; }
+  catch { return null; }
+}
+export function saveLastLogResult(r: LogResult) {
   if (typeof window === "undefined") return;
-  localStorage.removeItem(RESULT_KEY);
+  localStorage.setItem(LOGS_KEY, JSON.stringify(r));
 }
 
-/* ===== Opt-in example (NOT loaded by default) ===== */
+/* ===== Opt-in example (DEMO only) ===== */
 export const EXAMPLE_SITE_CONFIG: SiteConfig = {
-  siteName: "Example Site (demo)",
+  siteName: "Example Site (DEMO)",
+  technician: "Demo Technician",
+  siteNotes: "Demo data — not from a real site.",
   vlans: [
     { id: newId(), name: "Servers", cidr: "10.20.1.0/24" },
     { id: newId(), name: "Devices", cidr: "10.20.4.0/24" },
   ],
   modules: [
-    { id: newId(), role: "Pulse Gateway", name: "Pulse Primary", ip: "10.20.1.10", hostname: "pulse.local", vlan: "Servers", notes: "" },
-    { id: newId(), role: "IPConnect", name: "IPConnect", ip: "10.20.1.20", hostname: "", vlan: "Servers", notes: "" },
-    { id: newId(), role: "INGA / Integration Gateway", name: "INGA", ip: "10.20.1.22", hostname: "", vlan: "Servers", notes: "" },
-    { id: newId(), role: "License Server", name: "License", ip: "10.20.1.21", hostname: "", vlan: "Servers", notes: "" },
-    { id: newId(), role: "Pulse Manage", name: "Manage", ip: "10.20.1.23", hostname: "", vlan: "Servers", notes: "" },
+    { id: newId(), role: "Pulse Gateway", name: "Pulse Primary", ip: "10.20.1.10", hostname: "", vlan: "Servers", expectedPorts: [80, 443], notes: "" },
+    { id: newId(), role: "IPConnect", name: "IPConnect", ip: "10.20.1.20", hostname: "", vlan: "Servers", expectedPorts: [80, 443, 10000], notes: "" },
+    { id: newId(), role: "License Server", name: "License", ip: "10.20.1.21", hostname: "", vlan: "Servers", expectedPorts: [443], notes: "" },
   ],
   controllers: [
-    { id: newId(), name: "Controller East", ip: "10.20.4.21", controllerId: "C-01", area: "East Wing", notes: "" },
-    { id: newId(), name: "Controller West", ip: "10.20.4.22", controllerId: "C-02", area: "West Wing", notes: "" },
+    { id: newId(), name: "Controller East", ip: "10.20.4.21", controllerId: "C-01", area: "East Wing", expectedPorts: [], notes: "" },
   ],
-  ipin8s: [
-    { id: newId(), name: "IP-IN8 Basement", ip: "10.20.5.40", vlan: "Devices", notes: "" },
-  ],
-  switches: [
-    { id: newId(), name: "Core Switch", ip: "10.20.0.2", vendor: "Cisco", snmpEnabled: false, community: "", notes: "" },
-  ],
-  displaysEnabled: false,
+  ipin8s: [{ id: newId(), name: "IP-IN8 Basement", ip: "10.20.5.40", vlan: "Devices", expectedPorts: [], notes: "" }],
+  displays: [],
+  switches: [{ id: newId(), name: "Core Switch", ip: "10.20.0.2", vendor: "Cisco", snmpEnabled: false, community: "", expectedPorts: [], notes: "" }],
 };
