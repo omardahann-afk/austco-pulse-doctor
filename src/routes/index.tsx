@@ -259,7 +259,7 @@ function CommandCenter() {
                     <Input value={d.ip} placeholder="10.20.4.50" className="font-mono" onChange={(e) => {
                       const next = [...payload.knownDevices]; next[i] = { ...next[i], ip: e.target.value }; update("knownDevices", next);
                     }} />
-                    <Input value={d.type} placeholder="Controller / IP-APP1 / IP-IN8" onChange={(e) => {
+                    <Input value={d.type} placeholder="Controller / IP-IN8 / Room Controller" onChange={(e) => {
                       const next = [...payload.knownDevices]; next[i] = { ...next[i], type: e.target.value }; update("knownDevices", next);
                     }} />
                     <Button type="button" variant="ghost" size="icon" className="h-9 w-9 text-muted-foreground hover:text-critical"
