@@ -4,7 +4,8 @@ import {
   SidebarMenu, SidebarMenuButton, SidebarMenuItem, SidebarHeader, SidebarFooter,
 } from "@/components/ui/sidebar";
 import { Activity, Workflow, FileText, Stethoscope } from "lucide-react";
-import { LAPTOP_IP, SITE_NAME, TECHNICIAN } from "@/data/mockSite";
+import { useEffect, useState } from "react";
+import { loadSiteConfig } from "@/lib/siteConfig";
 
 const NAV = [
   { to: "/",           label: "Command Center", icon: Activity },
@@ -14,6 +15,9 @@ const NAV = [
 
 export function AppSidebar() {
   const path = useRouterState({ select: (r) => r.location.pathname });
+  const [siteName, setSiteName] = useState<string>("");
+  useEffect(() => { setSiteName(loadSiteConfig().siteName); }, [path]);
+
   return (
     <Sidebar collapsible="icon">
       <SidebarHeader className="border-b border-sidebar-border/60">
@@ -50,9 +54,7 @@ export function AppSidebar() {
       </SidebarContent>
       <SidebarFooter className="border-t border-sidebar-border/60">
         <div className="space-y-0.5 px-2 py-1.5 text-[11px] leading-snug">
-          <div className="truncate font-medium">{SITE_NAME}</div>
-          <div className="font-mono text-muted-foreground">Tech: {TECHNICIAN}</div>
-          <div className="font-mono text-muted-foreground">Laptop: {LAPTOP_IP}</div>
+          <div className="truncate font-medium">{siteName || "No site configured"}</div>
         </div>
       </SidebarFooter>
     </Sidebar>
