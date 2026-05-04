@@ -17,7 +17,6 @@
 
 import { createFileRoute } from "@tanstack/react-router";
 import { z } from "zod";
-import { connect } from "cloudflare:sockets";
 
 const ModuleSchema = z.object({
   id: z.string(),
@@ -85,26 +84,41 @@ const PORT_SERVICE: Record<number, string> = {
   3306: "MySQL",
 };
 
-const TCP_TIMEOUT_MS = 1500;
+const TCP_TIMEOUT_MS = 2500;
+const HTTP_PORTS = new Set([80, 443, 8080, 10000]);
 
 type PortResult = { port: number; open: boolean; service?: string; error?: string };
 
 async function tcpProbe(host: string, port: number): Promise<{ open: boolean; latencyMs: number | null; error?: string }> {
+  // Edge runtimes (Cloudflare Workers) cannot open raw TCP to arbitrary
+  // ports from a server function. We use fetch() as a reachability probe
+  // for HTTP/HTTPS ports — any HTTP-level response (even an error code or
+  // TLS handshake failure mid-response) means "host:port answered".
+  // Non-HTTP ports (SNMP/SSH/Modbus/SQL) are reported as "not probed from
+  // edge" so we never fabricate a result.
+  if (!HTTP_PORTS.has(port)) {
+    return { open: false, latencyMs: null, error: "not probeable from edge runtime" };
+  }
+  const scheme = port === 443 ? "https" : "http";
   const started = Date.now();
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), TCP_TIMEOUT_MS);
   try {
-    // cloudflare:sockets connect with TLS off; tiny write+close to confirm reachability.
-    const socket = connect({ hostname: host, port }, { allowHalfOpen: false, secureTransport: "off" });
-    const writer = socket.writable.getWriter();
-    const racer = new Promise<{ open: boolean }>((_, reject) => {
-      setTimeout(() => reject(new Error("timeout")), TCP_TIMEOUT_MS);
+    const res = await fetch(`${scheme}://${host}:${port}/`, {
+      method: "GET",
+      signal: ctrl.signal,
+      redirect: "manual",
     });
-    await Promise.race([writer.ready, racer]);
-    const latencyMs = Date.now() - started;
-    try { writer.releaseLock(); } catch {}
-    try { await socket.close(); } catch {}
-    return { open: true, latencyMs };
+    // Any HTTP response — including 4xx/5xx — proves the port answered.
+    void res.body?.cancel?.();
+    return { open: true, latencyMs: Date.now() - started };
   } catch (err) {
-    return { open: false, latencyMs: null, error: err instanceof Error ? err.message : String(err) };
+    const msg = err instanceof Error ? err.message : String(err);
+    // Distinguish timeout vs refused vs DNS — we still report closed but
+    // surface the reason so the technician can act.
+    return { open: false, latencyMs: null, error: msg };
+  } finally {
+    clearTimeout(timer);
   }
 }
 
