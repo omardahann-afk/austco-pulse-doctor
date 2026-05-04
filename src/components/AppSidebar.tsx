@@ -8,8 +8,8 @@ import { LAPTOP_IP, SITE_NAME, TECHNICIAN } from "@/data/mockSite";
 
 const NAV = [
   { to: "/",           label: "Command Center", icon: Activity },
-  { to: "/diagnosis",  label: "Diagnosis",      icon: Workflow },
-  { to: "/escalation", label: "Escalation",     icon: FileText },
+  { to: "/diagnosis",  label: "Diagnosis Result", icon: Workflow },
+  { to: "/escalation", label: "Escalation Report", icon: FileText },
 ];
 
 export function AppSidebar() {
