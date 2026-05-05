@@ -543,14 +543,6 @@ function formatTs(iso: string): string {
   try { return new Date(iso).toLocaleString(); } catch { return iso; }
 }
 
-function AiSection_unused() {
-  return (
-    <div>
-      <div className="text-[10px] uppercase tracking-wider text-muted-foreground">{label}</div>
-      <div className="text-foreground/90 whitespace-pre-wrap">{body || "—"}</div>
-    </div>
-  );
-}
 
 function AiExplanationBlock({ ai, endpoint, model, stale }: { ai: AiExplanation; endpoint: string; model: string; stale?: boolean }) {
   return (
