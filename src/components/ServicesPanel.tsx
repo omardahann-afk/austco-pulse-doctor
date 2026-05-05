@@ -21,6 +21,31 @@ import {
   type ParsedLog, type LogFinding, type AustcoDiagnosis,
   type AiExplainResult, type AiExplanation, type AiPayload,
 } from "@/lib/agentClient";
+import type { RootCauseAnalysis } from "@/lib/siteConfig";
+
+/**
+ * Map the deterministic root-cause snapshot into the legacy AustcoDiagnosis
+ * shape that the AI explainer accepts. AI sees only this projection — never
+ * raw evidence, devices, or credentials — and cannot override the rule engine.
+ */
+function rootCauseToDiagnosisShape(rc: RootCauseAnalysis): AustcoDiagnosis {
+  const evidence = [
+    ...rc.evidenceTimeline.slice(0, 12).map((t) => `${t.ts} [${t.service}] ${t.type}: ${t.message}`),
+    ...(rc.affectedCallpoints.length ? [`Affected callpoints: ${rc.affectedCallpoints.slice(0, 8).join(", ")}`] : []),
+  ];
+  return {
+    mode: "REAL DIAGNOSIS",
+    breakFoundAt: rc.breakFoundAt,
+    primaryCause: rc.primaryRootCause.title,
+    confidence: rc.confidence,
+    confidenceReasons: rc.confidenceBreakdown,
+    evidence,
+    fixActions: rc.fixActions,
+    affectedServices: rc.affectedServices,
+    traceSteps: [],
+    warnings: [],
+  };
+}
 
 type PerSvcState = {
   testing?: boolean; testResult?: SshTestResult;
