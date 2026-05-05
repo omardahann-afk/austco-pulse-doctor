@@ -20,6 +20,7 @@ import { analyzeLogs } from "./lib/logs.js";
 import { testSshAuth, pullLogs } from "./lib/ssh.js";
 import { diagnoseService, runServiceDiagnosis } from "./lib/services.js";
 import { explainWithOllama } from "./lib/ollamaExplain.js";
+import { buildTraceResult } from "./lib/traceEngine.js";
 
 const PORT = Number(process.env.PORT || 3001);
 const BIND = process.env.BIND_HOST || "0.0.0.0"; // change to 127.0.0.1 for localhost-only
@@ -126,6 +127,35 @@ app.post("/api/ai/explain", async (req, res) => {
     const r = await explainWithOllama({ diagnosis, endpoint, model });
     res.json(r);
   } catch (err) {
+    res.status(500).json({ ok: false, reason: "agent_error", message: err?.message || String(err) });
+  }
+});
+
+/* ===== Trace Signal Path ===== */
+
+app.post("/api/trace/run", async (req, res) => {
+  try {
+    const { target, siteConfig, services } = req.body || {};
+    if (!target) {
+      return res.status(400).json({ ok: false, reason: "invalid_request", message: "target is required" });
+    }
+    // If services array provided, run live diagnosis to produce serviceResults.
+    // Otherwise, accept already-computed serviceResults via body.serviceResults.
+    let serviceResults = Array.isArray(req.body?.serviceResults) ? req.body.serviceResults : [];
+    if (serviceResults.length === 0 && Array.isArray(services) && services.length > 0) {
+      const r = await runServiceDiagnosis(services, vmInfo());
+      if (r?.ok) serviceResults = r.services || [];
+    }
+    const trace = buildTraceResult({
+      target,
+      siteConfig: siteConfig || {},
+      serviceResults,
+      deviceResults: Array.isArray(req.body?.deviceResults) ? req.body.deviceResults : [],
+    });
+    if (!trace.ok) return res.status(400).json(trace);
+    res.json({ ...trace, vm: vmInfo() });
+  } catch (err) {
+    console.error("trace error:", err);
     res.status(500).json({ ok: false, reason: "agent_error", message: err?.message || String(err) });
   }
 });
