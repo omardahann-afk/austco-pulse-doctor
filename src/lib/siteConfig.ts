@@ -142,11 +142,27 @@ export const EMPTY_SITE_CONFIG: SiteConfig = {
   vlans: [], modules: [], controllers: [], ipin8s: [], displays: [], switches: [], services: [],
 };
 
-const CFG_KEY = "tacera.siteConfig.v2";
-const RESULT_KEY = "tacera.diagnosisResult.v2";
-const LOGS_KEY = "tacera.logResult.v2";
+// Bumped to v3 to force stale browser caches (legacy demo data, hardcoded
+// 10.20.x.x IPs, "Extendicare", "Backend: Mock") to be discarded.
+const CFG_KEY = "tacera.siteConfig.v3";
+const RESULT_KEY = "tacera.diagnosisResult.v3";
+const LOGS_KEY = "tacera.logResult.v3";
 const BACKEND_KEY = "tacera.backendUrl.v1";
-const SERVICES_RESULT_KEY = "tacera.servicesResult.v1";
+const SERVICES_RESULT_KEY = "tacera.servicesResult.v2";
+
+// Purge any old keys from prior versions on first load.
+if (typeof window !== "undefined") {
+  try {
+    [
+      "tacera.siteConfig", "tacera.siteConfig.v1", "tacera.siteConfig.v2",
+      "tacera.diagnosisResult", "tacera.diagnosisResult.v1", "tacera.diagnosisResult.v2",
+      "tacera.logResult", "tacera.logResult.v1", "tacera.logResult.v2",
+      "tacera.servicesResult.v1",
+      "siteConfig", "diagnosisResult", "siteDoctorState", "diagnosticStore",
+      "diagnosisRunStore",
+    ].forEach((k) => localStorage.removeItem(k));
+  } catch {}
+}
 
 export const DEFAULT_BACKEND_URL = "http://localhost:3001";
 
