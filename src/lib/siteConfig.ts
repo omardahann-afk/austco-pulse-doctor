@@ -146,6 +146,7 @@ const CFG_KEY = "tacera.siteConfig.v2";
 const RESULT_KEY = "tacera.diagnosisResult.v2";
 const LOGS_KEY = "tacera.logResult.v2";
 const BACKEND_KEY = "tacera.backendUrl.v1";
+const SERVICES_RESULT_KEY = "tacera.servicesResult.v1";
 
 export const DEFAULT_BACKEND_URL = "http://localhost:3001";
 
@@ -343,6 +344,17 @@ export function loadLastLogResult(): LogResult | null {
 export function saveLastLogResult(r: LogResult) {
   if (typeof window === "undefined") return;
   localStorage.setItem(LOGS_KEY, JSON.stringify(r));
+}
+
+/* ===== Services diagnosis result store (typed loosely; consumer uses ServicesDiagnosis) ===== */
+export function saveServicesDiagnosis<T>(r: T) {
+  if (typeof window === "undefined") return;
+  try { localStorage.setItem(SERVICES_RESULT_KEY, JSON.stringify(r)); } catch {}
+}
+export function loadServicesDiagnosis<T>(): T | null {
+  if (typeof window === "undefined") return null;
+  try { const raw = localStorage.getItem(SERVICES_RESULT_KEY); return raw ? JSON.parse(raw) as T : null; }
+  catch { return null; }
 }
 
 /* ===== Opt-in example (DEMO only) ===== */
