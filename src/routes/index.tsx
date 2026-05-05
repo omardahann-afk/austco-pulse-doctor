@@ -299,6 +299,9 @@ function CommandCenter() {
             <CardTitle className="text-sm">4 · Services / Log Pulling</CardTitle>
           </CardHeader>
           <CardContent>
+            <div className="mb-3 rounded border border-info/40 bg-info/10 px-3 py-1.5 text-[11px] font-mono text-info">
+              Services panel loaded
+            </div>
             <ServicesPanel cfg={cfg} setCfg={(updater) => setCfg(updater)} />
           </CardContent>
         </Card>
