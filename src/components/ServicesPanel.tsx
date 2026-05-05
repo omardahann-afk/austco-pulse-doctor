@@ -452,6 +452,7 @@ export function ServicesPanel({
             </ul>
           </CardContent>
         </Card>
+        </>
       )}
 
       {runResult && aiMode === "local_ollama" && (
