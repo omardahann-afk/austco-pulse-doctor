@@ -67,6 +67,63 @@ export type SwitchEntry = {
 
 export type VlanEntry = { id: string; name: string; cidr: string };
 
+/* ===== Austco Services (SSH/SFTP-driven) ===== */
+
+export type ServiceRole =
+  | "Integration Gateway"
+  | "Pulse Gateway"
+  | "Pulse Manage"
+  | "License Service"
+  | "MQTT Broker"
+  | "WebSocket MQTT Adapter"
+  | "IPConnect"
+  | "RTLS Gateway"
+  | "HL7"
+  | "File Server"
+  | "Mobile Gateway";
+
+export type ServiceEntry = {
+  id: string;
+  role: ServiceRole;
+  name: string;
+  host: string;       // IP or hostname for SSH
+  hostname: string;   // optional DNS name (informational)
+  port: number;       // SSH/SFTP port (default 22)
+  username: string;   // default "tech"
+  password: string;   // never persisted unless saveCredentials=true
+  saveCredentials: boolean;
+  enabled: boolean;
+  required: boolean;  // optional services default to disabled
+  logPaths: string[];
+  notes: string;
+};
+
+export const REQUIRED_SERVICE_ROLES: ServiceRole[] = [
+  "Integration Gateway", "Pulse Gateway", "Pulse Manage",
+  "License Service", "MQTT Broker", "WebSocket MQTT Adapter", "IPConnect",
+];
+
+export const OPTIONAL_SERVICE_ROLES: ServiceRole[] = [
+  "RTLS Gateway", "HL7", "File Server", "Mobile Gateway",
+];
+
+export const DEFAULT_LOG_PATHS: Record<ServiceRole, string[]> = {
+  "Integration Gateway": ["/home/xcare/runtime/integration-gateway/logs/integration-gateway.log"],
+  "Pulse Gateway": [
+    "/home/xcare/runtime/pulse-gateway/log/error.log",
+    "/home/xcare/runtime/pulse-gateway/log/access.log",
+  ],
+  "Pulse Manage": ["/home/xcare/runtime/configuration/log/app.log"],
+  "License Service": [],
+  "MQTT Broker": [],
+  "WebSocket MQTT Adapter": [],
+  "IPConnect": ["/home/xcare/runtime/xcare/log/xcare00.log"],
+  "RTLS Gateway": ["/home/xcare/runtime/rtls-gateway/logs/audit.log"],
+  "HL7": [],
+  "File Server": [],
+  "Mobile Gateway": ["/home/xcare/runtime/mobilegateway/logs/moga.log"],
+};
+
 export type SiteConfig = {
   siteName: string;
   technician: string;
@@ -77,11 +134,12 @@ export type SiteConfig = {
   ipin8s: IpIn8Entry[];
   displays: DisplayEntry[];
   switches: SwitchEntry[];
+  services: ServiceEntry[];
 };
 
 export const EMPTY_SITE_CONFIG: SiteConfig = {
   siteName: "", technician: "", siteNotes: "",
-  vlans: [], modules: [], controllers: [], ipin8s: [], displays: [], switches: [],
+  vlans: [], modules: [], controllers: [], ipin8s: [], displays: [], switches: [], services: [],
 };
 
 const CFG_KEY = "tacera.siteConfig.v2";
@@ -110,12 +168,46 @@ export function loadSiteConfig(): SiteConfig {
       vlans: parsed.vlans ?? [], modules: parsed.modules ?? [],
       controllers: parsed.controllers ?? [], ipin8s: parsed.ipin8s ?? [],
       displays: parsed.displays ?? [], switches: parsed.switches ?? [],
+      services: (parsed.services ?? []).map((s) => ({ ...s, password: s.saveCredentials ? (s.password || "") : "" })),
     };
   } catch { return structuredClone(EMPTY_SITE_CONFIG); }
 }
 export function saveSiteConfig(cfg: SiteConfig) {
   if (typeof window === "undefined") return;
-  localStorage.setItem(CFG_KEY, JSON.stringify(cfg));
+  // Strip passwords for services that have not opted into saveCredentials.
+  const safe: SiteConfig = {
+    ...cfg,
+    services: cfg.services.map((s) => ({ ...s, password: s.saveCredentials ? s.password : "" })),
+  };
+  localStorage.setItem(CFG_KEY, JSON.stringify(safe));
+}
+
+export function makeService(role: ServiceRole, opts: Partial<ServiceEntry> = {}): ServiceEntry {
+  const required = REQUIRED_SERVICE_ROLES.includes(role);
+  return {
+    id: newId(),
+    role,
+    name: role,
+    host: "",
+    hostname: "",
+    port: 22,
+    username: "tech",
+    password: "tech",
+    saveCredentials: false,
+    enabled: required,
+    required,
+    logPaths: [...(DEFAULT_LOG_PATHS[role] || [])],
+    notes: "",
+    ...opts,
+  };
+}
+
+/** Seed default Austco services if config has none yet. */
+export function seedDefaultServices(): ServiceEntry[] {
+  return [
+    ...REQUIRED_SERVICE_ROLES.map((r) => makeService(r)),
+    ...OPTIONAL_SERVICE_ROLES.map((r) => makeService(r)),
+  ];
 }
 export function clearSiteConfig() {
   if (typeof window === "undefined") return;
