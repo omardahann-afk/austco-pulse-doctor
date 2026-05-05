@@ -160,8 +160,18 @@ export type AiExplanation = {
   safetyNotes: string;
 };
 export type AiExplainResult =
-  | { ok: true; mode: "LOCAL_OLLAMA"; endpoint: string; model: string; ai: AiExplanation; notice: string }
-  | { ok: false; reason: string; message: string; endpoint?: string; model?: string };
+  | { ok: true; mode: "LOCAL_OLLAMA"; endpoint: string; model: string; ai: AiExplanation; notice: string; payload?: AiPayload }
+  | { ok: false; reason: string; message: string; endpoint?: string; model?: string; payload?: AiPayload };
+
+export type AiPayload = {
+  breakFoundAt: string;
+  primaryCause: string;
+  confidence: number;
+  confidenceReasons: string[];
+  evidence: string[];
+  fixActions: string[];
+  affectedServices: string[];
+};
 
 export async function explainDiagnosis(opts: { diagnosis: AustcoDiagnosis; endpoint?: string; model?: string }): Promise<AiExplainResult> {
   const url = getBackendUrl().replace(/\/$/, "") + "/api/ai/explain";

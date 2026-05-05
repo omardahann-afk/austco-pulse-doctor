@@ -7,6 +7,42 @@
 
 const DEFAULT_ENDPOINT = "http://localhost:11434/api/chat";
 const DEFAULT_MODEL = "llama3.2:3b";
+const DEFAULT_TIMEOUT_MS = 60_000;
+
+const MAX_EVIDENCE_LINES = 30;
+const MAX_RAW_PER_SERVICE = 3;
+const MAX_LINE_CHARS = 300;
+
+function truncate(s, n = MAX_LINE_CHARS) {
+  const str = typeof s === "string" ? s : String(s ?? "");
+  return str.length > n ? str.slice(0, n) + "…[truncated]" : str;
+}
+
+/**
+ * Limit evidence sent to AI:
+ *  - max 30 lines total
+ *  - max 3 raw samples per affected service (heuristic: lines mentioning the service token)
+ *  - each line truncated to 300 chars
+ */
+function limitEvidence(evidence, affectedServices) {
+  const lines = Array.isArray(evidence) ? evidence.map((l) => truncate(l)) : [];
+  const services = Array.isArray(affectedServices) ? affectedServices : [];
+  if (services.length === 0) return lines.slice(0, MAX_EVIDENCE_LINES);
+
+  const perSvcCount = new Map();
+  const kept = [];
+  for (const line of lines) {
+    if (kept.length >= MAX_EVIDENCE_LINES) break;
+    const matchedSvc = services.find((s) => s && line.toLowerCase().includes(String(s).toLowerCase()));
+    if (matchedSvc) {
+      const c = perSvcCount.get(matchedSvc) || 0;
+      if (c >= MAX_RAW_PER_SERVICE) continue;
+      perSvcCount.set(matchedSvc, c + 1);
+    }
+    kept.push(line);
+  }
+  return kept;
+}
 
 const SYSTEM_PROMPT = `You are an explanation assistant for the Tacera/Austco Site Doctor.
 You receive a deterministic rule-based diagnosis with evidence already gathered.
@@ -21,15 +57,17 @@ You MUST:
 Return ONLY a JSON object via the provided tool. No prose outside the tool call.`;
 
 function buildPayload(diagnosis) {
-  // Only forward the safe fields
+  // Only forward the safe fields, with strict size limits
+  const affectedServices = Array.isArray(diagnosis?.affectedServices)
+    ? diagnosis.affectedServices.slice(0, 20) : [];
   return {
     breakFoundAt: diagnosis?.breakFoundAt || "No confirmed break",
-    primaryCause: diagnosis?.primaryCause || "",
+    primaryCause: truncate(diagnosis?.primaryCause || "", 500),
     confidence: typeof diagnosis?.confidence === "number" ? diagnosis.confidence : 0,
-    confidenceReasons: Array.isArray(diagnosis?.confidenceReasons) ? diagnosis.confidenceReasons.slice(0, 10) : [],
-    evidence: Array.isArray(diagnosis?.evidence) ? diagnosis.evidence.slice(0, 30) : [],
-    fixActions: Array.isArray(diagnosis?.fixActions) ? diagnosis.fixActions.slice(0, 10) : [],
-    affectedServices: Array.isArray(diagnosis?.affectedServices) ? diagnosis.affectedServices.slice(0, 20) : [],
+    confidenceReasons: (Array.isArray(diagnosis?.confidenceReasons) ? diagnosis.confidenceReasons.slice(0, 10) : []).map((s) => truncate(s)),
+    evidence: limitEvidence(diagnosis?.evidence, affectedServices),
+    fixActions: (Array.isArray(diagnosis?.fixActions) ? diagnosis.fixActions.slice(0, 10) : []).map((s) => truncate(s)),
+    affectedServices,
   };
 }
 
@@ -108,7 +146,7 @@ export async function explainWithOllama({
   diagnosis,
   endpoint = DEFAULT_ENDPOINT,
   model = DEFAULT_MODEL,
-  timeoutMs = 30_000,
+  timeoutMs = DEFAULT_TIMEOUT_MS,
 } = {}) {
   if (!diagnosis || typeof diagnosis !== "object") {
     return { ok: false, reason: "no_diagnosis", message: "No diagnosis to explain." };
@@ -162,11 +200,20 @@ export async function explainWithOllama({
     });
   } catch (err) {
     clearTimeout(t);
+    const aborted = err?.name === "AbortError" || /aborted/i.test(err?.message || "");
+    if (aborted) {
+      return {
+        ok: false,
+        reason: "ollama_timeout",
+        message: "Local AI timed out — rule-based diagnosis is still available.",
+        endpoint, model, payload,
+      };
+    }
     return {
       ok: false,
       reason: "ollama_unavailable",
       message: `Local AI unavailable — showing rule-based diagnosis only. (${err?.message || String(err)})`,
-      endpoint, model,
+      endpoint, model, payload,
     };
   }
   clearTimeout(t);
@@ -177,19 +224,19 @@ export async function explainWithOllama({
       ok: false,
       reason: "ollama_http_error",
       message: `Ollama HTTP ${res.status}. ${text.slice(0, 200)}`,
-      endpoint, model,
+      endpoint, model, payload,
     };
   }
 
   let data;
   try { data = await res.json(); }
   catch (err) {
-    return { ok: false, reason: "ollama_bad_json", message: `Ollama returned non-JSON: ${err?.message || err}`, endpoint, model };
+    return { ok: false, reason: "ollama_bad_json", message: `Ollama returned non-JSON: ${err?.message || err}`, endpoint, model, payload };
   }
 
   const parsed = parseOllamaResponse(data);
   if (!parsed) {
-    return { ok: false, reason: "ollama_no_structured_output", message: "Ollama did not return a parseable JSON object.", endpoint, model };
+    return { ok: false, reason: "ollama_no_structured_output", message: "Ollama did not return a parseable JSON object.", endpoint, model, payload };
   }
 
   const ai = sanitizeAi(parsed, diagnosis);
@@ -198,6 +245,7 @@ export async function explainWithOllama({
     mode: "LOCAL_OLLAMA",
     endpoint, model,
     ai,
+    payload,
     notice: "AI explanation based only on real backend evidence. Root cause and confidence come from the rule engine, not AI.",
   };
 }

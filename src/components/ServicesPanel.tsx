@@ -60,6 +60,8 @@ export function ServicesPanel({
     (typeof window !== "undefined" && window.localStorage.getItem("tacera.aiModel")) || "llama3.2:3b");
   const [aiBusy, setAiBusy] = useState(false);
   const [aiResult, setAiResult] = useState<AiExplainResult | null>(null);
+  const [aiStale, setAiStale] = useState(false);
+  const [aiDiagnosisKey, setAiDiagnosisKey] = useState<string | null>(null);
 
   function persistAi(next: { mode?: "off" | "local_ollama"; endpoint?: string; model?: string }) {
     if (typeof window === "undefined") return;
@@ -130,7 +132,10 @@ export function ServicesPanel({
     const enabled = cfg.services.filter((s) => s.enabled && (s.host || s.hostname));
     if (enabled.length === 0) { setError("Enable at least one service with an IP/hostname."); return; }
     setRunning(true);
+    // New run: clear any prior AI explanation immediately
     setAiResult(null);
+    setAiStale(false);
+    setAiDiagnosisKey(null);
     try {
       const r = await diagnoseServices(enabled.map((s) => ({ ...s, host: s.host || s.hostname })));
       if ("ok" in r && r.ok) {
@@ -148,13 +153,22 @@ export function ServicesPanel({
 
   async function runAiExplain(d: AustcoDiagnosis) {
     setAiBusy(true);
+    setAiStale(false);
     try {
       const r = await explainDiagnosis({ diagnosis: d, endpoint: aiEndpoint, model: aiModel });
       setAiResult(r);
+      setAiDiagnosisKey(diagnosisKey(d));
     } catch (err) {
       setAiResult({ ok: false, reason: "client_error", message: err instanceof Error ? err.message : String(err) });
     } finally { setAiBusy(false); }
   }
+
+  // Mark AI explanation stale if the underlying diagnosis changes
+  useEffect(() => {
+    if (!aiResult || !runResult?.diagnosis || !aiDiagnosisKey) return;
+    const currentKey = diagnosisKey(runResult.diagnosis);
+    if (currentKey !== aiDiagnosisKey) setAiStale(true);
+  }, [runResult, aiResult, aiDiagnosisKey]);
 
   const enabledCount = cfg.services.filter((s) => s.enabled && (s.host || s.hostname)).length;
 
@@ -409,16 +423,51 @@ export function ServicesPanel({
             )}
             {aiResult && !aiResult.ok && (
               <div className="rounded border border-warning/40 bg-warning/10 px-3 py-2 text-warning">
-                Local AI unavailable — showing rule-based diagnosis only.
+                {aiResult.reason === "ollama_timeout"
+                  ? "Local AI timed out — rule-based diagnosis is still available."
+                  : "Local AI unavailable — showing rule-based diagnosis only."}
                 <div className="mt-1 font-mono text-[10px] opacity-80">{aiResult.message}</div>
               </div>
             )}
-            {aiResult && aiResult.ok && <AiExplanationBlock ai={aiResult.ai} endpoint={aiResult.endpoint} model={aiResult.model} />}
+            {aiStale && (
+              <div className="flex flex-wrap items-center gap-2 rounded border border-warning/40 bg-warning/10 px-3 py-2 text-warning">
+                <AlertTriangle className="h-3.5 w-3.5" />
+                <span className="text-[11px]">Diagnosis changed — AI explanation is stale. Re-run to refresh.</span>
+                <Button
+                  type="button" size="sm" variant="outline" className="ml-auto h-7 text-[11px]"
+                  disabled={aiBusy || !runResult?.diagnosis}
+                  onClick={() => runResult?.diagnosis && runAiExplain(runResult.diagnosis)}
+                >
+                  Re-run AI
+                </Button>
+              </div>
+            )}
+            {aiResult && aiResult.ok && <AiExplanationBlock ai={aiResult.ai} endpoint={aiResult.endpoint} model={aiResult.model} stale={aiStale} />}
+            {aiResult?.payload && (
+              <details className="rounded border border-border/50 bg-background/40 px-2 py-1.5">
+                <summary className="cursor-pointer text-[11px] font-semibold text-muted-foreground hover:text-foreground">
+                  Evidence sent to AI ({aiResult.payload.evidence.length} lines, max 30 · 300 chars/line · 3 raw/service)
+                </summary>
+                <pre className="mt-1 max-h-[280px] overflow-auto rounded bg-background/80 p-2 font-mono text-[10px] whitespace-pre-wrap break-all">
+{JSON.stringify(aiResult.payload, null, 2)}
+                </pre>
+              </details>
+            )}
           </CardContent>
         </Card>
       )}
     </div>
   );
+}
+
+function diagnosisKey(d: AustcoDiagnosis): string {
+  return [
+    d.breakFoundAt,
+    d.primaryCause,
+    d.confidence,
+    (d.evidence || []).join("|"),
+    (d.affectedServices || []).join(","),
+  ].join("§");
 }
 
 function AiSection({ label, body }: { label: string; body: string }) {
@@ -430,9 +479,9 @@ function AiSection({ label, body }: { label: string; body: string }) {
   );
 }
 
-function AiExplanationBlock({ ai, endpoint, model }: { ai: AiExplanation; endpoint: string; model: string }) {
+function AiExplanationBlock({ ai, endpoint, model, stale }: { ai: AiExplanation; endpoint: string; model: string; stale?: boolean }) {
   return (
-    <div className="space-y-2">
+    <div className={`space-y-2 ${stale ? "opacity-60" : ""}`}>
       <AiSection label="Plain English summary" body={ai.plainEnglishSummary} />
       <AiSection label="Technician explanation" body={ai.technicianExplanation} />
       <AiSection label="Escalation summary" body={ai.escalationSummary} />
