@@ -174,13 +174,21 @@ export function ServicesPanel({
 
   return (
     <div className="space-y-4">
-      <Card className="bg-card/70">
-        <CardHeader className="pb-3"><CardTitle className="text-sm">AI Mode (optional)</CardTitle></CardHeader>
+      <Card className="bg-card/70 border-dashed opacity-95">
+        <CardHeader className="pb-3 flex-row items-center justify-between gap-2">
+          <CardTitle className="text-sm text-muted-foreground">AI Mode (optional · secondary)</CardTitle>
+          <AiStatusBadge aiMode={aiMode} aiResult={aiResult} aiStale={aiStale} aiBusy={aiBusy} />
+        </CardHeader>
         <CardContent className="space-y-3">
           <p className="text-xs text-muted-foreground">
             AI is optional and only <span className="font-semibold">summarizes</span> the rule-based diagnosis.
             It cannot change the root cause, confidence, or evidence. The app works fully without AI.
           </p>
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-1 rounded border border-border/60 bg-background/40 px-2 py-1.5 text-[11px]">
+            <span className="text-muted-foreground">Endpoint: <span className="font-mono text-foreground/80">{aiEndpoint || "—"}</span></span>
+            <span className="text-muted-foreground">Model: <span className="font-mono text-foreground/80">{aiModel || "—"}</span></span>
+            <span className="text-muted-foreground">AI required: <span className="font-semibold text-foreground/80">No</span></span>
+          </div>
           <div className="flex flex-wrap items-end gap-3">
             <div className="space-y-1">
               <Label className="text-[10px] uppercase tracking-wider text-muted-foreground">Mode</Label>
@@ -408,11 +416,14 @@ export function ServicesPanel({
       )}
 
       {runResult && aiMode === "local_ollama" && (
-        <Card className="bg-card/70">
-          <CardHeader className="pb-3 flex-row items-center justify-between">
-            <CardTitle className="text-sm">AI Explanation</CardTitle>
-            <span className="rounded bg-info/15 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-info">Local Ollama</span>
+        <Card className="bg-card/50 border-dashed">
+          <CardHeader className="pb-3 flex-row items-center justify-between gap-2">
+            <CardTitle className="text-sm text-muted-foreground">AI Explanation <span className="ml-1 text-[10px] font-normal uppercase tracking-wider">(secondary)</span></CardTitle>
+            <AiStatusBadge aiMode={aiMode} aiResult={aiResult} aiStale={aiStale} aiBusy={aiBusy} />
           </CardHeader>
+          <CardContent className="pt-0 pb-2 text-[11px] text-muted-foreground">
+            <span className="font-mono">{aiModel}</span> @ <span className="font-mono">{aiEndpoint}</span> · AI required: <span className="font-semibold">No</span>
+          </CardContent>
           <CardContent className="space-y-2 text-xs">
             <div className="text-[11px] italic text-muted-foreground">
               AI explanation based only on real backend evidence. Root cause and confidence come from the rule engine, not AI.
@@ -468,6 +479,32 @@ function diagnosisKey(d: AustcoDiagnosis): string {
     (d.evidence || []).join("|"),
     (d.affectedServices || []).join(","),
   ].join("§");
+}
+
+function AiStatusBadge({
+  aiMode, aiResult, aiStale, aiBusy,
+}: {
+  aiMode: "off" | "local_ollama";
+  aiResult: AiExplainResult | null;
+  aiStale: boolean;
+  aiBusy: boolean;
+}) {
+  let label = "AI: Off";
+  let tone = "bg-muted text-muted-foreground border-border";
+  if (aiMode === "local_ollama") {
+    if (aiBusy) { label = "AI: Working…"; tone = "bg-info/15 text-info border-info/40"; }
+    else if (aiStale) { label = "AI: Stale Explanation"; tone = "bg-warning/15 text-warning border-warning/40"; }
+    else if (aiResult && !aiResult.ok) {
+      if (aiResult.reason === "ollama_timeout") { label = "AI: Timed Out"; tone = "bg-warning/15 text-warning border-warning/40"; }
+      else { label = "AI: Local Ollama Unavailable"; tone = "bg-critical/15 text-critical border-critical/40"; }
+    }
+    else { label = "AI: Local Ollama Enabled"; tone = "bg-success/15 text-success border-success/40"; }
+  }
+  return (
+    <span className={`inline-flex items-center rounded border px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider ${tone}`}>
+      {label}
+    </span>
+  );
 }
 
 function AiSection({ label, body }: { label: string; body: string }) {
