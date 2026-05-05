@@ -557,6 +557,57 @@ function AiExplanationBlock({ ai, endpoint, model, stale }: { ai: AiExplanation;
   );
 }
 
+function AiEvidenceSnapshot({ payload }: { payload: AiPayload }) {
+  const evidenceCount = Array.isArray(payload.evidence) ? payload.evidence.length : 0;
+  const services = Array.isArray(payload.affectedServices) ? payload.affectedServices : [];
+  const fixActions = Array.isArray(payload.fixActions) ? payload.fixActions : [];
+  return (
+    <details className="rounded border border-border/50 bg-background/40 px-2 py-1.5">
+      <summary className="cursor-pointer text-[11px] font-semibold text-muted-foreground hover:text-foreground">
+        Evidence Snapshot Used by AI ({evidenceCount} evidence lines)
+      </summary>
+      <div className="mt-2 space-y-2 text-[11px]">
+        <div className="italic text-muted-foreground">
+          AI can only explain this snapshot. It cannot see anything else.
+        </div>
+        <SnapshotRow label="Break Found At" value={payload.breakFoundAt || "—"} />
+        <SnapshotRow label="Primary Cause" value={payload.primaryCause || "—"} />
+        <SnapshotRow label="Confidence" value={`${payload.confidence ?? 0}%`} />
+        <SnapshotList label="Affected Services" items={services} />
+        <SnapshotList label="Evidence lines" items={Array.isArray(payload.evidence) ? payload.evidence : []} mono />
+        <SnapshotList label="Fix Actions" items={fixActions} />
+        <div className="pt-1 text-[10px] text-muted-foreground">
+          No credentials, IPs outside evidence, or extra logs are sent. Limits: max 30 lines · 300 chars/line · 3 raw/service.
+        </div>
+      </div>
+    </details>
+  );
+}
+
+function SnapshotRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div>
+      <div className="text-[10px] uppercase tracking-wider text-muted-foreground">{label}</div>
+      <div className="text-foreground/90 whitespace-pre-wrap break-words">{value}</div>
+    </div>
+  );
+}
+
+function SnapshotList({ label, items, mono }: { label: string; items: string[]; mono?: boolean }) {
+  return (
+    <div>
+      <div className="text-[10px] uppercase tracking-wider text-muted-foreground">{label} ({items.length})</div>
+      {items.length === 0 ? (
+        <div className="text-muted-foreground">—</div>
+      ) : (
+        <ul className={`mt-0.5 list-disc pl-4 space-y-0.5 ${mono ? "font-mono text-[10px]" : ""} text-foreground/90`}>
+          {items.map((it, i) => (<li key={i} className="break-all whitespace-pre-wrap">{it}</li>))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
 function confidenceTone(score: number): string {
   if (score >= 80) return "bg-success/15 text-success border-success/40";
   if (score >= 60) return "bg-info/15 text-info border-info/40";
