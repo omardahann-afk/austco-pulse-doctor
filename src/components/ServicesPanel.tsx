@@ -16,8 +16,10 @@ import {
 } from "@/lib/siteConfig";
 import {
   testSsh, diagnoseOneService, diagnoseServices,
+  explainDiagnosis,
   type SshTestResult, type ServiceDiagnosisResult, type ServicesDiagnosis,
   type ParsedLog, type LogFinding, type AustcoDiagnosis,
+  type AiExplainResult, type AiExplanation,
 } from "@/lib/agentClient";
 
 type PerSvcState = {
@@ -45,6 +47,26 @@ export function ServicesPanel({
   const [running, setRunning] = useState(false);
   const [runResult, setRunResult] = useState<ServicesDiagnosis | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  // AI mode state (persisted lightly in localStorage)
+  const [aiMode, setAiMode] = useState<"off" | "local_ollama">(() => {
+    if (typeof window === "undefined") return "off";
+    const v = window.localStorage.getItem("tacera.aiMode");
+    return v === "local_ollama" ? "local_ollama" : "off";
+  });
+  const [aiEndpoint, setAiEndpoint] = useState<string>(() =>
+    (typeof window !== "undefined" && window.localStorage.getItem("tacera.aiEndpoint")) || "http://localhost:11434/api/chat");
+  const [aiModel, setAiModel] = useState<string>(() =>
+    (typeof window !== "undefined" && window.localStorage.getItem("tacera.aiModel")) || "llama3.2:3b");
+  const [aiBusy, setAiBusy] = useState(false);
+  const [aiResult, setAiResult] = useState<AiExplainResult | null>(null);
+
+  function persistAi(next: { mode?: "off" | "local_ollama"; endpoint?: string; model?: string }) {
+    if (typeof window === "undefined") return;
+    if (next.mode !== undefined) window.localStorage.setItem("tacera.aiMode", next.mode);
+    if (next.endpoint !== undefined) window.localStorage.setItem("tacera.aiEndpoint", next.endpoint);
+    if (next.model !== undefined) window.localStorage.setItem("tacera.aiModel", next.model);
+  }
 
   useEffect(() => {
     if (cfg.services.length === 0) setCfg((c) => ({ ...c, services: seedDefaultServices() }));
@@ -108,19 +130,87 @@ export function ServicesPanel({
     const enabled = cfg.services.filter((s) => s.enabled && (s.host || s.hostname));
     if (enabled.length === 0) { setError("Enable at least one service with an IP/hostname."); return; }
     setRunning(true);
+    setAiResult(null);
     try {
       const r = await diagnoseServices(enabled.map((s) => ({ ...s, host: s.host || s.hostname })));
-      if ("ok" in r && r.ok) { setRunResult(r); saveServicesDiagnosis(r); }
+      if ("ok" in r && r.ok) {
+        setRunResult(r);
+        saveServicesDiagnosis(r);
+        if (aiMode === "local_ollama" && r.diagnosis) {
+          void runAiExplain(r.diagnosis);
+        }
+      }
       else setError(("message" in r && r.message) || "Backend rejected the request.");
     } catch (err) {
       setError(`Backend unreachable. ${err instanceof Error ? err.message : String(err)}`);
     } finally { setRunning(false); }
   }
 
+  async function runAiExplain(d: AustcoDiagnosis) {
+    setAiBusy(true);
+    try {
+      const r = await explainDiagnosis({ diagnosis: d, endpoint: aiEndpoint, model: aiModel });
+      setAiResult(r);
+    } catch (err) {
+      setAiResult({ ok: false, reason: "client_error", message: err instanceof Error ? err.message : String(err) });
+    } finally { setAiBusy(false); }
+  }
+
   const enabledCount = cfg.services.filter((s) => s.enabled && (s.host || s.hostname)).length;
 
   return (
     <div className="space-y-4">
+      <Card className="bg-card/70">
+        <CardHeader className="pb-3"><CardTitle className="text-sm">AI Mode (optional)</CardTitle></CardHeader>
+        <CardContent className="space-y-3">
+          <p className="text-xs text-muted-foreground">
+            AI is optional and only <span className="font-semibold">summarizes</span> the rule-based diagnosis.
+            It cannot change the root cause, confidence, or evidence. The app works fully without AI.
+          </p>
+          <div className="flex flex-wrap items-end gap-3">
+            <div className="space-y-1">
+              <Label className="text-[10px] uppercase tracking-wider text-muted-foreground">Mode</Label>
+              <select
+                value={aiMode}
+                onChange={(e) => { const v = e.target.value as "off" | "local_ollama"; setAiMode(v); persistAi({ mode: v }); }}
+                className="h-8 rounded-md border border-input bg-background px-2 text-xs"
+              >
+                <option value="off">Off</option>
+                <option value="local_ollama">Local Ollama</option>
+              </select>
+            </div>
+            <div className="space-y-1 flex-1 min-w-[220px]">
+              <Label className="text-[10px] uppercase tracking-wider text-muted-foreground">Ollama endpoint</Label>
+              <Input
+                value={aiEndpoint}
+                onChange={(e) => { setAiEndpoint(e.target.value); persistAi({ endpoint: e.target.value }); }}
+                disabled={aiMode !== "local_ollama"}
+                className="h-8 font-mono text-xs"
+                placeholder="http://localhost:11434/api/chat"
+              />
+            </div>
+            <div className="space-y-1">
+              <Label className="text-[10px] uppercase tracking-wider text-muted-foreground">Model</Label>
+              <Input
+                value={aiModel}
+                onChange={(e) => { setAiModel(e.target.value); persistAi({ model: e.target.value }); }}
+                disabled={aiMode !== "local_ollama"}
+                className="h-8 font-mono text-xs w-[160px]"
+                placeholder="llama3.2:3b"
+              />
+            </div>
+            <Button
+              type="button" variant="outline" size="sm"
+              disabled={aiMode !== "local_ollama" || !runResult?.diagnosis || aiBusy}
+              onClick={() => runResult?.diagnosis && runAiExplain(runResult.diagnosis)}
+            >
+              {aiBusy ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : null}
+              Explain with AI
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
       <Card className="bg-card/70">
         <CardHeader className="pb-3 flex-row items-center justify-between">
           <CardTitle className="text-sm">Austco Services (SSH/SFTP)</CardTitle>
@@ -266,7 +356,7 @@ export function ServicesPanel({
 
       {runResult && (
         <Card className="bg-card/70">
-          <CardHeader className="pb-3"><CardTitle className="text-sm">Diagnosis Result</CardTitle></CardHeader>
+          <CardHeader className="pb-3"><CardTitle className="text-sm">Rule-Based Diagnosis</CardTitle></CardHeader>
           <CardContent className="space-y-2 text-xs">
             {runResult.diagnosis && <AustcoDiagnosisBlock d={runResult.diagnosis} />}
             <div className="flex flex-wrap gap-3">
@@ -302,6 +392,53 @@ export function ServicesPanel({
           </CardContent>
         </Card>
       )}
+
+      {runResult && aiMode === "local_ollama" && (
+        <Card className="bg-card/70">
+          <CardHeader className="pb-3 flex-row items-center justify-between">
+            <CardTitle className="text-sm">AI Explanation</CardTitle>
+            <span className="rounded bg-info/15 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-info">Local Ollama</span>
+          </CardHeader>
+          <CardContent className="space-y-2 text-xs">
+            <div className="text-[11px] italic text-muted-foreground">
+              AI explanation based only on real backend evidence. Root cause and confidence come from the rule engine, not AI.
+            </div>
+            {aiBusy && <div className="flex items-center gap-2 text-muted-foreground"><Loader2 className="h-3.5 w-3.5 animate-spin" /> Asking local Ollama…</div>}
+            {!aiBusy && !aiResult && (
+              <div className="text-muted-foreground">No AI explanation yet — click <span className="font-semibold">Explain with AI</span> above.</div>
+            )}
+            {aiResult && !aiResult.ok && (
+              <div className="rounded border border-warning/40 bg-warning/10 px-3 py-2 text-warning">
+                Local AI unavailable — showing rule-based diagnosis only.
+                <div className="mt-1 font-mono text-[10px] opacity-80">{aiResult.message}</div>
+              </div>
+            )}
+            {aiResult && aiResult.ok && <AiExplanationBlock ai={aiResult.ai} endpoint={aiResult.endpoint} model={aiResult.model} />}
+          </CardContent>
+        </Card>
+      )}
+    </div>
+  );
+}
+
+function AiSection({ label, body }: { label: string; body: string }) {
+  return (
+    <div>
+      <div className="text-[10px] uppercase tracking-wider text-muted-foreground">{label}</div>
+      <div className="text-foreground/90 whitespace-pre-wrap">{body || "—"}</div>
+    </div>
+  );
+}
+
+function AiExplanationBlock({ ai, endpoint, model }: { ai: AiExplanation; endpoint: string; model: string }) {
+  return (
+    <div className="space-y-2">
+      <AiSection label="Plain English summary" body={ai.plainEnglishSummary} />
+      <AiSection label="Technician explanation" body={ai.technicianExplanation} />
+      <AiSection label="Escalation summary" body={ai.escalationSummary} />
+      <AiSection label="Customer-friendly summary" body={ai.customerFriendlySummary} />
+      <AiSection label="Safety notes" body={ai.safetyNotes} />
+      <div className="pt-1 text-[10px] font-mono text-muted-foreground">via {model} @ {endpoint}</div>
     </div>
   );
 }
