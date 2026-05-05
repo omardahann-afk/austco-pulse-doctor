@@ -17,6 +17,8 @@ import cors from "cors";
 import os from "node:os";
 import { runDiagnosis } from "./lib/diagnose.js";
 import { analyzeLogs } from "./lib/logs.js";
+import { testSshAuth, pullLogs } from "./lib/ssh.js";
+import { diagnoseService, runServiceDiagnosis } from "./lib/services.js";
 
 const PORT = Number(process.env.PORT || 3001);
 const BIND = process.env.BIND_HOST || "0.0.0.0"; // change to 127.0.0.1 for localhost-only
@@ -64,6 +66,52 @@ app.post("/api/logs/analyze", async (req, res) => {
     res.json(result);
   } catch (err) {
     console.error("logs error:", err);
+    res.status(500).json({ ok: false, reason: "agent_error", message: err?.message || String(err) });
+  }
+});
+
+/* ===== SSH / service-driven endpoints ===== */
+
+app.post("/api/ssh/test", async (req, res) => {
+  try {
+    const { host, port = 22, username, password } = req.body || {};
+    if (!host || !username) return res.status(400).json({ ok: false, reason: "invalid_request", message: "host and username are required" });
+    const r = await testSshAuth({ host, port, username, password: password || "" });
+    res.json({ ...r, host, port: Number(port) || 22, username, at: new Date().toISOString() });
+  } catch (err) {
+    res.status(500).json({ ok: false, reason: "agent_error", message: err?.message || String(err) });
+  }
+});
+
+app.post("/api/ssh/pull-logs", async (req, res) => {
+  try {
+    const { host, port = 22, username, password, paths = [] } = req.body || {};
+    if (!host || !username) return res.status(400).json({ ok: false, reason: "invalid_request", message: "host and username are required" });
+    if (!Array.isArray(paths) || paths.length === 0) return res.status(400).json({ ok: false, reason: "no_paths", message: "paths must be a non-empty array" });
+    const r = await pullLogs({ host, port, username, password: password || "" }, paths);
+    res.json({ ...r, host, port: Number(port) || 22, at: new Date().toISOString() });
+  } catch (err) {
+    res.status(500).json({ ok: false, reason: "agent_error", message: err?.message || String(err) });
+  }
+});
+
+app.post("/api/services/diagnose-one", async (req, res) => {
+  try {
+    const svc = req.body?.service;
+    if (!svc) return res.status(400).json({ ok: false, reason: "invalid_request", message: "service is required" });
+    const r = await diagnoseService(svc);
+    res.json({ ok: true, vm: vmInfo(), service: r });
+  } catch (err) {
+    res.status(500).json({ ok: false, reason: "agent_error", message: err?.message || String(err) });
+  }
+});
+
+app.post("/api/services/diagnose", async (req, res) => {
+  try {
+    const services = Array.isArray(req.body?.services) ? req.body.services : [];
+    const r = await runServiceDiagnosis(services, vmInfo());
+    res.json(r);
+  } catch (err) {
     res.status(500).json({ ok: false, reason: "agent_error", message: err?.message || String(err) });
   }
 });

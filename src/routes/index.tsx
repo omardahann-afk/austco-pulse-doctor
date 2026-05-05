@@ -16,6 +16,7 @@ import {
   newId, saveLastDiagnosis, getBackendUrl, setBackendUrl, DEFAULT_BACKEND_URL,
 } from "@/lib/siteConfig";
 import { checkHealth, runDiagnosis } from "@/lib/agentClient";
+import { ServicesPanel } from "@/components/ServicesPanel";
 
 export const Route = createFileRoute("/")({
   head: () => ({ meta: [
@@ -221,10 +222,16 @@ function CommandCenter() {
           </CardContent>
         </Card>
 
-        {/* 3. Devices / Modules */}
+        {/* 3. Austco Services (SSH/SFTP) */}
+        <div>
+          <h2 className="mb-2 text-sm font-semibold text-muted-foreground">3 · Austco Services</h2>
+          <ServicesPanel cfg={cfg} setCfg={(updater) => setCfg(updater)} />
+        </div>
+
+        {/* 4. Devices / Modules */}
         <Card className="bg-card/70">
           <CardHeader className="pb-3 flex-row items-center justify-between">
-            <CardTitle className="text-sm">3 · Devices / Modules</CardTitle>
+            <CardTitle className="text-sm">4 · Devices / Modules (network-only)</CardTitle>
             <Button type="button" variant="outline" size="sm" onClick={() => addModule("Other")}>
               <Plus className="mr-1 h-3.5 w-3.5" /> Add Device
             </Button>

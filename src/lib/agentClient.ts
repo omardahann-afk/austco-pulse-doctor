@@ -4,7 +4,7 @@
  * agent directly over HTTP. URL is configurable in the UI.
  */
 
-import { getBackendUrl, type SiteConfig, type DiagnosisResult, type LogResult } from "./siteConfig";
+import { getBackendUrl, type SiteConfig, type DiagnosisResult, type LogResult, type ServiceEntry } from "./siteConfig";
 
 export type AgentHealth = {
   ok: true;
@@ -46,6 +46,82 @@ export async function analyzeLogs(files: LogUpload[]): Promise<LogResult | ApiEr
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ files }),
+  });
+  return await res.json();
+}
+
+/* ===== SSH/service endpoints ===== */
+
+export type SshTestResult =
+  | { ok: true; host: string; port: number; username: string; at: string }
+  | { ok: false; stage: string; error: string; host?: string; port?: number; username?: string; at?: string };
+
+export async function testSsh(svc: { host: string; port?: number; username: string; password: string }): Promise<SshTestResult> {
+  const url = getBackendUrl().replace(/\/$/, "") + "/api/ssh/test";
+  const res = await fetch(url, {
+    method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(svc),
+  });
+  return await res.json();
+}
+
+export type LogPullFile = { path: string; ok: boolean; sizeBytes?: number; truncated?: boolean; content?: string; reason?: string; error?: string };
+export type LogPullResult = { ok: boolean; connected?: boolean; stage?: string; error?: string; files: LogPullFile[]; host?: string; port?: number; at?: string };
+
+export async function pullLogsViaSsh(opts: { host: string; port?: number; username: string; password: string; paths: string[] }): Promise<LogPullResult> {
+  const url = getBackendUrl().replace(/\/$/, "") + "/api/ssh/pull-logs";
+  const res = await fetch(url, {
+    method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(opts),
+  });
+  return await res.json();
+}
+
+export type ServiceStep = { name: string; status: "PASS" | "WARN" | "FAIL" | "UNKNOWN"; detail: string; at: string };
+export type ServiceDiagnosisResult = {
+  serviceId: string;
+  name: string;
+  role: string;
+  host: string;
+  hostname: string;
+  port: number;
+  startedAt: string;
+  finishedAt: string | null;
+  steps: ServiceStep[];
+  logs: LogPullFile[];
+  parsed: LogResult | null;
+  status: "PASS" | "WARN" | "FAIL" | "UNKNOWN";
+  message: string;
+  source: "REAL TEST";
+};
+
+export type ServicesDiagnosis = {
+  ok: true;
+  mode: "REAL TEST";
+  vm: { hostname: string; addrs: string[]; platform: string };
+  startedAt: string;
+  finishedAt: string;
+  summary: { total: number; pass: number; warn: number; fail: number };
+  breakFoundAt: { name: string; role: string; host: string } | null;
+  confidence: "HIGH" | "MEDIUM" | "LOW";
+  evidence: string[];
+  services: ServiceDiagnosisResult[];
+};
+
+export async function diagnoseOneService(service: ServiceEntry): Promise<{ ok: true; vm: { hostname: string; addrs: string[]; platform: string }; service: ServiceDiagnosisResult } | ApiError> {
+  const url = getBackendUrl().replace(/\/$/, "") + "/api/services/diagnose-one";
+  const res = await fetch(url, {
+    method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ service }),
+  });
+  return await res.json();
+}
+
+export async function diagnoseServices(services: ServiceEntry[]): Promise<ServicesDiagnosis | ApiError> {
+  const url = getBackendUrl().replace(/\/$/, "") + "/api/services/diagnose";
+  const res = await fetch(url, {
+    method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ services }),
   });
   return await res.json();
 }
