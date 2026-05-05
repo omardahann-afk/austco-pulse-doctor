@@ -212,3 +212,86 @@ export async function diagnoseServices(services: ServiceEntry[]): Promise<Servic
   });
   return await res.json();
 }
+
+/* ===== Trace Signal Path ===== */
+
+export type TraceTargetKind =
+  | "cpId" | "room" | "fqLocation" | "callType" | "mqtt" | "controllerId" | "auto";
+
+export type TraceTargetInput = {
+  kind: TraceTargetKind;
+  value: string;
+  callType?: string;
+  fqLocation?: string;
+  mqttTopic?: string;
+  sinceMs?: number;
+};
+
+export type NormalizedTraceTarget = TraceTargetInput & { label: string };
+
+export type TraceLayer =
+  | "Input" | "Controller" | "IPConnect" | "Pulse Gateway" | "Integration Gateway"
+  | "MQTT Broker" | "WebSocket MQTT Adapter" | "Display / IP-APP" | "External Systems";
+
+export type TraceNodeStatus =
+  | "SIGNAL_RECEIVED" | "EVENT_PROPAGATED" | "EVENT_ROUTED"
+  | "TIMEOUT" | "CONFIG_MISMATCH" | "UNREACHABLE"
+  | "NOT_CONFIGURED" | "NO_EVIDENCE" | "UNKNOWN";
+
+export type TraceNode = {
+  layer: TraceLayer;
+  componentType: string;
+  componentName: string;
+  status: TraceNodeStatus;
+  evidence: string[];
+  timestamp: string | null;
+  latencyMs: number | null;
+  nextHop: TraceLayer | null;
+  breakDetected: boolean;
+  confidence: number;
+  reachable: boolean | null;
+};
+
+export type SuspectedFailure = {
+  layer: TraceLayer;
+  componentName: string;
+  reason: TraceNodeStatus;
+  explanation: string;
+  confidence: number;
+};
+
+export type TraceResult =
+  | {
+      ok: true;
+      traceId: string;
+      traceTarget: NormalizedTraceTarget;
+      overallStatus: "PROPAGATED" | "PARTIAL" | "BROKEN" | "NO_EVIDENCE";
+      signalStatus: "EVENT_ALIVE" | "PARTIAL_EVIDENCE" | "SIGNAL_LOST" | "NO_EVIDENCE";
+      traceStartedAt: string;
+      traceEndedAt: string;
+      breakFoundAt: string | null;
+      confidence: number;
+      propagationPath: TraceNode[];
+      evidence: string[];
+      timing: { hops: { from: TraceLayer; to: TraceLayer; deltaMs: number }[] };
+      suspectedFailures: SuspectedFailure[];
+      ruledOutFailures: string[];
+      fixActions: string[];
+      notes: string[];
+      vm?: { hostname: string; addrs: string[]; platform: string };
+    }
+  | ApiError;
+
+export async function runTrace(opts: {
+  target: TraceTargetInput;
+  siteConfig: unknown;
+  services?: ServiceEntry[];
+  serviceResults?: ServiceDiagnosisResult[];
+}): Promise<TraceResult> {
+  const url = getBackendUrl().replace(/\/$/, "") + "/api/trace/run";
+  const res = await fetch(url, {
+    method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(opts),
+  });
+  return await res.json();
+}

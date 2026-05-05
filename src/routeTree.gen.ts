@@ -9,11 +9,17 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as TraceRouteImport } from './routes/trace'
 import { Route as LogsRouteImport } from './routes/logs'
 import { Route as EscalationRouteImport } from './routes/escalation'
 import { Route as DiagnosisRouteImport } from './routes/diagnosis'
 import { Route as IndexRouteImport } from './routes/index'
 
+const TraceRoute = TraceRouteImport.update({
+  id: '/trace',
+  path: '/trace',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const LogsRoute = LogsRouteImport.update({
   id: '/logs',
   path: '/logs',
@@ -40,12 +46,14 @@ export interface FileRoutesByFullPath {
   '/diagnosis': typeof DiagnosisRoute
   '/escalation': typeof EscalationRoute
   '/logs': typeof LogsRoute
+  '/trace': typeof TraceRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/diagnosis': typeof DiagnosisRoute
   '/escalation': typeof EscalationRoute
   '/logs': typeof LogsRoute
+  '/trace': typeof TraceRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -53,13 +61,14 @@ export interface FileRoutesById {
   '/diagnosis': typeof DiagnosisRoute
   '/escalation': typeof EscalationRoute
   '/logs': typeof LogsRoute
+  '/trace': typeof TraceRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/diagnosis' | '/escalation' | '/logs'
+  fullPaths: '/' | '/diagnosis' | '/escalation' | '/logs' | '/trace'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/diagnosis' | '/escalation' | '/logs'
-  id: '__root__' | '/' | '/diagnosis' | '/escalation' | '/logs'
+  to: '/' | '/diagnosis' | '/escalation' | '/logs' | '/trace'
+  id: '__root__' | '/' | '/diagnosis' | '/escalation' | '/logs' | '/trace'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -67,10 +76,18 @@ export interface RootRouteChildren {
   DiagnosisRoute: typeof DiagnosisRoute
   EscalationRoute: typeof EscalationRoute
   LogsRoute: typeof LogsRoute
+  TraceRoute: typeof TraceRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/trace': {
+      id: '/trace'
+      path: '/trace'
+      fullPath: '/trace'
+      preLoaderRoute: typeof TraceRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/logs': {
       id: '/logs'
       path: '/logs'
@@ -107,16 +124,8 @@ const rootRouteChildren: RootRouteChildren = {
   DiagnosisRoute: DiagnosisRoute,
   EscalationRoute: EscalationRoute,
   LogsRoute: LogsRoute,
+  TraceRoute: TraceRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { createStart } from '@tanstack/react-start'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-  }
-}
