@@ -293,11 +293,15 @@ function CommandCenter() {
           </CardContent>
         </Card>
 
-        {/* 4. Server Connections / Log Paths (SSH/SFTP) */}
-        <div>
-          <h2 className="mb-2 text-sm font-semibold text-muted-foreground">4 · Server Connections / Log Paths</h2>
-          <ServicesPanel cfg={cfg} setCfg={(updater) => setCfg(updater)} />
-        </div>
+        {/* 4. Services / Log Pulling (SSH/SFTP) */}
+        <Card className="bg-card/70">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm">4 · Services / Log Pulling</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <ServicesPanel cfg={cfg} setCfg={(updater) => setCfg(updater)} />
+          </CardContent>
+        </Card>
 
         {/* 5. JSON config */}
         <Card className="bg-card/70">
