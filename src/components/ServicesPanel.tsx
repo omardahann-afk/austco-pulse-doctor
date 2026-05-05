@@ -143,8 +143,13 @@ export function ServicesPanel({
       if ("ok" in r && r.ok) {
         setRunResult(r);
         saveServicesDiagnosis(r);
-        if (aiMode === "local_ollama" && r.diagnosis) {
-          void runAiExplain(r.diagnosis);
+        if (aiMode === "local_ollama") {
+          // AI receives ONLY the deterministic root-cause snapshot — never raw evidence,
+          // never devices, never credentials. AI cannot override the rule engine.
+          const snap = r.rootCause
+            ? rootCauseToDiagnosisShape(r.rootCause)
+            : r.diagnosis;
+          if (snap) void runAiExplain(snap);
         }
       }
       else setError(("message" in r && r.message) || "Backend rejected the request.");
