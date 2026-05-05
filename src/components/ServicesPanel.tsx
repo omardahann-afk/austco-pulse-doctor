@@ -174,13 +174,21 @@ export function ServicesPanel({
 
   return (
     <div className="space-y-4">
-      <Card className="bg-card/70">
-        <CardHeader className="pb-3"><CardTitle className="text-sm">AI Mode (optional)</CardTitle></CardHeader>
+      <Card className="bg-card/70 border-dashed opacity-95">
+        <CardHeader className="pb-3 flex-row items-center justify-between gap-2">
+          <CardTitle className="text-sm text-muted-foreground">AI Mode (optional · secondary)</CardTitle>
+          <AiStatusBadge aiMode={aiMode} aiResult={aiResult} aiStale={aiStale} aiBusy={aiBusy} />
+        </CardHeader>
         <CardContent className="space-y-3">
           <p className="text-xs text-muted-foreground">
             AI is optional and only <span className="font-semibold">summarizes</span> the rule-based diagnosis.
             It cannot change the root cause, confidence, or evidence. The app works fully without AI.
           </p>
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-1 rounded border border-border/60 bg-background/40 px-2 py-1.5 text-[11px]">
+            <span className="text-muted-foreground">Endpoint: <span className="font-mono text-foreground/80">{aiEndpoint || "—"}</span></span>
+            <span className="text-muted-foreground">Model: <span className="font-mono text-foreground/80">{aiModel || "—"}</span></span>
+            <span className="text-muted-foreground">AI required: <span className="font-semibold text-foreground/80">No</span></span>
+          </div>
           <div className="flex flex-wrap items-end gap-3">
             <div className="space-y-1">
               <Label className="text-[10px] uppercase tracking-wider text-muted-foreground">Mode</Label>
