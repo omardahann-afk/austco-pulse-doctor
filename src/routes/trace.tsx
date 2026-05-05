@@ -5,7 +5,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Loader2, GitBranch, Search } from "lucide-react";
+import { Loader2, Search } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { loadSiteConfig, loadServicesDiagnosis } from "@/lib/siteConfig";
 import { runTrace, type TraceResult, type TraceTargetKind, type ServicesDiagnosis } from "@/lib/agentClient";
@@ -66,9 +66,9 @@ function Page() {
   return (
     <div className="space-y-4">
       <PageHeader
+        eyebrow="Forensics"
         title="Trace Signal Path"
-        subtitle="Wireshark for Austco events — trace a real signal end-to-end and find exactly where it breaks."
-        icon={GitBranch}
+        description="Wireshark for Austco events — trace a real signal end-to-end and find exactly where it breaks."
       />
 
       <Card className="bg-card/70">
