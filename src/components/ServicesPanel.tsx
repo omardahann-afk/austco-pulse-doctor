@@ -7,7 +7,7 @@ import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import {
   Plus, Trash2, Loader2, Eye, EyeOff, ScanLine, FileText,
-  CheckCircle2, AlertTriangle, XCircle, RotateCcw,
+  CheckCircle2, AlertTriangle, XCircle, RotateCcw, ChevronDown, ChevronRight,
 } from "lucide-react";
 import {
   type ServiceEntry, type ServiceRole, type SiteConfig,
