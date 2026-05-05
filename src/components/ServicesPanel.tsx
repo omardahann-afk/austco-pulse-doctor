@@ -481,6 +481,32 @@ function diagnosisKey(d: AustcoDiagnosis): string {
   ].join("§");
 }
 
+function AiStatusBadge({
+  aiMode, aiResult, aiStale, aiBusy,
+}: {
+  aiMode: "off" | "local_ollama";
+  aiResult: AiExplainResult | null;
+  aiStale: boolean;
+  aiBusy: boolean;
+}) {
+  let label = "AI: Off";
+  let tone = "bg-muted text-muted-foreground border-border";
+  if (aiMode === "local_ollama") {
+    if (aiBusy) { label = "AI: Working…"; tone = "bg-info/15 text-info border-info/40"; }
+    else if (aiStale) { label = "AI: Stale Explanation"; tone = "bg-warning/15 text-warning border-warning/40"; }
+    else if (aiResult && !aiResult.ok) {
+      if (aiResult.reason === "ollama_timeout") { label = "AI: Timed Out"; tone = "bg-warning/15 text-warning border-warning/40"; }
+      else { label = "AI: Local Ollama Unavailable"; tone = "bg-critical/15 text-critical border-critical/40"; }
+    }
+    else { label = "AI: Local Ollama Enabled"; tone = "bg-success/15 text-success border-success/40"; }
+  }
+  return (
+    <span className={`inline-flex items-center rounded border px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider ${tone}`}>
+      {label}
+    </span>
+  );
+}
+
 function AiSection({ label, body }: { label: string; body: string }) {
   return (
     <div>
