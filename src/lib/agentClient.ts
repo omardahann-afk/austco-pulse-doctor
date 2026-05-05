@@ -152,6 +152,26 @@ export type AustcoDiagnosis = {
   warnings: string[];
 };
 
+export type AiExplanation = {
+  plainEnglishSummary: string;
+  technicianExplanation: string;
+  escalationSummary: string;
+  customerFriendlySummary: string;
+  safetyNotes: string;
+};
+export type AiExplainResult =
+  | { ok: true; mode: "LOCAL_OLLAMA"; endpoint: string; model: string; ai: AiExplanation; notice: string }
+  | { ok: false; reason: string; message: string; endpoint?: string; model?: string };
+
+export async function explainDiagnosis(opts: { diagnosis: AustcoDiagnosis; endpoint?: string; model?: string }): Promise<AiExplainResult> {
+  const url = getBackendUrl().replace(/\/$/, "") + "/api/ai/explain";
+  const res = await fetch(url, {
+    method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(opts),
+  });
+  return await res.json();
+}
+
 export async function diagnoseOneService(service: ServiceEntry): Promise<{ ok: true; vm: { hostname: string; addrs: string[]; platform: string }; service: ServiceDiagnosisResult } | ApiError> {
   const url = getBackendUrl().replace(/\/$/, "") + "/api/services/diagnose-one";
   const res = await fetch(url, {
