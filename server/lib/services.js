@@ -118,15 +118,20 @@ export async function diagnoseService(svc) {
 
   const pull = await pullLogs({ host, port, username: svc.username, password: svc.password || "" }, paths);
   out.logs = pull.files || [];
+  out.expansions = pull.expansions || [];
   const okFiles = out.logs.filter((f) => f.ok);
   const notFound = out.logs.filter((f) => !f.ok && f.reason === "not_found").map((f) => f.path);
   const denied = out.logs.filter((f) => !f.ok && f.reason === "permission_denied").map((f) => f.path);
   const otherErr = out.logs.filter((f) => !f.ok && !["not_found","permission_denied"].includes(f.reason));
 
+  const totalDiscovered = out.expansions.reduce((s, e) => s + (e.discovered || 0), 0);
+  const totalSkipped = out.expansions.reduce((s, e) => s + (e.skipped || 0), 0);
+
   addStep("sftp_pull",
     pull.ok && okFiles.length > 0 ? (notFound.length || denied.length ? "WARN" : "PASS") : "FAIL",
     pull.ok
-      ? `Pulled ${okFiles.length}/${paths.length} log file(s)` +
+      ? `Pulled ${okFiles.length} of ${totalDiscovered} discovered log file(s) from ${paths.length} input path(s)` +
+        (totalSkipped ? `; ${totalSkipped} skipped (per-service limit)` : "") +
         (notFound.length ? `; missing: ${notFound.join(", ")}` : "") +
         (denied.length ? `; permission denied: ${denied.join(", ")}` : "")
       : `SFTP failed (${pull.stage}): ${pull.error}`);
@@ -136,6 +141,7 @@ export async function diagnoseService(svc) {
     if (!f.ok) {
       return {
         path: f.path,
+        inputPath: f.inputPath || "",
         ok: false,
         reason: f.reason || "error",
         error: f.error || "",
@@ -144,7 +150,7 @@ export async function diagnoseService(svc) {
       };
     }
     const parsed = parseLogFile(`${out.name}:${f.path}`, f.content || "");
-    return { path: f.path, ok: true, sizeBytes: f.sizeBytes, truncated: !!f.truncated, ...parsed };
+    return { path: f.path, inputPath: f.inputPath || "", ok: true, sizeBytes: f.sizeBytes, truncated: !!f.truncated, ...parsed };
   });
 
   if (okFiles.length === 0) {

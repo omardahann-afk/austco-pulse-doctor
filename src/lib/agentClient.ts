@@ -65,8 +65,18 @@ export async function testSsh(svc: { host: string; port?: number; username: stri
   return await res.json();
 }
 
-export type LogPullFile = { path: string; ok: boolean; sizeBytes?: number; truncated?: boolean; content?: string; reason?: string; error?: string };
-export type LogPullResult = { ok: boolean; connected?: boolean; stage?: string; error?: string; files: LogPullFile[]; host?: string; port?: number; at?: string };
+export type LogPullFile = { path: string; inputPath?: string; ok: boolean; sizeBytes?: number; truncated?: boolean; content?: string; reason?: string; error?: string };
+export type LogPathExpansion = {
+  input: string;
+  kind: "file" | "directory" | "glob" | "unknown" | "invalid";
+  ok: boolean;
+  discovered: number;
+  pulled: number;
+  skipped: number;
+  error?: string;
+  reason?: string;
+};
+export type LogPullResult = { ok: boolean; connected?: boolean; stage?: string; error?: string; files: LogPullFile[]; expansions?: LogPathExpansion[]; host?: string; port?: number; at?: string };
 
 export async function pullLogsViaSsh(opts: { host: string; port?: number; username: string; password: string; paths: string[] }): Promise<LogPullResult> {
   const url = getBackendUrl().replace(/\/$/, "") + "/api/ssh/pull-logs";
@@ -88,6 +98,7 @@ export type LogFinding = {
 };
 export type ParsedLog = {
   path: string;
+  inputPath?: string;
   ok: boolean;
   reason?: string;
   error?: string;
@@ -113,6 +124,7 @@ export type ServiceDiagnosisResult = {
   logs: LogPullFile[];
   parsed: { totalErrors: number; totalWarnings: number; typeCounts: Record<string, number> } | null;
   parsedLogs: ParsedLog[];
+  expansions?: LogPathExpansion[];
   status: "PASS" | "WARN" | "FAIL" | "UNKNOWN";
   message: string;
   source: "REAL TEST";

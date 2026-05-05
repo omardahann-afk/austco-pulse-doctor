@@ -326,8 +326,11 @@ export function ServicesPanel({
                     value={svc.logPaths.join("\n")}
                     onChange={(e) => setLogPathsText(svc.id, e.target.value)}
                     className="min-h-[60px] font-mono text-[11px]"
-                    placeholder="/home/xcare/runtime/.../app.log"
+                    placeholder="/home/xcare/runtime/.../logs/"
                   />
+                  <p className="text-[10px] text-muted-foreground">
+                    Enter a file, directory, or glob. Directories pull all matching log files inside.
+                  </p>
                 </div>
 
                 <div className="flex flex-wrap items-center gap-2">
@@ -798,6 +801,35 @@ function ServiceDiagnosisDetail({ d }: { d: ServiceDiagnosisResult }) {
           ))}
         </ul>
       </details>
+      {Array.isArray(d.expansions) && d.expansions.length > 0 && (
+        <details>
+          <summary className="cursor-pointer text-[11px] text-muted-foreground hover:text-foreground">
+            Log path expansion ({d.expansions.length} input{d.expansions.length === 1 ? "" : "s"})
+          </summary>
+          <ul className="mt-1 space-y-0.5">
+            {d.expansions.map((e, i) => (
+              <li key={i} className="rounded border border-border/40 bg-background/40 px-2 py-1">
+                <div className="flex flex-wrap items-center gap-2 text-[11px]">
+                  <span className="rounded bg-muted/40 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                    {e.kind}
+                  </span>
+                  <span className="font-mono text-foreground/90 break-all">{e.input}</span>
+                </div>
+                <div className="mt-0.5 text-[10px] text-muted-foreground">
+                  {e.ok ? (
+                    <>
+                      {e.discovered} discovered · {e.pulled} pulled
+                      {e.skipped ? ` · ${e.skipped} skipped (per-service limit)` : ""}
+                    </>
+                  ) : (
+                    <span className="text-critical">Failed: {e.error || e.reason || "unknown error"}</span>
+                  )}
+                </div>
+              </li>
+            ))}
+          </ul>
+        </details>
+      )}
       {d.connection === "failed" && noLogs && (
         <div className="rounded border border-critical/40 bg-critical/10 px-2 py-1.5 text-critical">SSH connection failed — cannot pull logs.</div>
       )}
