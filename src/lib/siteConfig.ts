@@ -373,25 +373,5 @@ export function loadServicesDiagnosis<T>(): T | null {
   catch { return null; }
 }
 
-/* ===== Opt-in example (DEMO only) ===== */
-export const EXAMPLE_SITE_CONFIG: SiteConfig = {
-  siteName: "Example Site (DEMO)",
-  technician: "Demo Technician",
-  siteNotes: "Demo data — not from a real site.",
-  vlans: [
-    { id: newId(), name: "Servers", cidr: "10.20.1.0/24" },
-    { id: newId(), name: "Devices", cidr: "10.20.4.0/24" },
-  ],
-  modules: [
-    { id: newId(), role: "Pulse Gateway", name: "Pulse Primary", ip: "10.20.1.10", hostname: "", vlan: "Servers", expectedPorts: [80, 443], notes: "" },
-    { id: newId(), role: "IPConnect", name: "IPConnect", ip: "10.20.1.20", hostname: "", vlan: "Servers", expectedPorts: [80, 443, 10000], notes: "" },
-    { id: newId(), role: "License Server", name: "License", ip: "10.20.1.21", hostname: "", vlan: "Servers", expectedPorts: [443], notes: "" },
-  ],
-  controllers: [
-    { id: newId(), name: "Controller East", ip: "10.20.4.21", controllerId: "C-01", area: "East Wing", expectedPorts: [], notes: "" },
-  ],
-  ipin8s: [{ id: newId(), name: "IP-IN8 Basement", ip: "10.20.5.40", vlan: "Devices", expectedPorts: [], notes: "" }],
-  displays: [],
-  switches: [{ id: newId(), name: "Core Switch", ip: "10.20.0.2", vendor: "Cisco", snmpEnabled: false, community: "", expectedPorts: [], notes: "" }],
-  services: [],
-};
+/* No example/demo site config exists. The technician must enter real data
+ * or import a real site JSON. Hardcoded fake IPs are forbidden. */
