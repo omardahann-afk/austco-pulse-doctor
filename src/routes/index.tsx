@@ -293,9 +293,15 @@ function CommandCenter() {
           </CardContent>
         </Card>
 
-        {/* 4. JSON config */}
+        {/* 4. Server Connections / Log Paths (SSH/SFTP) */}
+        <div>
+          <h2 className="mb-2 text-sm font-semibold text-muted-foreground">4 · Server Connections / Log Paths</h2>
+          <ServicesPanel cfg={cfg} setCfg={(updater) => setCfg(updater)} />
+        </div>
+
+        {/* 5. JSON config */}
         <Card className="bg-card/70">
-          <CardHeader className="pb-3"><CardTitle className="text-sm">4 · JSON Config</CardTitle></CardHeader>
+          <CardHeader className="pb-3"><CardTitle className="text-sm">5 · JSON Import / Export</CardTitle></CardHeader>
           <CardContent className="flex flex-wrap gap-2">
             <label className="inline-flex cursor-pointer items-center gap-1.5 rounded border border-border/60 bg-background/60 px-3 py-1.5 text-xs hover:bg-background">
               <Upload className="h-3.5 w-3.5" /> Import JSON
@@ -309,7 +315,7 @@ function CommandCenter() {
           </CardContent>
         </Card>
 
-        {/* 5. Run */}
+        {/* 6. Run */}
         <Card className="bg-card/70">
           <CardContent className="flex flex-wrap items-center gap-3 p-4">
             <div className="text-xs text-muted-foreground">
