@@ -19,6 +19,7 @@ import { runDiagnosis } from "./lib/diagnose.js";
 import { analyzeLogs } from "./lib/logs.js";
 import { testSshAuth, pullLogs } from "./lib/ssh.js";
 import { diagnoseService, runServiceDiagnosis } from "./lib/services.js";
+import { explainWithOllama } from "./lib/ollamaExplain.js";
 
 const PORT = Number(process.env.PORT || 3001);
 const BIND = process.env.BIND_HOST || "0.0.0.0"; // change to 127.0.0.1 for localhost-only
@@ -110,6 +111,19 @@ app.post("/api/services/diagnose", async (req, res) => {
   try {
     const services = Array.isArray(req.body?.services) ? req.body.services : [];
     const r = await runServiceDiagnosis(services, vmInfo());
+    res.json(r);
+  } catch (err) {
+    res.status(500).json({ ok: false, reason: "agent_error", message: err?.message || String(err) });
+  }
+});
+
+app.post("/api/ai/explain", async (req, res) => {
+  try {
+    const { diagnosis, endpoint, model } = req.body || {};
+    if (!diagnosis) {
+      return res.status(400).json({ ok: false, reason: "invalid_request", message: "diagnosis is required" });
+    }
+    const r = await explainWithOllama({ diagnosis, endpoint, model });
     res.json(r);
   } catch (err) {
     res.status(500).json({ ok: false, reason: "agent_error", message: err?.message || String(err) });
