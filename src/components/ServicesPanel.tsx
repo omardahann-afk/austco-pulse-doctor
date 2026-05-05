@@ -62,6 +62,7 @@ export function ServicesPanel({
   const [aiResult, setAiResult] = useState<AiExplainResult | null>(null);
   const [aiStale, setAiStale] = useState(false);
   const [aiDiagnosisKey, setAiDiagnosisKey] = useState<string | null>(null);
+  const [aiUpdatedAt, setAiUpdatedAt] = useState<string | null>(null);
 
   function persistAi(next: { mode?: "off" | "local_ollama"; endpoint?: string; model?: string }) {
     if (typeof window === "undefined") return;
@@ -136,6 +137,7 @@ export function ServicesPanel({
     setAiResult(null);
     setAiStale(false);
     setAiDiagnosisKey(null);
+    setAiUpdatedAt(null);
     try {
       const r = await diagnoseServices(enabled.map((s) => ({ ...s, host: s.host || s.hostname })));
       if ("ok" in r && r.ok) {
@@ -158,6 +160,7 @@ export function ServicesPanel({
       const r = await explainDiagnosis({ diagnosis: d, endpoint: aiEndpoint, model: aiModel });
       setAiResult(r);
       setAiDiagnosisKey(diagnosisKey(d));
+      if (r && r.ok) setAiUpdatedAt(new Date().toISOString());
     } catch (err) {
       setAiResult({ ok: false, reason: "client_error", message: err instanceof Error ? err.message : String(err) });
     } finally { setAiBusy(false); }
@@ -424,6 +427,9 @@ export function ServicesPanel({
           <CardContent className="pt-0 pb-2 text-[11px] text-muted-foreground">
             <span className="font-mono">{aiModel}</span> @ <span className="font-mono">{aiEndpoint}</span> · AI required: <span className="font-semibold">No</span>
           </CardContent>
+          <CardContent className="pt-0 pb-2 text-[11px]">
+            <AiLastRefresh aiBusy={aiBusy} aiStale={aiStale} aiUpdatedAt={aiUpdatedAt} aiResult={aiResult} />
+          </CardContent>
           <CardContent className="space-y-2 text-xs">
             <div className="text-[11px] italic text-muted-foreground">
               AI explanation based only on real backend evidence. Root cause and confidence come from the rule engine, not AI.
@@ -508,6 +514,41 @@ function AiStatusBadge({
 }
 
 function AiSection({ label, body }: { label: string; body: string }) {
+  return (
+    <div>
+      <div className="text-[10px] uppercase tracking-wider text-muted-foreground">{label}</div>
+      <div className="text-foreground/90 whitespace-pre-wrap">{body || "—"}</div>
+    </div>
+  );
+}
+
+function AiLastRefresh({
+  aiBusy, aiStale, aiUpdatedAt, aiResult,
+}: {
+  aiBusy: boolean;
+  aiStale: boolean;
+  aiUpdatedAt: string | null;
+  aiResult: AiExplainResult | null;
+}) {
+  let label: string;
+  let tone = "text-muted-foreground";
+  if (aiBusy) { label = "Running now…"; tone = "text-info"; }
+  else if (aiStale && aiUpdatedAt) { label = `Stale since diagnosis changed (was ${formatTs(aiUpdatedAt)})`; tone = "text-warning"; }
+  else if (aiUpdatedAt && aiResult?.ok) { label = `Last updated: ${formatTs(aiUpdatedAt)}`; tone = "text-foreground/80"; }
+  else { label = "Never run"; }
+  return (
+    <div className={`flex items-center gap-1.5 ${tone}`}>
+      <span className="text-[10px] uppercase tracking-wider text-muted-foreground">Last AI explanation:</span>
+      <span className="font-mono text-[11px]">{label}</span>
+    </div>
+  );
+}
+
+function formatTs(iso: string): string {
+  try { return new Date(iso).toLocaleString(); } catch { return iso; }
+}
+
+function AiSection_unused() {
   return (
     <div>
       <div className="text-[10px] uppercase tracking-wider text-muted-foreground">{label}</div>
