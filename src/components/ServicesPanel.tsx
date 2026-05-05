@@ -447,9 +447,11 @@ export function ServicesPanel({
               </div>
             )}
             {aiStale && (
-              <div className="flex flex-wrap items-center gap-2 rounded border border-warning/40 bg-warning/10 px-3 py-2 text-warning">
-                <AlertTriangle className="h-3.5 w-3.5" />
-                <span className="text-[11px]">Diagnosis changed — AI explanation is stale. Re-run to refresh.</span>
+              <div className="flex flex-wrap items-start gap-2 rounded border border-warning/40 bg-warning/10 px-3 py-2 text-warning">
+                <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                <span className="text-[11px] flex-1 min-w-[200px]">
+                  This AI explanation was generated from a previous diagnosis. Re-run AI to explain the latest result.
+                </span>
                 <Button
                   type="button" size="sm" variant="outline" className="ml-auto h-7 text-[11px]"
                   disabled={aiBusy || !runResult?.diagnosis}
