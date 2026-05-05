@@ -17,6 +17,7 @@ import {
 import {
   testSsh, diagnoseOneService, diagnoseServices,
   type SshTestResult, type ServiceDiagnosisResult, type ServicesDiagnosis,
+  type ParsedLog, type LogFinding,
 } from "@/lib/agentClient";
 
 type PerSvcState = {
@@ -232,34 +233,7 @@ export function ServicesPanel({
                 </div>
 
                 {ps.diagnosis && (
-                  <div className="mt-2 rounded border border-border/50 bg-background/60 p-2 space-y-1.5 text-[11px]">
-                    <div className="flex items-center gap-2">
-                      <StatusIcon status={ps.diagnosis.status} />
-                      <span className="font-semibold">{ps.diagnosis.status}</span>
-                      <span className="text-muted-foreground">— {ps.diagnosis.message}</span>
-                    </div>
-                    <ul className="space-y-0.5">
-                      {ps.diagnosis.steps.map((st, i) => (
-                        <li key={i} className="flex items-start gap-1.5">
-                          <StatusIcon status={st.status} />
-                          <span className="font-mono text-[10px] uppercase text-muted-foreground">{st.name}</span>
-                          <span className="text-foreground/80">— {st.detail}</span>
-                        </li>
-                      ))}
-                    </ul>
-                    {ps.diagnosis.logs.length > 0 && (
-                      <details className="mt-1">
-                        <summary className="cursor-pointer text-muted-foreground hover:text-foreground"><FileText className="inline h-3 w-3 mr-1" />Pulled log files ({ps.diagnosis.logs.length})</summary>
-                        <ul className="mt-1 ml-4 list-disc space-y-0.5">
-                          {ps.diagnosis.logs.map((f, i) => (
-                            <li key={i} className={f.ok ? "" : "text-critical"}>
-                              <span className="font-mono">{f.path}</span> — {f.ok ? `${f.sizeBytes} bytes${f.truncated ? " (tail)" : ""}` : `${f.reason}: ${f.error}`}
-                            </li>
-                          ))}
-                        </ul>
-                      </details>
-                    )}
-                  </div>
+                  <ServiceDiagnosisDetail d={ps.diagnosis} />
                 )}
               </div>
             );
