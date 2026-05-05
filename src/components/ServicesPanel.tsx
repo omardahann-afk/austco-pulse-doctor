@@ -17,7 +17,7 @@ import {
 import {
   testSsh, diagnoseOneService, diagnoseServices,
   type SshTestResult, type ServiceDiagnosisResult, type ServicesDiagnosis,
-  type ParsedLog, type LogFinding,
+  type ParsedLog, type LogFinding, type AustcoDiagnosis,
 } from "@/lib/agentClient";
 
 type PerSvcState = {
@@ -268,6 +268,7 @@ export function ServicesPanel({
         <Card className="bg-card/70">
           <CardHeader className="pb-3"><CardTitle className="text-sm">Diagnosis Result</CardTitle></CardHeader>
           <CardContent className="space-y-2 text-xs">
+            {runResult.diagnosis && <AustcoDiagnosisBlock d={runResult.diagnosis} />}
             <div className="flex flex-wrap gap-3">
               <span><span className="font-semibold text-success">{runResult.summary.pass}</span> pass</span>
               <span><span className="font-semibold text-warning">{runResult.summary.warn}</span> warn</span>
@@ -300,6 +301,104 @@ export function ServicesPanel({
             </ul>
           </CardContent>
         </Card>
+      )}
+    </div>
+  );
+}
+
+function confidenceTone(score: number): string {
+  if (score >= 80) return "bg-success/15 text-success border-success/40";
+  if (score >= 60) return "bg-info/15 text-info border-info/40";
+  if (score >= 40) return "bg-warning/15 text-warning border-warning/40";
+  return "bg-muted/30 text-muted-foreground border-border/60";
+}
+
+function AustcoDiagnosisBlock({ d }: { d: AustcoDiagnosis }) {
+  return (
+    <div className="rounded border border-border/60 bg-background/50 p-3 space-y-3">
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="rounded bg-info/20 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-info">{d.mode}</span>
+        <span className={`rounded border px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider ${confidenceTone(d.confidence)}`}>
+          Confidence {d.confidence}%
+        </span>
+      </div>
+
+      <div className="grid gap-2 md:grid-cols-2">
+        <div>
+          <div className="text-[10px] uppercase tracking-wider text-muted-foreground">Break found at</div>
+          <div className="font-semibold text-foreground">{d.breakFoundAt}</div>
+        </div>
+        <div>
+          <div className="text-[10px] uppercase tracking-wider text-muted-foreground">Primary cause</div>
+          <div className="text-foreground">{d.primaryCause}</div>
+        </div>
+      </div>
+
+      {d.confidenceReasons.length > 0 && (
+        <div>
+          <div className="text-[10px] uppercase tracking-wider text-muted-foreground">Why this confidence</div>
+          <ul className="ml-4 list-disc space-y-0.5 text-foreground/90">
+            {d.confidenceReasons.map((r, i) => <li key={i}>{r}</li>)}
+          </ul>
+        </div>
+      )}
+
+      {d.evidence.length > 0 && (
+        <details open>
+          <summary className="cursor-pointer text-[11px] font-semibold text-muted-foreground hover:text-foreground">
+            Proof ({d.evidence.length})
+          </summary>
+          <pre className="mt-1 max-h-[240px] overflow-auto rounded bg-background/80 p-2 font-mono text-[10px] whitespace-pre-wrap break-all">
+{d.evidence.join("\n")}
+          </pre>
+        </details>
+      )}
+
+      {d.fixActions.length > 0 && (
+        <div>
+          <div className="text-[10px] uppercase tracking-wider text-muted-foreground">Fix now</div>
+          <ol className="ml-4 list-decimal space-y-0.5 text-foreground/90">
+            {d.fixActions.map((a, i) => <li key={i}>{a}</li>)}
+          </ol>
+        </div>
+      )}
+
+      {d.affectedServices.length > 0 && (
+        <div>
+          <div className="text-[10px] uppercase tracking-wider text-muted-foreground">Affected services</div>
+          <div className="flex flex-wrap gap-1">
+            {d.affectedServices.map((s, i) => (
+              <span key={i} className="rounded bg-muted/40 px-1.5 py-0.5 font-mono text-[10px] text-foreground/80">{s}</span>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {d.traceSteps.length > 0 && (
+        <details>
+          <summary className="cursor-pointer text-[11px] font-semibold text-muted-foreground hover:text-foreground">
+            Trace ({d.traceSteps.length} steps)
+          </summary>
+          <ul className="mt-1 space-y-0.5">
+            {d.traceSteps.map((t, i) => (
+              <li key={i} className="flex items-start gap-1.5">
+                <StatusIcon status={t.status} />
+                <span className="font-mono text-[10px] uppercase text-muted-foreground shrink-0">{t.role}</span>
+                <span className="text-foreground/90">{t.label}</span>
+                <span className="ml-auto rounded bg-muted/30 px-1 py-0.5 text-[9px] text-muted-foreground">{t.source}</span>
+              </li>
+            ))}
+          </ul>
+        </details>
+      )}
+
+      {d.warnings.length > 0 && (
+        <div className="rounded border border-warning/40 bg-warning/10 px-2 py-1.5 text-warning">
+          <div className="text-[10px] font-bold uppercase tracking-wider">Warnings</div>
+          <ul className="ml-4 list-disc space-y-0.5">
+            {d.warnings.map((w, i) => <li key={i}>{w}</li>)}
+          </ul>
+        </div>
       )}
     </div>
   );
