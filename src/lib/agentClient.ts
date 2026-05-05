@@ -78,6 +78,27 @@ export async function pullLogsViaSsh(opts: { host: string; port?: number; userna
 }
 
 export type ServiceStep = { name: string; status: "PASS" | "WARN" | "FAIL" | "UNKNOWN"; detail: string; at: string };
+export type LogFinding = {
+  type: string;
+  message: string;
+  timestamp: string | null;
+  raw: string;
+  line?: number;
+  severity?: "ERROR" | "WARN" | "INFO";
+};
+export type ParsedLog = {
+  path: string;
+  ok: boolean;
+  reason?: string;
+  error?: string;
+  service?: string;
+  sizeBytes?: number;
+  truncated?: boolean;
+  totalLines: number;
+  errors: number;
+  warnings: number;
+  findings: LogFinding[];
+};
 export type ServiceDiagnosisResult = {
   serviceId: string;
   name: string;
@@ -87,9 +108,11 @@ export type ServiceDiagnosisResult = {
   port: number;
   startedAt: string;
   finishedAt: string | null;
+  connection: "ok" | "failed" | "unknown";
   steps: ServiceStep[];
   logs: LogPullFile[];
-  parsed: LogResult | null;
+  parsed: { totalErrors: number; totalWarnings: number; typeCounts: Record<string, number> } | null;
+  parsedLogs: ParsedLog[];
   status: "PASS" | "WARN" | "FAIL" | "UNKNOWN";
   message: string;
   source: "REAL TEST";
