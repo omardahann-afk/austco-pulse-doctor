@@ -62,6 +62,7 @@ export function ServicesPanel({
   const [aiResult, setAiResult] = useState<AiExplainResult | null>(null);
   const [aiStale, setAiStale] = useState(false);
   const [aiDiagnosisKey, setAiDiagnosisKey] = useState<string | null>(null);
+  const [aiUpdatedAt, setAiUpdatedAt] = useState<string | null>(null);
 
   function persistAi(next: { mode?: "off" | "local_ollama"; endpoint?: string; model?: string }) {
     if (typeof window === "undefined") return;
@@ -136,6 +137,7 @@ export function ServicesPanel({
     setAiResult(null);
     setAiStale(false);
     setAiDiagnosisKey(null);
+    setAiUpdatedAt(null);
     try {
       const r = await diagnoseServices(enabled.map((s) => ({ ...s, host: s.host || s.hostname })));
       if ("ok" in r && r.ok) {
@@ -158,6 +160,7 @@ export function ServicesPanel({
       const r = await explainDiagnosis({ diagnosis: d, endpoint: aiEndpoint, model: aiModel });
       setAiResult(r);
       setAiDiagnosisKey(diagnosisKey(d));
+      if (r && r.ok) setAiUpdatedAt(new Date().toISOString());
     } catch (err) {
       setAiResult({ ok: false, reason: "client_error", message: err instanceof Error ? err.message : String(err) });
     } finally { setAiBusy(false); }
@@ -423,6 +426,9 @@ export function ServicesPanel({
           </CardHeader>
           <CardContent className="pt-0 pb-2 text-[11px] text-muted-foreground">
             <span className="font-mono">{aiModel}</span> @ <span className="font-mono">{aiEndpoint}</span> · AI required: <span className="font-semibold">No</span>
+          </CardContent>
+          <CardContent className="pt-0 pb-2 text-[11px]">
+            <AiLastRefresh aiBusy={aiBusy} aiStale={aiStale} aiUpdatedAt={aiUpdatedAt} aiResult={aiResult} />
           </CardContent>
           <CardContent className="space-y-2 text-xs">
             <div className="text-[11px] italic text-muted-foreground">
