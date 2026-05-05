@@ -16,6 +16,7 @@ import {
   newId, saveLastDiagnosis, getBackendUrl, setBackendUrl, DEFAULT_BACKEND_URL,
 } from "@/lib/siteConfig";
 import { checkHealth, runDiagnosis } from "@/lib/agentClient";
+import { ServicesPanel } from "@/components/ServicesPanel";
 
 export const Route = createFileRoute("/")({
   head: () => ({ meta: [
