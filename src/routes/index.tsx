@@ -222,7 +222,13 @@ function CommandCenter() {
           </CardContent>
         </Card>
 
-        {/* 3. Devices / Modules */}
+        {/* 3. Austco Services (SSH/SFTP) */}
+        <div>
+          <h2 className="mb-2 text-sm font-semibold text-muted-foreground">3 · Austco Services</h2>
+          <ServicesPanel cfg={cfg} setCfg={(updater) => setCfg(updater)} />
+        </div>
+
+        {/* 4. Devices / Modules */}
         <Card className="bg-card/70">
           <CardHeader className="pb-3 flex-row items-center justify-between">
             <CardTitle className="text-sm">4 · Devices / Modules (network-only)</CardTitle>
