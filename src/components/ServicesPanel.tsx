@@ -522,6 +522,41 @@ function AiSection({ label, body }: { label: string; body: string }) {
   );
 }
 
+function AiLastRefresh({
+  aiBusy, aiStale, aiUpdatedAt, aiResult,
+}: {
+  aiBusy: boolean;
+  aiStale: boolean;
+  aiUpdatedAt: string | null;
+  aiResult: AiExplainResult | null;
+}) {
+  let label: string;
+  let tone = "text-muted-foreground";
+  if (aiBusy) { label = "Running now…"; tone = "text-info"; }
+  else if (aiStale && aiUpdatedAt) { label = `Stale since diagnosis changed (was ${formatTs(aiUpdatedAt)})`; tone = "text-warning"; }
+  else if (aiUpdatedAt && aiResult?.ok) { label = `Last updated: ${formatTs(aiUpdatedAt)}`; tone = "text-foreground/80"; }
+  else { label = "Never run"; }
+  return (
+    <div className={`flex items-center gap-1.5 ${tone}`}>
+      <span className="text-[10px] uppercase tracking-wider text-muted-foreground">Last AI explanation:</span>
+      <span className="font-mono text-[11px]">{label}</span>
+    </div>
+  );
+}
+
+function formatTs(iso: string): string {
+  try { return new Date(iso).toLocaleString(); } catch { return iso; }
+}
+
+function AiSection_unused() {
+  return (
+    <div>
+      <div className="text-[10px] uppercase tracking-wider text-muted-foreground">{label}</div>
+      <div className="text-foreground/90 whitespace-pre-wrap">{body || "—"}</div>
+    </div>
+  );
+}
+
 function AiExplanationBlock({ ai, endpoint, model, stale }: { ai: AiExplanation; endpoint: string; model: string; stale?: boolean }) {
   return (
     <div className={`space-y-2 ${stale ? "opacity-60" : ""}`}>
