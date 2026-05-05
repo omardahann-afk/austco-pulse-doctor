@@ -463,14 +463,7 @@ export function ServicesPanel({
             )}
             {aiResult && aiResult.ok && <AiExplanationBlock ai={aiResult.ai} endpoint={aiResult.endpoint} model={aiResult.model} stale={aiStale} />}
             {aiResult?.payload && (
-              <details className="rounded border border-border/50 bg-background/40 px-2 py-1.5">
-                <summary className="cursor-pointer text-[11px] font-semibold text-muted-foreground hover:text-foreground">
-                  Evidence sent to AI ({aiResult.payload.evidence.length} lines, max 30 · 300 chars/line · 3 raw/service)
-                </summary>
-                <pre className="mt-1 max-h-[280px] overflow-auto rounded bg-background/80 p-2 font-mono text-[10px] whitespace-pre-wrap break-all">
-{JSON.stringify(aiResult.payload, null, 2)}
-                </pre>
-              </details>
+              <AiEvidenceSnapshot payload={aiResult.payload} />
             )}
           </CardContent>
         </Card>
