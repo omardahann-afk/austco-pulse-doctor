@@ -108,20 +108,17 @@ export const OPTIONAL_SERVICE_ROLES: ServiceRole[] = [
 ];
 
 export const DEFAULT_LOG_PATHS: Record<ServiceRole, string[]> = {
-  "Integration Gateway": ["/home/xcare/runtime/integration-gateway/logs/integration-gateway.log"],
-  "Pulse Gateway": [
-    "/home/xcare/runtime/pulse-gateway/log/error.log",
-    "/home/xcare/runtime/pulse-gateway/log/access.log",
-  ],
-  "Pulse Manage": ["/home/xcare/runtime/configuration/log/app.log"],
+  "Integration Gateway": ["/home/xcare/runtime/integration-gateway/logs/"],
+  "Pulse Gateway": ["/home/xcare/runtime/pulse-gateway/log/"],
+  "Pulse Manage": ["/home/xcare/runtime/configuration/log/"],
   "License Service": [],
   "MQTT Broker": [],
   "WebSocket MQTT Adapter": [],
-  "IPConnect": ["/home/xcare/runtime/xcare/log/xcare00.log"],
-  "RTLS Gateway": ["/home/xcare/runtime/rtls-gateway/logs/audit.log"],
+  "IPConnect": ["/home/xcare/runtime/xcare/log/"],
+  "RTLS Gateway": ["/home/xcare/runtime/rtls-gateway/logs/"],
   "HL7": [],
   "File Server": [],
-  "Mobile Gateway": ["/home/xcare/runtime/mobilegateway/logs/moga.log"],
+  "Mobile Gateway": ["/home/xcare/runtime/mobilegateway/logs/"],
 };
 
 export type SiteConfig = {
