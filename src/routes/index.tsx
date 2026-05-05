@@ -225,7 +225,7 @@ function CommandCenter() {
         {/* 3. Devices / Modules */}
         <Card className="bg-card/70">
           <CardHeader className="pb-3 flex-row items-center justify-between">
-            <CardTitle className="text-sm">3 · Devices / Modules</CardTitle>
+            <CardTitle className="text-sm">4 · Devices / Modules (network-only)</CardTitle>
             <Button type="button" variant="outline" size="sm" onClick={() => addModule("Other")}>
               <Plus className="mr-1 h-3.5 w-3.5" /> Add Device
             </Button>
