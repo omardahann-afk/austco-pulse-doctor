@@ -7,6 +7,7 @@ import { spawn } from "node:child_process";
 import net from "node:net";
 import dns from "node:dns/promises";
 import { buildAustcoDiagnosis } from "./austcoRules.js";
+import { buildRootCauseAnalysis } from "./rootCauseEngine.js";
 
 const COMMON_PORTS = [22, 80, 443, 8080, 10000, 161, 502, 1433, 3306];
 const PORT_SERVICE = {
@@ -226,6 +227,12 @@ export async function runDiagnosis(cfg, vm) {
     parsedLogs: [],
   });
 
+  const rootCause = buildRootCauseAnalysis({
+    siteConfig: cfg,
+    deviceResults: results,
+    serviceResults: [],
+  });
+
   return {
     ok: true,
     mode,
@@ -244,5 +251,6 @@ export async function runDiagnosis(cfg, vm) {
     fixActions,
     warnings: results.filter((r) => r.status === "WARN").map((r) => `${r.name}: ${r.message}`),
     diagnosis,
+    rootCause,
   };
 }
