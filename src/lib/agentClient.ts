@@ -129,6 +129,27 @@ export type ServicesDiagnosis = {
   confidence: "HIGH" | "MEDIUM" | "LOW";
   evidence: string[];
   services: ServiceDiagnosisResult[];
+  diagnosis?: AustcoDiagnosis;
+};
+
+export type AustcoTraceStep = {
+  label: string;
+  role: string;
+  status: "PASS" | "WARN" | "FAIL" | "NOT VERIFIED" | "UNKNOWN";
+  evidence: string[];
+  source: "REAL TEST" | "PULLED LOG";
+};
+export type AustcoDiagnosis = {
+  mode: "REAL DIAGNOSIS";
+  breakFoundAt: string;
+  primaryCause: string;
+  confidence: number;
+  confidenceReasons: string[];
+  evidence: string[];
+  fixActions: string[];
+  affectedServices: string[];
+  traceSteps: AustcoTraceStep[];
+  warnings: string[];
 };
 
 export async function diagnoseOneService(service: ServiceEntry): Promise<{ ok: true; vm: { hostname: string; addrs: string[]; platform: string }; service: ServiceDiagnosisResult } | ApiError> {
