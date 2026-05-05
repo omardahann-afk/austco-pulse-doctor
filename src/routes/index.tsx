@@ -203,6 +203,13 @@ function CommandCenter() {
       </Card>
 
       <form onSubmit={onRun} className="space-y-5">
+        {/* Empty-state banner */}
+        {!cfg.siteName.trim() && cfg.modules.length === 0 && cfg.services.filter((s) => s.host || s.hostname).length === 0 && (
+          <div className="rounded border border-dashed border-border/60 bg-background/30 px-4 py-5 text-center text-sm text-muted-foreground">
+            No site configured — enter real site devices or import JSON.
+          </div>
+        )}
+
         {/* 2. Site info */}
         <Card className="bg-card/70">
           <CardHeader className="pb-3"><CardTitle className="text-sm">2 · Site Info</CardTitle></CardHeader>
@@ -222,16 +229,10 @@ function CommandCenter() {
           </CardContent>
         </Card>
 
-        {/* 3. Austco Services (SSH/SFTP) */}
-        <div>
-          <h2 className="mb-2 text-sm font-semibold text-muted-foreground">3 · Austco Services</h2>
-          <ServicesPanel cfg={cfg} setCfg={(updater) => setCfg(updater)} />
-        </div>
-
-        {/* 4. Devices / Modules */}
+        {/* 3. Devices / Modules */}
         <Card className="bg-card/70">
           <CardHeader className="pb-3 flex-row items-center justify-between">
-            <CardTitle className="text-sm">4 · Devices / Modules (network-only)</CardTitle>
+            <CardTitle className="text-sm">3 · Devices / Modules</CardTitle>
             <Button type="button" variant="outline" size="sm" onClick={() => addModule("Other")}>
               <Plus className="mr-1 h-3.5 w-3.5" /> Add Device
             </Button>
