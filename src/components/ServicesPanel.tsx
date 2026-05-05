@@ -7,7 +7,7 @@ import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import {
   Plus, Trash2, Loader2, Eye, EyeOff, ScanLine, FileText,
-  CheckCircle2, AlertTriangle, XCircle, RotateCcw,
+  CheckCircle2, AlertTriangle, XCircle, RotateCcw, ChevronDown, ChevronRight,
 } from "lucide-react";
 import {
   type ServiceEntry, type ServiceRole, type SiteConfig,
@@ -17,6 +17,7 @@ import {
 import {
   testSsh, diagnoseOneService, diagnoseServices,
   type SshTestResult, type ServiceDiagnosisResult, type ServicesDiagnosis,
+  type ParsedLog, type LogFinding,
 } from "@/lib/agentClient";
 
 type PerSvcState = {
@@ -232,34 +233,7 @@ export function ServicesPanel({
                 </div>
 
                 {ps.diagnosis && (
-                  <div className="mt-2 rounded border border-border/50 bg-background/60 p-2 space-y-1.5 text-[11px]">
-                    <div className="flex items-center gap-2">
-                      <StatusIcon status={ps.diagnosis.status} />
-                      <span className="font-semibold">{ps.diagnosis.status}</span>
-                      <span className="text-muted-foreground">— {ps.diagnosis.message}</span>
-                    </div>
-                    <ul className="space-y-0.5">
-                      {ps.diagnosis.steps.map((st, i) => (
-                        <li key={i} className="flex items-start gap-1.5">
-                          <StatusIcon status={st.status} />
-                          <span className="font-mono text-[10px] uppercase text-muted-foreground">{st.name}</span>
-                          <span className="text-foreground/80">— {st.detail}</span>
-                        </li>
-                      ))}
-                    </ul>
-                    {ps.diagnosis.logs.length > 0 && (
-                      <details className="mt-1">
-                        <summary className="cursor-pointer text-muted-foreground hover:text-foreground"><FileText className="inline h-3 w-3 mr-1" />Pulled log files ({ps.diagnosis.logs.length})</summary>
-                        <ul className="mt-1 ml-4 list-disc space-y-0.5">
-                          {ps.diagnosis.logs.map((f, i) => (
-                            <li key={i} className={f.ok ? "" : "text-critical"}>
-                              <span className="font-mono">{f.path}</span> — {f.ok ? `${f.sizeBytes} bytes${f.truncated ? " (tail)" : ""}` : `${f.reason}: ${f.error}`}
-                            </li>
-                          ))}
-                        </ul>
-                      </details>
-                    )}
-                  </div>
+                  <ServiceDiagnosisDetail d={ps.diagnosis} />
                 )}
               </div>
             );
@@ -312,18 +286,124 @@ export function ServicesPanel({
             </details>
             <ul className="space-y-1 pt-1">
               {runResult.services.map((s) => (
-                <li key={s.serviceId} className="flex items-start gap-2 rounded border border-border/40 bg-background/40 px-2 py-1.5">
-                  <StatusIcon status={s.status} />
-                  <div className="flex-1">
-                    <div className="font-semibold">{s.name} <span className="text-muted-foreground font-normal">— {s.role} @ {s.host}:{s.port}</span></div>
-                    <div className="text-muted-foreground">{s.message}</div>
+                <li key={s.serviceId} className="rounded border border-border/40 bg-background/40 p-2">
+                  <div className="flex items-start gap-2">
+                    <StatusIcon status={s.status} />
+                    <div className="flex-1">
+                      <div className="font-semibold">{s.name} <span className="text-muted-foreground font-normal">— {s.role} @ {s.host}:{s.port}</span></div>
+                      <div className="text-muted-foreground">{s.message}</div>
+                    </div>
                   </div>
+                  <ServiceDiagnosisDetail d={s} />
                 </li>
               ))}
             </ul>
           </CardContent>
         </Card>
       )}
+    </div>
+  );
+}
+
+function connectionLabel(d: ServiceDiagnosisResult): { text: string; tone: "ok" | "fail" | "unknown" } {
+  if (d.connection === "ok") return { text: "SSH OK", tone: "ok" };
+  if (d.connection === "failed") return { text: "SSH Failed", tone: "fail" };
+  return { text: "SSH Unknown", tone: "unknown" };
+}
+
+function FindingRow({ f }: { f: LogFinding }) {
+  const [open, setOpen] = useState(false);
+  const tone =
+    f.severity === "ERROR" ? "bg-critical/15 text-critical"
+    : f.severity === "WARN" ? "bg-warning/15 text-warning"
+    : "bg-muted/30 text-muted-foreground";
+  return (
+    <li className="rounded border border-border/40 bg-background/40 px-2 py-1">
+      <button type="button" onClick={() => setOpen((o) => !o)} className="flex w-full items-start gap-2 text-left">
+        {open ? <ChevronDown className="h-3 w-3 mt-0.5 shrink-0 text-muted-foreground" /> : <ChevronRight className="h-3 w-3 mt-0.5 shrink-0 text-muted-foreground" />}
+        <span className={`rounded px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-wider ${tone}`}>{f.type}</span>
+        {f.timestamp && <span className="font-mono text-[10px] text-muted-foreground shrink-0">{f.timestamp}</span>}
+        <span className="text-[11px] text-foreground/90 break-all">{f.message}</span>
+      </button>
+      {open && (
+        <pre className="mt-1 ml-5 max-h-48 overflow-auto rounded bg-background/80 p-2 font-mono text-[10px] whitespace-pre-wrap break-all">
+{f.raw}
+        </pre>
+      )}
+    </li>
+  );
+}
+
+function ParsedLogBlock({ p }: { p: ParsedLog }) {
+  if (!p.ok) {
+    const label = p.reason === "not_found" ? "Log path not found"
+      : p.reason === "permission_denied" ? "Permission denied"
+      : `Read failed (${p.reason || "error"})`;
+    return (
+      <div className="rounded border border-critical/40 bg-critical/10 px-2 py-1.5 text-[11px] text-critical">
+        <span className="font-mono">{p.path}</span> — {label}{p.error ? `: ${p.error}` : ""}
+      </div>
+    );
+  }
+  return (
+    <div className="rounded border border-border/50 bg-background/40 px-2 py-1.5 space-y-1">
+      <div className="flex flex-wrap items-center gap-2 text-[11px]">
+        <FileText className="h-3 w-3 text-muted-foreground" />
+        <span className="font-mono text-foreground">{p.path}</span>
+        <span className="text-muted-foreground">· {p.totalLines} lines</span>
+        <span className="text-critical">· {p.errors} errors</span>
+        <span className="text-warning">· {p.warnings} warnings</span>
+        <span className="text-muted-foreground">· {p.findings.length} findings</span>
+        {p.truncated && <span className="text-muted-foreground">· tail</span>}
+      </div>
+      {p.findings.length === 0 ? (
+        <div className="text-[11px] text-muted-foreground">No findings.</div>
+      ) : (
+        <ul className="space-y-0.5">
+          {p.findings.map((f, i) => <FindingRow key={i} f={f} />)}
+        </ul>
+      )}
+    </div>
+  );
+}
+
+function ServiceDiagnosisDetail({ d }: { d: ServiceDiagnosisResult }) {
+  const conn = connectionLabel(d);
+  const noLogs = (d.parsedLogs || []).length === 0;
+  return (
+    <div className="mt-2 space-y-2 text-[11px]">
+      <div className="flex flex-wrap items-center gap-2">
+        <span className={`rounded px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider ${
+          conn.tone === "ok" ? "bg-success/15 text-success"
+          : conn.tone === "fail" ? "bg-critical/15 text-critical"
+          : "bg-muted/30 text-muted-foreground"
+        }`}>{conn.text}</span>
+        {d.parsed && (
+          <>
+            <span className="text-muted-foreground">Errors: <span className="text-critical font-mono">{d.parsed.totalErrors}</span></span>
+            <span className="text-muted-foreground">Warnings: <span className="text-warning font-mono">{d.parsed.totalWarnings}</span></span>
+          </>
+        )}
+      </div>
+      <details>
+        <summary className="cursor-pointer text-[11px] text-muted-foreground hover:text-foreground">Steps ({d.steps.length})</summary>
+        <ul className="mt-1 space-y-0.5">
+          {d.steps.map((st, i) => (
+            <li key={i} className="flex items-start gap-1.5">
+              <StatusIcon status={st.status} />
+              <span className="font-mono text-[10px] uppercase text-muted-foreground">{st.name}</span>
+              <span className="text-foreground/80">— {st.detail}</span>
+            </li>
+          ))}
+        </ul>
+      </details>
+      {d.connection === "failed" && noLogs && (
+        <div className="rounded border border-critical/40 bg-critical/10 px-2 py-1.5 text-critical">SSH connection failed — cannot pull logs.</div>
+      )}
+      {d.connection === "ok" && noLogs && (
+        <div className="rounded border border-warning/40 bg-warning/10 px-2 py-1.5 text-warning">No logs available — cannot analyze.</div>
+      )}
+      {(d.parsedLogs || []).map((p, i) => <ParsedLogBlock key={i} p={p} />)}
     </div>
   );
 }

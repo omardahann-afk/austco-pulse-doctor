@@ -4,7 +4,7 @@
  */
 import { pingHost, tcpProbe, dnsLookup } from "./diagnose.js";
 import { testSshAuth, pullLogs } from "./ssh.js";
-import { analyzeLogs } from "./logs.js";
+import { parseLogFile } from "./logs.js";
 
 function nowIso() { return new Date().toISOString(); }
 
@@ -37,6 +37,8 @@ export async function diagnoseService(svc) {
     steps: [],
     logs: [],
     parsed: null,
+    parsedLogs: [],
+    connection: "unknown",
     status: "UNKNOWN",
     message: "",
     source: "REAL TEST",
@@ -51,6 +53,7 @@ export async function diagnoseService(svc) {
     out.status = "FAIL";
     out.message = `No IP/hostname configured for ${out.name}.`;
     addStep("resolve", "FAIL", out.message);
+    out.connection = "failed";
     out.finishedAt = nowIso();
     return out;
   }
@@ -74,6 +77,7 @@ export async function diagnoseService(svc) {
     out.message = ping.performed && !ping.reachable
       ? `Network unreachable to ${host}.`
       : `SSH/SFTP port ${port} not available on ${host}.`;
+    out.connection = "failed";
     out.finishedAt = nowIso();
     return out;
   }
@@ -83,6 +87,7 @@ export async function diagnoseService(svc) {
     out.status = "FAIL";
     out.message = "SSH username not provided.";
     addStep("ssh_auth", "FAIL", out.message);
+    out.connection = "failed";
     out.finishedAt = nowIso();
     return out;
   }
@@ -93,10 +98,12 @@ export async function diagnoseService(svc) {
     out.message = auth.stage === "auth_failed"
       ? `SSH authentication failed for ${svc.username}@${host}:${port}.`
       : `SSH connection failed (${auth.stage}): ${auth.error}`;
+    out.connection = "failed";
     out.finishedAt = nowIso();
     return out;
   }
   addStep("ssh_auth", "PASS", `Authenticated as ${svc.username}@${host}:${port}`);
+  out.connection = "ok";
 
   // 5. SFTP pull configured logs
   const paths = Array.isArray(svc.logPaths) ? svc.logPaths.filter((p) => String(p || "").trim()) : [];
@@ -123,6 +130,22 @@ export async function diagnoseService(svc) {
         (denied.length ? `; permission denied: ${denied.join(", ")}` : "")
       : `SFTP failed (${pull.stage}): ${pull.error}`);
 
+  // Build per-path results with parsed findings (or path-level error)
+  out.parsedLogs = (pull.files || []).map((f) => {
+    if (!f.ok) {
+      return {
+        path: f.path,
+        ok: false,
+        reason: f.reason || "error",
+        error: f.error || "",
+        service: out.name,
+        totalLines: 0, errors: 0, warnings: 0, findings: [],
+      };
+    }
+    const parsed = parseLogFile(`${out.name}:${f.path}`, f.content || "");
+    return { path: f.path, ok: true, sizeBytes: f.sizeBytes, truncated: !!f.truncated, ...parsed };
+  });
+
   if (okFiles.length === 0) {
     out.status = "FAIL";
     out.message = pull.ok
@@ -132,19 +155,17 @@ export async function diagnoseService(svc) {
     return out;
   }
 
-  // 6. Parse pulled logs
-  const parseInput = okFiles.map((f) => ({ name: `${out.name}:${f.path.split("/").pop()}`, type: "auto", content: f.content }));
-  const parsed = analyzeLogs(parseInput, { hostname: host, addrs: [], platform: "remote" });
-  out.parsed = parsed;
+  // 6. Aggregate verdict from per-file parse results (deterministic, no AI)
+  const okParsed = out.parsedLogs.filter((p) => p.ok);
+  const totalErrors = okParsed.reduce((s, p) => s + (p.errors || 0), 0);
+  const totalWarnings = okParsed.reduce((s, p) => s + (p.warnings || 0), 0);
+  const typeCounts = {};
+  for (const p of okParsed) for (const fnd of p.findings) typeCounts[fnd.type] = (typeCounts[fnd.type] || 0) + 1;
+  out.parsed = { totalErrors, totalWarnings, typeCounts };
 
-  // Verdict from parsed evidence
-  const counts = parsed.aggregate.eventCounts || {};
-  const errs = parsed.aggregate.totalErrors || 0;
-  if (counts.license_error) { out.status = "FAIL"; out.message = `License errors found in logs (${counts.license_error}).`; }
-  else if (counts.heartbeat_fail) { out.status = "FAIL"; out.message = `Heartbeat failures in logs (${counts.heartbeat_fail}).`; }
-  else if (counts.disconnect && counts.disconnect >= 3) { out.status = "WARN"; out.message = `Repeated disconnects (${counts.disconnect}).`; }
-  else if (errs > 0) { out.status = "WARN"; out.message = `${errs} error line(s) found.`; }
-  else { out.status = "PASS"; out.message = `Healthy — no errors in pulled logs.`; }
+  if (totalErrors > 0) { out.status = "FAIL"; out.message = `${totalErrors} error line(s) in pulled logs.`; }
+  else if (totalWarnings > 0) { out.status = "WARN"; out.message = `${totalWarnings} warning line(s) in pulled logs.`; }
+  else { out.status = "PASS"; out.message = "No errors or warnings in pulled logs."; }
 
   if (notFound.length || denied.length) {
     out.status = out.status === "PASS" ? "WARN" : out.status;
