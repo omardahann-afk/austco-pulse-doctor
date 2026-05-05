@@ -6,6 +6,7 @@
 import { spawn } from "node:child_process";
 import net from "node:net";
 import dns from "node:dns/promises";
+import { buildAustcoDiagnosis } from "./austcoRules.js";
 
 const COMMON_PORTS = [22, 80, 443, 8080, 10000, 161, 502, 1433, 3306];
 const PORT_SERVICE = {
@@ -218,6 +219,13 @@ export async function runDiagnosis(cfg, vm) {
       ? ["One or more services are reachable on the network but not answering on expected ports — check service health on the host."]
       : [];
 
+  const diagnosis = buildAustcoDiagnosis({
+    siteConfig: cfg,
+    deviceResults: results,
+    serviceResults: [],
+    parsedLogs: [],
+  });
+
   return {
     ok: true,
     mode,
@@ -235,5 +243,6 @@ export async function runDiagnosis(cfg, vm) {
     traceSteps: results.map((r) => ({ id: r.deviceId, label: r.name, status: r.status, detail: r.message })),
     fixActions,
     warnings: results.filter((r) => r.status === "WARN").map((r) => `${r.name}: ${r.message}`),
+    diagnosis,
   };
 }
