@@ -9,7 +9,11 @@ export type ModuleRole =
   | "INGA / Integration Gateway"
   | "License Server"
   | "Pulse Manage"
-  | "Display / IP-APP";
+  | "Display / IP-APP"
+  | "Controller"
+  | "Display"
+  | "Switch"
+  | "Other";
 
 export type ModuleEntry = {
   id: string;
@@ -169,8 +173,30 @@ export type DiagnosisError = { ok: false; reason: string; message: string };
 
 export function loadLastDiagnosis(): DiagnosisResult | null {
   if (typeof window === "undefined") return null;
-  try { const raw = localStorage.getItem(RESULT_KEY); return raw ? JSON.parse(raw) as DiagnosisResult : null; }
-  catch { return null; }
+  try {
+    const raw = localStorage.getItem(RESULT_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as DiagnosisResult;
+    // Reject any stored result that looks like legacy demo / hardcoded data.
+    if (isDemoOrFake(parsed)) {
+      localStorage.removeItem(RESULT_KEY);
+      return null;
+    }
+    return parsed;
+  } catch { return null; }
+}
+
+function isDemoOrFake(r: DiagnosisResult | null): boolean {
+  if (!r || typeof r !== "object") return true;
+  if (!Array.isArray((r as DiagnosisResult).devices)) return true;
+  const name = ((r as DiagnosisResult).siteName || "").toLowerCase();
+  if (name.includes("demo") || name.includes("example") || name.includes("extendicare")) return true;
+  const mode = (r as DiagnosisResult).mode;
+  if (mode === "DEMO") return true;
+  // Strip stored results that contain legacy hardcoded 10.20.x.x IPs.
+  const hasLegacyIp = (r as DiagnosisResult).devices.some((d) => /^10\.20\./.test(d.ip || ""));
+  if (hasLegacyIp) return true;
+  return false;
 }
 export function saveLastDiagnosis(r: DiagnosisResult) {
   if (typeof window === "undefined") return;
