@@ -365,4 +365,5 @@ export const EXAMPLE_SITE_CONFIG: SiteConfig = {
   ipin8s: [{ id: newId(), name: "IP-IN8 Basement", ip: "10.20.5.40", vlan: "Devices", expectedPorts: [], notes: "" }],
   displays: [],
   switches: [{ id: newId(), name: "Core Switch", ip: "10.20.0.2", vendor: "Cisco", snmpEnabled: false, community: "", expectedPorts: [], notes: "" }],
+  services: [],
 };
