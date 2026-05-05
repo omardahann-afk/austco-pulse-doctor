@@ -4,7 +4,7 @@
  * agent directly over HTTP. URL is configurable in the UI.
  */
 
-import { getBackendUrl, type SiteConfig, type DiagnosisResult, type LogResult, type ServiceEntry } from "./siteConfig";
+import { getBackendUrl, type SiteConfig, type DiagnosisResult, type LogResult, type ServiceEntry, type RootCauseAnalysis } from "./siteConfig";
 
 export type AgentHealth = {
   ok: true;
@@ -142,6 +142,7 @@ export type ServicesDiagnosis = {
   evidence: string[];
   services: ServiceDiagnosisResult[];
   diagnosis?: AustcoDiagnosis;
+  rootCause?: RootCauseAnalysis;
 };
 
 export type AustcoTraceStep = {

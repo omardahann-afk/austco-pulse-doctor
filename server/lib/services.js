@@ -5,7 +5,9 @@
 import { pingHost, tcpProbe, dnsLookup } from "./diagnose.js";
 import { testSshAuth, pullLogs } from "./ssh.js";
 import { parseLogFile } from "./logs.js";
+import { parseLogIntelligence } from "./logIntelligence.js";
 import { buildAustcoDiagnosis } from "./austcoRules.js";
+import { buildRootCauseAnalysis } from "./rootCauseEngine.js";
 
 function nowIso() { return new Date().toISOString(); }
 
@@ -149,6 +151,13 @@ export async function diagnoseService(svc) {
         totalLines: 0, errors: 0, warnings: 0, findings: [],
       };
     }
+    // Advanced parser provides cpId/eventType/layer/signature; falls back gracefully
+    // for log lines that don't match Austco patterns.
+    const advanced = parseLogIntelligence(`${out.name}:${f.path}`, f.content || "");
+    if (advanced.findings.length > 0 || advanced.errors > 0 || advanced.warnings > 0) {
+      return { path: f.path, inputPath: f.inputPath || "", ok: true, sizeBytes: f.sizeBytes, truncated: !!f.truncated, ...advanced };
+    }
+    // Fallback to legacy parser for non-Austco logs (keeps generic ERROR/WARN counts working)
     const parsed = parseLogFile(`${out.name}:${f.path}`, f.content || "");
     return { path: f.path, inputPath: f.inputPath || "", ok: true, sizeBytes: f.sizeBytes, truncated: !!f.truncated, ...parsed };
   });
@@ -226,6 +235,13 @@ export async function runServiceDiagnosis(services, vm) {
     parsedLogs: [],
   });
 
+  // Advanced deterministic root-cause correlation
+  const rootCause = buildRootCauseAnalysis({
+    siteConfig: {},
+    deviceResults: [],
+    serviceResults: results,
+  });
+
   return {
     ok: true,
     mode: "REAL TEST",
@@ -238,5 +254,6 @@ export async function runServiceDiagnosis(services, vm) {
     evidence,
     services: results,
     diagnosis,
+    rootCause,
   };
 }

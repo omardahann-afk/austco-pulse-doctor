@@ -7,6 +7,7 @@ import { CheckCircle2, XCircle, AlertCircle, Search, ArrowLeft, RefreshCw, Loade
 import { cn } from "@/lib/utils";
 import { loadLastDiagnosis, loadSiteConfig, saveLastDiagnosis, getBackendUrl, type DiagnosisResult, type DeviceResult } from "@/lib/siteConfig";
 import { runDiagnosis, checkHealth } from "@/lib/agentClient";
+import { AdvancedRootCausePanel } from "@/components/RootCausePanel";
 
 export const Route = createFileRoute("/diagnosis")({
   head: () => ({ meta: [{ title: "Diagnosis Result — Tacera Doctor" }] }),
@@ -151,6 +152,9 @@ function Page() {
       </Card>
 
       {error && <div className="rounded border border-critical/40 bg-critical/10 px-3 py-2 text-xs text-critical">{error}</div>}
+
+      {/* Advanced deterministic Root Cause Analysis (when backend returned it) */}
+      {data.rootCause && <AdvancedRootCausePanel rc={data.rootCause} />}
 
       {/* 2. Device Results */}
       <section className="space-y-2">

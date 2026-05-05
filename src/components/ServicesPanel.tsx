@@ -21,6 +21,32 @@ import {
   type ParsedLog, type LogFinding, type AustcoDiagnosis,
   type AiExplainResult, type AiExplanation, type AiPayload,
 } from "@/lib/agentClient";
+import type { RootCauseAnalysis } from "@/lib/siteConfig";
+import { AdvancedRootCausePanel } from "./RootCausePanel";
+
+/**
+ * Map the deterministic root-cause snapshot into the legacy AustcoDiagnosis
+ * shape that the AI explainer accepts. AI sees only this projection — never
+ * raw evidence, devices, or credentials — and cannot override the rule engine.
+ */
+function rootCauseToDiagnosisShape(rc: RootCauseAnalysis): AustcoDiagnosis {
+  const evidence = [
+    ...rc.evidenceTimeline.slice(0, 12).map((t) => `${t.ts} [${t.service}] ${t.type}: ${t.message}`),
+    ...(rc.affectedCallpoints.length ? [`Affected callpoints: ${rc.affectedCallpoints.slice(0, 8).join(", ")}`] : []),
+  ];
+  return {
+    mode: "REAL DIAGNOSIS",
+    breakFoundAt: rc.breakFoundAt,
+    primaryCause: rc.primaryRootCause.title,
+    confidence: rc.confidence,
+    confidenceReasons: rc.confidenceBreakdown,
+    evidence,
+    fixActions: rc.fixActions,
+    affectedServices: rc.affectedServices,
+    traceSteps: [],
+    warnings: [],
+  };
+}
 
 type PerSvcState = {
   testing?: boolean; testResult?: SshTestResult;
@@ -143,8 +169,13 @@ export function ServicesPanel({
       if ("ok" in r && r.ok) {
         setRunResult(r);
         saveServicesDiagnosis(r);
-        if (aiMode === "local_ollama" && r.diagnosis) {
-          void runAiExplain(r.diagnosis);
+        if (aiMode === "local_ollama") {
+          // AI receives ONLY the deterministic root-cause snapshot — never raw evidence,
+          // never devices, never credentials. AI cannot override the rule engine.
+          const snap = r.rootCause
+            ? rootCauseToDiagnosisShape(r.rootCause)
+            : r.diagnosis;
+          if (snap) void runAiExplain(snap);
         }
       }
       else setError(("message" in r && r.message) || "Backend rejected the request.");
@@ -383,6 +414,8 @@ export function ServicesPanel({
       </Card>
 
       {runResult && (
+        <>
+        {runResult.rootCause && <AdvancedRootCausePanel rc={runResult.rootCause} />}
         <Card className="bg-card/70">
           <CardHeader className="pb-3"><CardTitle className="text-sm">Rule-Based Diagnosis</CardTitle></CardHeader>
           <CardContent className="space-y-2 text-xs">
@@ -419,6 +452,7 @@ export function ServicesPanel({
             </ul>
           </CardContent>
         </Card>
+        </>
       )}
 
       {runResult && aiMode === "local_ollama" && (
