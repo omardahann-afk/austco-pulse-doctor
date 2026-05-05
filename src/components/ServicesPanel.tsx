@@ -22,6 +22,7 @@ import {
   type AiExplainResult, type AiExplanation, type AiPayload,
 } from "@/lib/agentClient";
 import type { RootCauseAnalysis } from "@/lib/siteConfig";
+import { AdvancedRootCausePanel } from "./RootCausePanel";
 
 /**
  * Map the deterministic root-cause snapshot into the legacy AustcoDiagnosis
@@ -413,6 +414,8 @@ export function ServicesPanel({
       </Card>
 
       {runResult && (
+        <>
+        {runResult.rootCause && <AdvancedRootCausePanel rc={runResult.rootCause} />}
         <Card className="bg-card/70">
           <CardHeader className="pb-3"><CardTitle className="text-sm">Rule-Based Diagnosis</CardTitle></CardHeader>
           <CardContent className="space-y-2 text-xs">
