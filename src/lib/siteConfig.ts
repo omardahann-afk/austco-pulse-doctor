@@ -273,6 +273,27 @@ export type DiagnosisResult = {
   traceSteps: { id: string; label: string; status: string; detail: string }[];
   fixActions: string[];
   warnings: string[];
+  rootCause?: RootCauseAnalysis;
+};
+
+export type RootCauseLayer = "network" | "access" | "service" | "application" | "configuration" | "dependency";
+
+export type RootCauseAnalysis = {
+  overallStatus: "PASS" | "WARN" | "FAIL" | "INSUFFICIENT";
+  primaryRootCause: { title: string; layer: RootCauseLayer; breakFoundAt: string; explanation: string };
+  breakFoundAt: string;
+  confidence: number;
+  confidenceBreakdown: string[];
+  ruledOutCauses: string[];
+  secondaryFindings: { title: string; layer: RootCauseLayer; explanation: string }[];
+  affectedServices: string[];
+  affectedDevices: string[];
+  affectedCallpoints: string[];
+  evidenceTimeline: { ts: string; service: string; type: string; layer: RootCauseLayer; message: string; cpId: string | null }[];
+  evidenceByLayer: Record<RootCauseLayer, string[]>;
+  fixActions: string[];
+  escalationSummary: string;
+  developerSummary: string;
 };
 
 export type DiagnosisError = { ok: false; reason: string; message: string };
