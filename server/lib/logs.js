@@ -1,157 +1,160 @@
 /**
- * Pattern-based log parser. Format-agnostic — extracts IPs, timestamps,
- * errors/warnings, controller/callpoint IDs, and common Austco-ish events.
+ * Deterministic line-by-line log parser.
+ *
+ * parseLogFile(serviceName, fileContent) returns:
+ *   { service, totalLines, errors, warnings, findings: [{ type, message, timestamp, raw }] }
+ *
+ * Detection rules (case-insensitive, evaluated per line in priority order):
+ *   LICENSE_ERROR       — "license" AND ("expired" OR "invalid")
+ *   AUTH_FAILURE        — "auth failed" OR "authentication failed"
+ *   CONNECTION_REFUSED  — "connection refused"
+ *   TIMEOUT             — "timeout" OR "timed out"
+ *   CERTIFICATE_ERROR   — "certificate" OR "TLS" OR "SSL"
+ *   DISCONNECT          — "disconnect"
+ *   RECONNECT           — "reconnect"
+ *   MQTT_EVENT          — "mqtt"
+ *   WEBSOCKET_EVENT     — "websocket"
+ *   GENERIC_ERROR       — "error" (fallback)
+ *
+ * Severity:
+ *   contains "ERROR" => errors++
+ *   contains "WARN"  => warnings++
+ *
+ * Output capped at 200 findings per file, ERRORs prioritized over WARNs.
  */
 
+const RX_TS_ISO = /\b(\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}:\d{2}(?:[.,]\d+)?(?:Z|[+-]\d{2}:?\d{2})?)\b/;
+const RX_TS_SYSLOG = /\b((?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s+\d{1,2}\s+\d{2}:\d{2}:\d{2})\b/;
 const RX_IP = /\b(?:(?:25[0-5]|2[0-4]\d|[01]?\d?\d)\.){3}(?:25[0-5]|2[0-4]\d|[01]?\d?\d)\b/g;
-const RX_HOST = /\b[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)+\b/gi;
-const RX_TS_ISO = /\b\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}:\d{2}(?:[.,]\d+)?(?:Z|[+-]\d{2}:?\d{2})?\b/g;
-const RX_TS_SYSLOG = /\b(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s+\d{1,2}\s+\d{2}:\d{2}:\d{2}\b/g;
+const RX_HOST = /\b[a-zA-Z0-9][a-zA-Z0-9-]{0,62}(?:\.[a-zA-Z0-9][a-zA-Z0-9-]{0,62})+\b/g;
 
-const LEVEL_RX = {
-  error: /\b(?:ERROR|ERR|FATAL|CRITICAL|EXCEPTION|FAILED|FAILURE|TIMEOUT)\b/i,
-  warn:  /\b(?:WARN|WARNING)\b/i,
-};
+const MAX_FINDINGS = 200;
 
-const EVENT_RX = [
-  { tag: "disconnect", rx: /\b(disconnect(?:ed)?|connection (?:lost|closed|reset)|link down|peer down)\b/i },
-  { tag: "offline",    rx: /\boffline\b/i },
-  { tag: "heartbeat_fail", rx: /\bheart[- ]?beat[^.\n]{0,40}(?:lost|missed|fail|timeout)\b/i },
-  { tag: "license_error",  rx: /\blicense[^.\n]{0,40}(?:invalid|expired|error|fail)\b/i },
-  { tag: "auth_fail",      rx: /\b(?:auth(?:entication)? (?:failed|failure)|access denied|unauthorized)\b/i },
-  { tag: "active_event",   rx: /\b(?:input|call(?:point)?)[^.\n]{0,40}\bactive\b/i },
-  { tag: "cancel_event",   rx: /\bcancel(?:l?ed)?\b/i },
-  { tag: "output_fired",   rx: /\boutput[^.\n]{0,40}(?:activated|fired|on|set)\b/i },
-];
-
-const ID_RX = [
-  { kind: "controller_id", rx: /\bcontroller[\s_-]?(?:id\s*[:=]\s*)?([A-Za-z0-9_-]{1,16})\b/gi },
-  { kind: "callpoint_id",  rx: /\b(?:call[\s_-]?point|cp)[\s_-]?(?:id\s*[:=]\s*)?([A-Za-z0-9_-]{1,16})\b/gi },
-];
-
-function detectFileType(name = "", content = "") {
-  const n = name.toLowerCase();
-  if (n.endsWith(".json")) return "json";
-  if (n.endsWith(".csv")) return "csv";
-  if (n.endsWith(".ccp") || n.endsWith(".xml")) return "ccp_or_xml";
-  if (/pulse/.test(n)) return "pulse_log";
-  if (/ipconnect/.test(n)) return "ipconnect_log";
-  if (/inga|integration/.test(n)) return "inga_log";
-  if (/license/.test(n)) return "license_log";
-  if (/controller/.test(n)) return "controller_log";
-  if (/callpoint|inputs|outputs|events/.test(n)) return "event_log";
-  // content sniffs
-  if (/^\s*[{[]/.test(content)) return "json";
-  return "generic_log";
+function extractTimestamp(line) {
+  const iso = line.match(RX_TS_ISO);
+  if (iso) return iso[1];
+  const sys = line.match(RX_TS_SYSLOG);
+  if (sys) return sys[1];
+  return null;
 }
 
-function uniq(arr, max = 200) {
-  const seen = new Set(); const out = [];
-  for (const v of arr) { if (!seen.has(v)) { seen.add(v); out.push(v); if (out.length >= max) break; } }
-  return out;
+function detectType(line) {
+  const l = line.toLowerCase();
+  if (/\blicense\b/.test(l) && /(expired|invalid)/.test(l)) return "LICENSE_ERROR";
+  if (/\b(auth(?:entication)? failed)\b/.test(l)) return "AUTH_FAILURE";
+  if (/\bconnection refused\b/.test(l)) return "CONNECTION_REFUSED";
+  if (/\b(timeout|timed out)\b/.test(l)) return "TIMEOUT";
+  if (/\b(certificate|tls|ssl)\b/.test(l)) return "CERTIFICATE_ERROR";
+  if (/\bdisconnect/.test(l)) return "DISCONNECT";
+  if (/\breconnect/.test(l)) return "RECONNECT";
+  if (/\bmqtt\b/.test(l)) return "MQTT_EVENT";
+  if (/\bwebsocket\b/.test(l)) return "WEBSOCKET_EVENT";
+  if (/\berror\b/.test(l)) return "GENERIC_ERROR";
+  return null;
 }
 
-function analyzeFile(file) {
-  const content = String(file.content || "");
-  const name = String(file.name || "unnamed");
-  const userType = file.type && file.type !== "auto" ? file.type : null;
-  const detectedType = userType || detectFileType(name, content);
+function shortMessage(line) {
+  // Strip leading timestamp + level for a compact message; keep IPs/hosts in tail.
+  let m = line.replace(RX_TS_ISO, "").replace(RX_TS_SYSLOG, "");
+  m = m.replace(/^\s*[-:|]\s*/, "").trim();
+  if (m.length > 240) m = m.slice(0, 237) + "...";
+  return m;
+}
 
+export function parseLogFile(serviceName, fileContent) {
+  const content = String(fileContent || "");
   const lines = content.split(/\r?\n/);
+  let errors = 0, warnings = 0;
+  const errorFindings = [];
+  const warnFindings = [];
+  const otherFindings = [];
 
-  const ips = uniq(content.match(RX_IP) || []);
-  const hosts = uniq((content.match(RX_HOST) || []).filter((h) => /\D/.test(h.replace(/\./g, ""))));
-  const timestamps = uniq([...(content.match(RX_TS_ISO) || []), ...(content.match(RX_TS_SYSLOG) || [])]);
+  for (let i = 0; i < lines.length; i++) {
+    const raw = lines[i];
+    if (!raw || !raw.trim()) continue;
 
-  const errors = [];
-  const warnings = [];
-  const events = [];
-  const controllerIds = new Set();
-  const callpointIds = new Set();
+    const upper = raw.toUpperCase();
+    const isError = /\bERROR\b|\bERR\b|\bFATAL\b|\bCRITICAL\b/.test(upper);
+    const isWarn  = /\bWARN(?:ING)?\b/.test(upper);
+    if (isError) errors++;
+    if (isWarn) warnings++;
 
-  lines.forEach((line, i) => {
-    if (!line.trim()) return;
-    const trimmed = line.length > 500 ? line.slice(0, 500) + "…" : line;
-    if (LEVEL_RX.error.test(line)) errors.push({ line: i + 1, text: trimmed });
-    else if (LEVEL_RX.warn.test(line)) warnings.push({ line: i + 1, text: trimmed });
-    for (const ev of EVENT_RX) {
-      if (ev.rx.test(line)) events.push({ line: i + 1, tag: ev.tag, text: trimmed });
-    }
-    for (const def of ID_RX) {
-      let m; def.rx.lastIndex = 0;
-      while ((m = def.rx.exec(line))) {
-        if (def.kind === "controller_id") controllerIds.add(m[1]);
-        else callpointIds.add(m[1]);
-      }
-    }
-  });
+    const type = detectType(raw);
+    if (!type && !isError && !isWarn) continue;
 
-  // Tag heuristic counts
-  const eventCounts = events.reduce((acc, e) => { acc[e.tag] = (acc[e.tag] || 0) + 1; return acc; }, {});
+    const ips = raw.match(RX_IP) || [];
+    const hosts = (raw.match(RX_HOST) || []).filter((h) => !/^\d/.test(h));
+    let message = shortMessage(raw);
+    if (ips.length) message += ` [ip:${ips.slice(0, 3).join(",")}]`;
+    if (hosts.length) message += ` [host:${hosts.slice(0, 2).join(",")}]`;
+
+    const finding = {
+      type: type || (isError ? "GENERIC_ERROR" : "WARNING"),
+      message,
+      timestamp: extractTimestamp(raw),
+      raw: raw.length > 1000 ? raw.slice(0, 1000) + "..." : raw,
+      line: i + 1,
+      severity: isError ? "ERROR" : isWarn ? "WARN" : "INFO",
+    };
+    if (isError) errorFindings.push(finding);
+    else if (isWarn) warnFindings.push(finding);
+    else otherFindings.push(finding);
+  }
+
+  // Prioritize ERROR > WARN > other; cap at MAX_FINDINGS total.
+  const findings = [...errorFindings, ...warnFindings, ...otherFindings].slice(0, MAX_FINDINGS);
 
   return {
-    file: name,
-    detectedType,
-    userType,
-    sizeBytes: content.length,
-    lineCount: lines.length,
-    ips,
-    hosts: hosts.slice(0, 50),
-    timestamps: timestamps.slice(0, 20),
-    errors: errors.slice(0, 100),
-    warnings: warnings.slice(0, 100),
-    events: events.slice(0, 200),
-    eventCounts,
-    controllerIds: [...controllerIds].slice(0, 50),
-    callpointIds: [...callpointIds].slice(0, 50),
+    service: serviceName,
+    totalLines: lines.length,
+    errors,
+    warnings,
+    findings,
   };
 }
 
+/**
+ * Back-compat wrapper used by the older /api/logs/analyze upload path
+ * (manual file uploads). Returns the legacy aggregate shape so existing
+ * callers keep working — but each file now also carries a `findings` array
+ * from parseLogFile, alongside the old `errors`/`warnings`/`events` fields.
+ */
 export function analyzeLogs(files, vm) {
   const startedAt = new Date().toISOString();
-  const fileResults = files.map(analyzeFile);
-  const finishedAt = new Date().toISOString();
-
-  // Aggregate evidence
-  const evidence = [];
-  let totalErrors = 0, totalWarnings = 0;
+  const fileResults = (files || []).map((f) => {
+    const parsed = parseLogFile(f.name || "unnamed", f.content || "");
+    return {
+      file: parsed.service,
+      detectedType: f.type || "auto",
+      userType: f.type && f.type !== "auto" ? f.type : null,
+      sizeBytes: String(f.content || "").length,
+      lineCount: parsed.totalLines,
+      ips: [], hosts: [], timestamps: [],
+      // legacy fields kept so the old UI doesn't crash; populated from findings
+      errors: parsed.findings.filter((x) => x.severity === "ERROR").map((x) => ({ line: x.line, text: x.raw })),
+      warnings: parsed.findings.filter((x) => x.severity === "WARN").map((x) => ({ line: x.line, text: x.raw })),
+      events: parsed.findings.map((x) => ({ line: x.line, tag: x.type, text: x.raw })),
+      eventCounts: parsed.findings.reduce((acc, x) => { acc[x.type] = (acc[x.type] || 0) + 1; return acc; }, {}),
+      controllerIds: [], callpointIds: [],
+      // new structured findings:
+      findings: parsed.findings,
+      totalErrors: parsed.errors,
+      totalWarnings: parsed.warnings,
+    };
+  });
+  const totalErrors = fileResults.reduce((s, f) => s + f.totalErrors, 0);
+  const totalWarnings = fileResults.reduce((s, f) => s + f.totalWarnings, 0);
   const aggCounts = {};
-  for (const f of fileResults) {
-    totalErrors += f.errors.length;
-    totalWarnings += f.warnings.length;
-    for (const [k, v] of Object.entries(f.eventCounts)) aggCounts[k] = (aggCounts[k] || 0) + v;
-    if (f.errors.length) evidence.push(`${f.file}: ${f.errors.length} error line${f.errors.length === 1 ? "" : "s"}`);
-    if (f.warnings.length) evidence.push(`${f.file}: ${f.warnings.length} warning line${f.warnings.length === 1 ? "" : "s"}`);
-    for (const [tag, n] of Object.entries(f.eventCounts)) evidence.push(`${f.file}: ${n}× ${tag}`);
-  }
-
-  // Verdict
-  let summary;
-  if (aggCounts.license_error) summary = `License errors found in uploaded logs (${aggCounts.license_error}).`;
-  else if (aggCounts.heartbeat_fail) summary = `Heartbeat failures present in logs (${aggCounts.heartbeat_fail}).`;
-  else if (aggCounts.disconnect && aggCounts.disconnect >= 3) summary = `Repeated disconnects observed (${aggCounts.disconnect}).`;
-  else if (totalErrors > 0) summary = `${totalErrors} error line${totalErrors === 1 ? "" : "s"} across uploaded logs.`;
-  else if (totalWarnings > 0) summary = `${totalWarnings} warning line${totalWarnings === 1 ? "" : "s"} — no errors detected.`;
-  else summary = "No errors, warnings, or notable events detected in uploaded logs.";
-
+  for (const f of fileResults) for (const [k, v] of Object.entries(f.eventCounts)) aggCounts[k] = (aggCounts[k] || 0) + v;
   return {
-    ok: true,
-    mode: "LOG ANALYSIS",
-    vm,
-    startedAt,
-    finishedAt,
-    summary,
-    confidence: totalErrors > 0 || Object.keys(aggCounts).length > 0 ? "MEDIUM" : "LOW",
-    evidence: evidence.slice(0, 60),
+    ok: true, mode: "LOG ANALYSIS", vm, startedAt, finishedAt: new Date().toISOString(),
+    summary: `${totalErrors} error line(s), ${totalWarnings} warning line(s) across ${fileResults.length} file(s).`,
+    confidence: totalErrors > 0 ? "MEDIUM" : "LOW",
+    evidence: fileResults.map((f) => `${f.file}: ${f.totalErrors} errors, ${f.totalWarnings} warnings, ${f.findings.length} findings`),
     files: fileResults,
     aggregate: {
-      totalErrors,
-      totalWarnings,
-      eventCounts: aggCounts,
-      uniqueIps: uniq(fileResults.flatMap((f) => f.ips)),
-      uniqueHosts: uniq(fileResults.flatMap((f) => f.hosts)),
-      uniqueControllerIds: uniq(fileResults.flatMap((f) => f.controllerIds)),
-      uniqueCallpointIds: uniq(fileResults.flatMap((f) => f.callpointIds)),
+      totalErrors, totalWarnings, eventCounts: aggCounts,
+      uniqueIps: [], uniqueHosts: [], uniqueControllerIds: [], uniqueCallpointIds: [],
     },
   };
 }
