@@ -37,7 +37,10 @@ const RX_TS_SYSLOG = /\b((?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s+\
 //   CP-1234 / CP1234         (controller-mapped)
 const RX_CP_ID = /\b(?:INTG\.\d+|TSNS:[A-Z0-9-]+|CP-?\d+|\d{1,5}(?:\.\d{1,5}){3})\b/g;
 
-const RX_INVALID_CP = /invalid (?:call ?point|signal|cp)[^0-9A-Za-z]+(?:id|attributes?)?[^0-9A-Za-z]*([0-9A-Za-z.:_-]+)/i;
+// Capture the offending CP id from "Invalid call point ID or signal attributes for <ID>"
+// and similar phrasings. We deliberately skip filler words (or, and, for, the, a)
+// so the captured token is the actual identifier.
+const RX_INVALID_CP = /invalid (?:call ?point|signal|cp)[\s\S]*?\b(?:for|=|:)\s*([A-Za-z]+(?:\.\d+)+|INTG\.\d+|TSNS:[A-Z0-9-]+|CP-?\d+|\d{1,5}(?:\.\d{1,5}){3})\b/i;
 const RX_FQ_LOCATION = /\bfqLocation\s*[:=]\s*"?([^"\n]+?)"?(?:\s*[,;}]|$)/i;
 const RX_CALL_TYPE = /\b(Maintenance Call|Nurse Call|Emergency Call|Code Blue|Cancel Call|Staff Call)\b/i;
 
