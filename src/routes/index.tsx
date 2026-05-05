@@ -305,7 +305,7 @@ function CommandCenter() {
 
         {/* 5. JSON config */}
         <Card className="bg-card/70">
-          <CardHeader className="pb-3"><CardTitle className="text-sm">5 · JSON Import / Export</CardTitle></CardHeader>
+          <CardHeader className="pb-3"><CardTitle className="text-sm">5 · JSON Config</CardTitle></CardHeader>
           <CardContent className="flex flex-wrap gap-2">
             <label className="inline-flex cursor-pointer items-center gap-1.5 rounded border border-border/60 bg-background/60 px-3 py-1.5 text-xs hover:bg-background">
               <Upload className="h-3.5 w-3.5" /> Import JSON
