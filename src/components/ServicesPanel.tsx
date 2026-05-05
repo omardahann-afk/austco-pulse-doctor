@@ -326,8 +326,11 @@ export function ServicesPanel({
                     value={svc.logPaths.join("\n")}
                     onChange={(e) => setLogPathsText(svc.id, e.target.value)}
                     className="min-h-[60px] font-mono text-[11px]"
-                    placeholder="/home/xcare/runtime/.../app.log"
+                    placeholder="/home/xcare/runtime/.../logs/"
                   />
+                  <p className="text-[10px] text-muted-foreground">
+                    Enter a file, directory, or glob. Directories pull all matching log files inside.
+                  </p>
                 </div>
 
                 <div className="flex flex-wrap items-center gap-2">
