@@ -416,11 +416,14 @@ export function ServicesPanel({
       )}
 
       {runResult && aiMode === "local_ollama" && (
-        <Card className="bg-card/70">
-          <CardHeader className="pb-3 flex-row items-center justify-between">
-            <CardTitle className="text-sm">AI Explanation</CardTitle>
-            <span className="rounded bg-info/15 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-info">Local Ollama</span>
+        <Card className="bg-card/50 border-dashed">
+          <CardHeader className="pb-3 flex-row items-center justify-between gap-2">
+            <CardTitle className="text-sm text-muted-foreground">AI Explanation <span className="ml-1 text-[10px] font-normal uppercase tracking-wider">(secondary)</span></CardTitle>
+            <AiStatusBadge aiMode={aiMode} aiResult={aiResult} aiStale={aiStale} aiBusy={aiBusy} />
           </CardHeader>
+          <CardContent className="pt-0 pb-2 text-[11px] text-muted-foreground">
+            <span className="font-mono">{aiModel}</span> @ <span className="font-mono">{aiEndpoint}</span> · AI required: <span className="font-semibold">No</span>
+          </CardContent>
           <CardContent className="space-y-2 text-xs">
             <div className="text-[11px] italic text-muted-foreground">
               AI explanation based only on real backend evidence. Root cause and confidence come from the rule engine, not AI.
