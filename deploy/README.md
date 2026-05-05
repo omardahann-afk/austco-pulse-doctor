@@ -45,6 +45,25 @@ sudo -u tacera npm run start:all
 curl http://localhost:3001/api/health
 ```
 
+## 3.1 (Optional) Install local AI explanation layer (Ollama)
+
+The AI explanation layer is **optional** and **off by default**. The
+rule-based diagnosis works fully without it. When enabled, AI only
+summarizes the deterministic rule-engine result — it cannot change the
+root cause, confidence, or evidence.
+
+Install Ollama and pull the default model on the VM:
+
+```bash
+curl -fsSL https://ollama.com/install.sh | sh
+ollama pull llama3.2:3b
+```
+
+Then in the UI's **AI Mode** card, switch from `Off` to `Local Ollama`.
+Default endpoint: `http://localhost:11434/api/chat`. Default model:
+`llama3.2:3b`. Timeout: 60 seconds. If Ollama is unreachable or times
+out, the UI falls back to the rule-based diagnosis with a clear notice.
+
 ## 4. Install as systemd services (production)
 
 ```bash
