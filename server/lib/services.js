@@ -141,6 +141,7 @@ export async function diagnoseService(svc) {
     if (!f.ok) {
       return {
         path: f.path,
+        inputPath: f.inputPath || "",
         ok: false,
         reason: f.reason || "error",
         error: f.error || "",
@@ -149,7 +150,7 @@ export async function diagnoseService(svc) {
       };
     }
     const parsed = parseLogFile(`${out.name}:${f.path}`, f.content || "");
-    return { path: f.path, ok: true, sizeBytes: f.sizeBytes, truncated: !!f.truncated, ...parsed };
+    return { path: f.path, inputPath: f.inputPath || "", ok: true, sizeBytes: f.sizeBytes, truncated: !!f.truncated, ...parsed };
   });
 
   if (okFiles.length === 0) {
