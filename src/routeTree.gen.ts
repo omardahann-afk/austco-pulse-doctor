@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as LogsRouteImport } from './routes/logs'
 import { Route as EscalationRouteImport } from './routes/escalation'
 import { Route as DiagnosisRouteImport } from './routes/diagnosis'
+import { Route as IndexRouteImport } from './routes/index'
 
 const LogsRoute = LogsRouteImport.update({
   id: '/logs',
@@ -28,32 +29,41 @@ const DiagnosisRoute = DiagnosisRouteImport.update({
   path: '/diagnosis',
   getParentRoute: () => rootRouteImport,
 } as any)
+const IndexRoute = IndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
+  '/': typeof IndexRoute
   '/diagnosis': typeof DiagnosisRoute
   '/escalation': typeof EscalationRoute
   '/logs': typeof LogsRoute
 }
 export interface FileRoutesByTo {
+  '/': typeof IndexRoute
   '/diagnosis': typeof DiagnosisRoute
   '/escalation': typeof EscalationRoute
   '/logs': typeof LogsRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
+  '/': typeof IndexRoute
   '/diagnosis': typeof DiagnosisRoute
   '/escalation': typeof EscalationRoute
   '/logs': typeof LogsRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/diagnosis' | '/escalation' | '/logs'
+  fullPaths: '/' | '/diagnosis' | '/escalation' | '/logs'
   fileRoutesByTo: FileRoutesByTo
-  to: '/diagnosis' | '/escalation' | '/logs'
-  id: '__root__' | '/diagnosis' | '/escalation' | '/logs'
+  to: '/' | '/diagnosis' | '/escalation' | '/logs'
+  id: '__root__' | '/' | '/diagnosis' | '/escalation' | '/logs'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
+  IndexRoute: typeof IndexRoute
   DiagnosisRoute: typeof DiagnosisRoute
   EscalationRoute: typeof EscalationRoute
   LogsRoute: typeof LogsRoute
@@ -82,10 +92,18 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DiagnosisRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/': {
+      id: '/'
+      path: '/'
+      fullPath: '/'
+      preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
 const rootRouteChildren: RootRouteChildren = {
+  IndexRoute: IndexRoute,
   DiagnosisRoute: DiagnosisRoute,
   EscalationRoute: EscalationRoute,
   LogsRoute: LogsRoute,
@@ -93,12 +111,3 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { createStart } from '@tanstack/react-start'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-  }
-}
