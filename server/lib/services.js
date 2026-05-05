@@ -5,6 +5,7 @@
 import { pingHost, tcpProbe, dnsLookup } from "./diagnose.js";
 import { testSshAuth, pullLogs } from "./ssh.js";
 import { parseLogFile } from "./logs.js";
+import { buildAustcoDiagnosis } from "./austcoRules.js";
 
 function nowIso() { return new Date().toISOString(); }
 
@@ -211,6 +212,14 @@ export async function runServiceDiagnosis(services, vm) {
     return e;
   });
 
+  // Deterministic Austco/Tacera rule-based diagnosis
+  const diagnosis = buildAustcoDiagnosis({
+    siteConfig: {},
+    deviceResults: [],
+    serviceResults: results,
+    parsedLogs: [],
+  });
+
   return {
     ok: true,
     mode: "REAL TEST",
@@ -222,5 +231,6 @@ export async function runServiceDiagnosis(services, vm) {
     confidence: results.length >= 2 ? "HIGH" : "MEDIUM",
     evidence,
     services: results,
+    diagnosis,
   };
 }
