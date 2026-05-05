@@ -142,11 +142,27 @@ export const EMPTY_SITE_CONFIG: SiteConfig = {
   vlans: [], modules: [], controllers: [], ipin8s: [], displays: [], switches: [], services: [],
 };
 
-const CFG_KEY = "tacera.siteConfig.v2";
-const RESULT_KEY = "tacera.diagnosisResult.v2";
-const LOGS_KEY = "tacera.logResult.v2";
+// Bumped to v3 to force stale browser caches (legacy demo data, hardcoded
+// 10.20.x.x IPs, "Extendicare", "Backend: Mock") to be discarded.
+const CFG_KEY = "tacera.siteConfig.v3";
+const RESULT_KEY = "tacera.diagnosisResult.v3";
+const LOGS_KEY = "tacera.logResult.v3";
 const BACKEND_KEY = "tacera.backendUrl.v1";
-const SERVICES_RESULT_KEY = "tacera.servicesResult.v1";
+const SERVICES_RESULT_KEY = "tacera.servicesResult.v2";
+
+// Purge any old keys from prior versions on first load.
+if (typeof window !== "undefined") {
+  try {
+    [
+      "tacera.siteConfig", "tacera.siteConfig.v1", "tacera.siteConfig.v2",
+      "tacera.diagnosisResult", "tacera.diagnosisResult.v1", "tacera.diagnosisResult.v2",
+      "tacera.logResult", "tacera.logResult.v1", "tacera.logResult.v2",
+      "tacera.servicesResult.v1",
+      "siteConfig", "diagnosisResult", "siteDoctorState", "diagnosticStore",
+      "diagnosisRunStore",
+    ].forEach((k) => localStorage.removeItem(k));
+  } catch {}
+}
 
 export const DEFAULT_BACKEND_URL = "http://localhost:3001";
 
@@ -357,25 +373,5 @@ export function loadServicesDiagnosis<T>(): T | null {
   catch { return null; }
 }
 
-/* ===== Opt-in example (DEMO only) ===== */
-export const EXAMPLE_SITE_CONFIG: SiteConfig = {
-  siteName: "Example Site (DEMO)",
-  technician: "Demo Technician",
-  siteNotes: "Demo data — not from a real site.",
-  vlans: [
-    { id: newId(), name: "Servers", cidr: "10.20.1.0/24" },
-    { id: newId(), name: "Devices", cidr: "10.20.4.0/24" },
-  ],
-  modules: [
-    { id: newId(), role: "Pulse Gateway", name: "Pulse Primary", ip: "10.20.1.10", hostname: "", vlan: "Servers", expectedPorts: [80, 443], notes: "" },
-    { id: newId(), role: "IPConnect", name: "IPConnect", ip: "10.20.1.20", hostname: "", vlan: "Servers", expectedPorts: [80, 443, 10000], notes: "" },
-    { id: newId(), role: "License Server", name: "License", ip: "10.20.1.21", hostname: "", vlan: "Servers", expectedPorts: [443], notes: "" },
-  ],
-  controllers: [
-    { id: newId(), name: "Controller East", ip: "10.20.4.21", controllerId: "C-01", area: "East Wing", expectedPorts: [], notes: "" },
-  ],
-  ipin8s: [{ id: newId(), name: "IP-IN8 Basement", ip: "10.20.5.40", vlan: "Devices", expectedPorts: [], notes: "" }],
-  displays: [],
-  switches: [{ id: newId(), name: "Core Switch", ip: "10.20.0.2", vendor: "Cisco", snmpEnabled: false, community: "", expectedPorts: [], notes: "" }],
-  services: [],
-};
+/* No example/demo site config exists. The technician must enter real data
+ * or import a real site JSON. Hardcoded fake IPs are forbidden. */
