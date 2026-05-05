@@ -19,7 +19,7 @@ import {
   explainDiagnosis,
   type SshTestResult, type ServiceDiagnosisResult, type ServicesDiagnosis,
   type ParsedLog, type LogFinding, type AustcoDiagnosis,
-  type AiExplainResult, type AiExplanation,
+  type AiExplainResult, type AiExplanation, type AiPayload,
 } from "@/lib/agentClient";
 
 type PerSvcState = {
