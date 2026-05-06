@@ -9,7 +9,7 @@ import { useMonitorBus } from "@/hooks/useMonitorBus";
 import { StateBadge } from "@/components/monitor/StateBadge";
 import { ConnectionPill } from "@/components/monitor/ConnectionPill";
 import { monitorApi, relativeTime, type DeviceState } from "@/lib/monitorClient";
-import { Activity, Play, Square, RefreshCw, Plus, Settings2 } from "lucide-react";
+import { Play, Square, RefreshCw, Plus, Settings2 } from "lucide-react";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/monitor")({
@@ -60,10 +60,10 @@ function MonitorPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        icon={<Activity className="h-5 w-5" />}
-        title="Live Monitor"
-        subtitle="Streaming controller and device health from the local Tacera agent."
-        right={
+        eyebrow="Live Monitor"
+        title="Controller & Device Health"
+        description="Streaming real ICMP / TCP / HTTPS / MQTT probe results from the local Tacera agent."
+        actions={
           <div className="flex items-center gap-2">
             <ConnectionPill conn={conn} lastEventAt={lastEventAt} />
             <Button size="sm" variant="outline" onClick={requestSnapshot} className="h-8">
