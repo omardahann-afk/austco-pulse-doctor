@@ -116,7 +116,7 @@ function pickPrimary(rules) {
  * the first matching primary root cause. Secondary findings are accumulated
  * from later-priority signals that did NOT win primary.
  */
-export function buildRootCauseAnalysis({ siteConfig = {}, deviceResults = [], serviceResults = [] } = {}) {
+export function buildRootCauseAnalysis({ siteConfig = {}, deviceResults = [], serviceResults = [], deepEvidence = null } = {}) {
   const findings = flatFindings(serviceResults);
   const net = networkLayerEvidence(deviceResults, serviceResults);
   const acc = accessLayerEvidence(serviceResults);
@@ -185,8 +185,99 @@ export function buildRootCauseAnalysis({ siteConfig = {}, deviceResults = [], se
   let primary = null;
   let confidence = 0;
 
+  /* ===== DEEP EVIDENCE OVERRIDES (highest priority) =====
+   * Deep Evidence (network/process/port/MQTT/config truth + contradictions)
+   * is stronger than logs alone, so a matching contradiction wins over the
+   * log-derived rules below.
+   */
+  const deepUsed = !!deepEvidence;
+  const contradictionsUsed = [];
+  const deepEvidenceSignals = [];
+  if (deepUsed) {
+    const contradictions = Array.isArray(deepEvidence.contradictions) ? deepEvidence.contradictions : [];
+    // Map contradiction kind -> primary cause descriptor (in priority order).
+    const KIND_PRIORITY = [
+      "log_event_missing_on_mqtt",
+      "mqtt_publish_no_ack",
+      "config_unknown_cp_in_event",
+      "service_running_no_port",
+      "host_reachable_port_closed",
+      "service_inactive_host_reachable",
+    ];
+    let chosen = null;
+    for (const kind of KIND_PRIORITY) {
+      const c = contradictions.find((x) => x.kind === kind);
+      if (c) { chosen = c; break; }
+    }
+    if (chosen) {
+      contradictionsUsed.push(chosen);
+      switch (chosen.kind) {
+        case "log_event_missing_on_mqtt":
+          primary = {
+            title: "Break between Integration Gateway and MQTT broker — event logged but never observed on the bus.",
+            layer: "dependency",
+            breakFoundAt: "INGA → MQTT broker / publish path",
+            explanation: `${chosen.sourceA.said}, but ${chosen.sourceB.said}. The publish path from INGA to the broker is the failure point — verify broker host/topic/auth in INGA config.`,
+          };
+          confidence = Math.round(chosen.confidence * 100);
+          break;
+        case "mqtt_publish_no_ack":
+          primary = {
+            title: "Downstream integration did not acknowledge event published to MQTT.",
+            layer: "dependency",
+            breakFoundAt: "Downstream consumer (ACK path)",
+            explanation: `${chosen.sourceA.said}; ${chosen.sourceB.said}. Broker is healthy — the failure is the downstream consumer that should ACK on '${deepEvidence.mqttTruth?.ackTopic || "ack topic"}'.`,
+          };
+          confidence = Math.round(chosen.confidence * 100);
+          break;
+        case "config_unknown_cp_in_event":
+          primary = {
+            title: "Configuration mismatch — live event references CP not present in active config.",
+            layer: "configuration",
+            breakFoundAt: "Configuration / CCP",
+            explanation: `${chosen.sourceA.said}; ${chosen.sourceB.said}. Reconcile CCP/site config with the IDs that are actually firing on the wire.`,
+          };
+          confidence = Math.round(chosen.confidence * 100);
+          break;
+        case "service_running_no_port":
+          primary = {
+            title: "Service process running but expected listener is not bound.",
+            layer: "service",
+            breakFoundAt: `Service listener${chosen.target ? ` (${chosen.target})` : ""}`,
+            explanation: `${chosen.sourceA.said}; ${chosen.sourceB.said}. The process is alive but not bound to the expected port — check bind-address, config, and recent restart logs.`,
+          };
+          confidence = Math.round(chosen.confidence * 100);
+          break;
+        case "host_reachable_port_closed":
+          primary = {
+            title: "Application/service layer issue — host is reachable but service/port is failing.",
+            layer: "service",
+            breakFoundAt: `Service port closed${chosen.target ? ` (${chosen.target})` : ""}`,
+            explanation: `${chosen.sourceA.said}, ${chosen.sourceB.said}. Do not call the host offline — the network layer is healthy. Investigate the service process, listener binding, or local firewall.`,
+          };
+          confidence = Math.round(chosen.confidence * 100);
+          break;
+        case "service_inactive_host_reachable":
+          primary = {
+            title: "Service stopped/inactive on reachable host.",
+            layer: "service",
+            breakFoundAt: `Service inactive${chosen.target ? ` (${chosen.target})` : ""}`,
+            explanation: `${chosen.sourceA.said}, ${chosen.sourceB.said}. Host reachability is fine — the systemd/docker service itself is not running.`,
+          };
+          confidence = Math.round(chosen.confidence * 100);
+          break;
+      }
+      if (primary) {
+        confidenceBreakdown.push(`+${confidence} Deep Evidence contradiction "${chosen.kind}" (conf ${(chosen.confidence * 100).toFixed(0)}%) overrode log-only rules`);
+      }
+    }
+    for (const s of (deepEvidence.rootCauseSignals || [])) {
+      deepEvidenceSignals.push(s);
+    }
+  }
+
   // RULE J — License
-  if (licenseErrs.length > 0) {
+  if (!primary && licenseErrs.length > 0) {
     confidence = licenseErrs.length >= 3 ? 92 : 80;
     confidenceBreakdown.push(`+${confidence} ${licenseErrs.length} LICENSE_ERROR line(s) across ${uniq(licenseErrs.map((f) => f.service)).length} service log(s)`);
     primary = {
@@ -331,6 +422,31 @@ export function buildRootCauseAnalysis({ siteConfig = {}, deviceResults = [], se
     };
   }
 
+  /* Deep Evidence guard rule: if a log rule said "host offline" / "unreachable"
+   * but Deep Evidence shows the host is reachable, soften the primary cause
+   * so we never falsely report a host as offline. */
+  if (deepUsed && primary && /unreachable|offline/i.test(primary.title)) {
+    const reachableTargets = (deepEvidence.networkTruth?.targets || []).filter((t) => t?.ping?.ok);
+    if (reachableTargets.length > 0) {
+      contradictionsUsed.push({
+        kind: "log_says_offline_network_says_reachable",
+        sourceA: { layer: "logs", said: primary.title },
+        sourceB: { layer: "network", said: `${reachableTargets.length} target(s) responded to ping` },
+        why: "Logs reported offline/unreachable but Deep Evidence ping/ARP says the host is reachable.",
+        likelyLayer: "service",
+        confidence: 0.8,
+      });
+      primary = {
+        title: "Application/service layer issue — host is reachable but expected service/port is unavailable.",
+        layer: "service",
+        breakFoundAt: "Service / port",
+        explanation: `Logs suggested the device is offline, but Deep Evidence shows the host responds to ping. Investigate the service process and expected listener instead of network reachability.`,
+      };
+      confidenceBreakdown.push(`+10 Deep Evidence reclassified "offline" → service-layer issue (host reachable)`);
+      confidence = Math.min(95, Math.max(confidence, 80));
+    }
+  }
+
   // Confidence boosters / reducers
   if (repeatedCpIds.length > 0 && primary.layer !== "network" && primary.layer !== "access") {
     confidenceBreakdown.push(`+5 ${repeatedCpIds.length} CP id(s) repeat ≥3×`);
@@ -427,6 +543,10 @@ export function buildRootCauseAnalysis({ siteConfig = {}, deviceResults = [], se
     fixActions,
     escalationSummary,
     developerSummary,
+    deepEvidenceUsed: deepUsed,
+    deepEvidenceSignals,
+    contradictionsUsed,
+    evidenceScore: deepUsed ? (deepEvidence.evidenceScore ?? 0) : 0,
   };
 }
 

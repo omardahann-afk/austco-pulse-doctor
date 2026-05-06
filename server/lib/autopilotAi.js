@@ -68,6 +68,25 @@ function safePlanSnapshot(plan) {
       verifyExpect: trunc(a.verifyExpect || "", 100),
       explanation: trunc(a.explanation || "", 400),
     })),
+    deepEvidenceUsed: !!plan.deepEvidenceUsed,
+    evidenceScore: typeof plan.evidenceScore === "number" ? plan.evidenceScore : 0,
+    deepEvidenceSummary: plan.deepEvidenceSummary
+      ? {
+          collectedAt: plan.deepEvidenceSummary.collectedAt,
+          network: plan.deepEvidenceSummary.network,
+          process: plan.deepEvidenceSummary.process,
+          port: plan.deepEvidenceSummary.port,
+          contradictions: (plan.deepEvidenceSummary.contradictions || []).slice(0, 5).map((c) => ({
+            kind: c.kind,
+            why: trunc(c.why || "", 240),
+            likelyLayer: c.likelyLayer,
+            confidence: c.confidence,
+            sourceA: { layer: c.sourceA?.layer, said: trunc(c.sourceA?.said || "", 200) },
+            sourceB: { layer: c.sourceB?.layer, said: trunc(c.sourceB?.said || "", 200) },
+            target: c.target || null,
+          })),
+        }
+      : null,
   });
 }
 
@@ -137,7 +156,8 @@ Required output fields (all strings, plain text):
 - whatWillHappen: 2-4 sentences walking through the actions the engine will execute, in order. Refer to existing commands; do not invent new ones.
 - whatCouldGoWrong: 2-4 sentences listing realistic failure modes and what the verification step will catch.
 - approvalGuidance: 1-2 sentences on whether the technician should approve. MUST end with the disclaimer: "AI explanation only. Fix decision and safety are controlled by the deterministic engine."
-- escalationDraft: 3-5 sentence draft suitable for an escalation ticket. Include service, host, root cause, planned action, risk level. No ticket numbers, no IDs you do not see in the snapshot.`;
+- escalationDraft: 3-5 sentence draft suitable for an escalation ticket. Include service, host, root cause, planned action, risk level. No ticket numbers, no IDs you do not see in the snapshot.
+- whyDeepEvidenceChangedConclusion: 2-4 sentences. If deepEvidenceSummary or contradictions are present in the snapshot, explain in plain English why the evidence below the logs (network/process/port/MQTT/config) supports or refines this conclusion — reference only fields shown in the snapshot. If no deep evidence is present, return exactly: "No Deep Evidence collected — explanation based on logs and service checks only."`;
 }
 
 function buildExecutionPrompt(snapshot) {
@@ -172,8 +192,9 @@ const TOOL_PLAN = [{
         whatCouldGoWrong: { type: "string" },
         approvalGuidance: { type: "string" },
         escalationDraft: { type: "string" },
+        whyDeepEvidenceChangedConclusion: { type: "string" },
       },
-      required: ["plainEnglishSummary", "whyThisMatched", "riskExplanation", "whatWillHappen", "whatCouldGoWrong", "approvalGuidance", "escalationDraft"],
+      required: ["plainEnglishSummary", "whyThisMatched", "riskExplanation", "whatWillHappen", "whatCouldGoWrong", "approvalGuidance", "escalationDraft", "whyDeepEvidenceChangedConclusion"],
     },
   },
 }];
@@ -283,9 +304,13 @@ function sanitizePlanAi(ai) {
     whatCouldGoWrong: stripCommandSuggestions(safeStr(ai?.whatCouldGoWrong)),
     approvalGuidance: stripCommandSuggestions(safeStr(ai?.approvalGuidance)),
     escalationDraft: stripCommandSuggestions(safeStr(ai?.escalationDraft)),
+    whyDeepEvidenceChangedConclusion: stripCommandSuggestions(safeStr(ai?.whyDeepEvidenceChangedConclusion)),
   };
   if (!out.approvalGuidance.includes(DISCLAIMER)) {
     out.approvalGuidance = (out.approvalGuidance ? out.approvalGuidance.replace(/\.?\s*$/, ". ") : "") + DISCLAIMER;
+  }
+  if (!out.whyDeepEvidenceChangedConclusion) {
+    out.whyDeepEvidenceChangedConclusion = "No Deep Evidence collected — explanation based on logs and service checks only.";
   }
   return out;
 }

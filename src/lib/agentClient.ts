@@ -236,7 +236,8 @@ export type TraceLayer =
 export type TraceNodeStatus =
   | "SIGNAL_RECEIVED" | "EVENT_PROPAGATED" | "EVENT_ROUTED"
   | "TIMEOUT" | "CONFIG_MISMATCH" | "UNREACHABLE"
-  | "NOT_CONFIGURED" | "NO_EVIDENCE" | "UNKNOWN";
+  | "NOT_CONFIGURED" | "NO_EVIDENCE" | "UNKNOWN"
+  | "HOST_REACHABLE_PORT_CLOSED";
 
 export type TraceNode = {
   layer: TraceLayer;
@@ -250,6 +251,7 @@ export type TraceNode = {
   breakDetected: boolean;
   confidence: number;
   reachable: boolean | null;
+  evidenceSource?: "logs" | "deepEvidence" | "logs+deepEvidence";
 };
 
 export type SuspectedFailure = {
@@ -336,6 +338,11 @@ export type AutopilotPlan = {
   rollbackAvailable: boolean;
   manualNotes: string[];
   serviceRef: { id: string; host: string; port: number; username: string } | null;
+  deepEvidenceUsed?: boolean;
+  deepEvidenceSummary?: unknown;
+  contradictions?: Array<{ kind: string; why: string; likelyLayer: string; confidence: number; sourceA: { layer: string; said: string }; sourceB: { layer: string; said: string }; target?: string | null }>;
+  evidenceScore?: number;
+  deepEvidenceCollectedAt?: string | null;
 };
 
 export type AutopilotIssue = {
@@ -458,6 +465,7 @@ export type AutopilotPlanExplanation = {
   whatCouldGoWrong: string;
   approvalGuidance: string;
   escalationDraft: string;
+  whyDeepEvidenceChangedConclusion?: string;
 };
 
 export type AutopilotExecExplanation = {

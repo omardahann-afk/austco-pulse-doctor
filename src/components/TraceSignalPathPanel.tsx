@@ -17,6 +17,7 @@ const STATUS_TONE: Record<TraceNodeStatus, { cls: string; icon: typeof CheckCirc
   TIMEOUT:            { cls: "border-critical/60 bg-critical/15 text-critical shadow-[0_0_24px_-6px_var(--critical)]", icon: XCircle, label: "TIMEOUT" },
   CONFIG_MISMATCH:    { cls: "border-warning/60 bg-warning/15 text-warning",        icon: AlertTriangle,  label: "CONFIG MISMATCH" },
   UNREACHABLE:        { cls: "border-critical/60 bg-critical/15 text-critical",     icon: XCircle,        label: "UNREACHABLE" },
+  HOST_REACHABLE_PORT_CLOSED: { cls: "border-warning/60 bg-warning/15 text-warning", icon: AlertTriangle, label: "HOST REACHABLE / PORT CLOSED" },
   NOT_CONFIGURED:     { cls: "border-border bg-muted/20 text-muted-foreground",     icon: MinusCircle,    label: "NOT CONFIGURED" },
   NO_EVIDENCE:        { cls: "border-border bg-muted/20 text-muted-foreground",     icon: Info,           label: "NO EVIDENCE" },
   UNKNOWN:            { cls: "border-border bg-muted/20 text-muted-foreground",     icon: Info,           label: "UNKNOWN" },
@@ -54,6 +55,9 @@ function NodeCard({
             <span className="rounded bg-background/40 px-1.5 py-0.5 font-mono">{tone.label}</span>
             {node.confidence > 0 && <span className="rounded bg-background/40 px-1.5 py-0.5">{node.confidence}%</span>}
             {node.timestamp && <span className="font-mono">{node.timestamp}</span>}
+            {node.evidenceSource && (
+              <span className="rounded bg-info/20 px-1.5 py-0.5 text-info">src: {node.evidenceSource}</span>
+            )}
           </div>
         </div>
         {expanded ? <ChevronDown className="h-3.5 w-3.5 shrink-0 opacity-60" /> : <ChevronRight className="h-3.5 w-3.5 shrink-0 opacity-60" />}

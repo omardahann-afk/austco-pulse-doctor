@@ -13,6 +13,7 @@ import { runServiceDiagnosis } from "./services.js";
 import { matchPlaybook } from "./remediationPlaybooks.js";
 import { buildAllowlist, resolveCommand, execOverSsh } from "./sshExecutor.js";
 import { savePlan, loadPlan, saveExecution, saveScan, saveApproval, listRecentScans, listRecentPlans, listRecentExecutions } from "./autopilotStore.js";
+import { getLatestEvidence } from "./deepEvidenceEngine.js";
 
 const state = {
   loopRunning: false,
@@ -28,19 +29,37 @@ const state = {
 function nowIso() { return new Date().toISOString(); }
 function uid(prefix) { return `${prefix}_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`; }
 
-function confidenceFor(serviceResult, playbookId) {
+function confidenceFor(serviceResult, playbookId, deepEvidence) {
   // Crude deterministic scoring: SERVICE_DOWN (port closed) = 0.9, log-only = 0.6, etc.
-  if (playbookId === "service_down") return 0.9;
-  if (playbookId === "webmin_down") return 0.85;
-  if (playbookId === "mqtt_down") return 0.9;
-  if (playbookId === "license_issue") return 0.7;
-  if (playbookId === "error_storm") return 0.7;
-  if (playbookId === "disk_full") return 0.95;
-  if (playbookId === "cert_issue") return 0.65;
-  return 0.5;
+  let base;
+  if (playbookId === "service_down") base = 0.9;
+  else if (playbookId === "webmin_down") base = 0.85;
+  else if (playbookId === "mqtt_down") base = 0.9;
+  else if (playbookId === "license_issue") base = 0.7;
+  else if (playbookId === "error_storm") base = 0.7;
+  else if (playbookId === "disk_full") base = 0.95;
+  else if (playbookId === "cert_issue") base = 0.65;
+  else base = 0.5;
+
+  // Deep Evidence corroboration: if a contradiction exists for this service
+  // pointing at exactly the failure mode the playbook addresses, raise confidence.
+  if (deepEvidence && Array.isArray(deepEvidence.contradictions)) {
+    const svcName = (serviceResult?.name || "").toLowerCase();
+    const corroborating = deepEvidence.contradictions.some((c) => {
+      const tgt = String(c.target || "").toLowerCase();
+      const matchesSvc = !tgt || tgt.includes(svcName) || svcName.includes(tgt.split(":")[0] || tgt);
+      if (!matchesSvc) return false;
+      if (playbookId === "service_down" && (c.kind === "service_inactive_host_reachable" || c.kind === "host_reachable_port_closed")) return true;
+      if (playbookId === "webmin_down" && c.kind === "host_reachable_port_closed" && tgt.includes("10000")) return true;
+      if (playbookId === "mqtt_down" && (c.kind === "host_reachable_port_closed" || c.kind === "service_running_no_port") && /1883|8883/.test(tgt)) return true;
+      return false;
+    });
+    if (corroborating) base = Math.min(0.98, base + 0.07);
+  }
+  return base;
 }
 
-function buildPlanForService(serviceResult, allowlist, services) {
+function buildPlanForService(serviceResult, allowlist, services, deepEvidence) {
   const pb = matchPlaybook(serviceResult, allowlist);
   if (!pb) return null;
   const skeleton = pb.build({ serviceResult, allowlist });
@@ -85,6 +104,9 @@ function buildPlanForService(serviceResult, allowlist, services) {
   // manualNotes with no executable action.
   const riskLevel = skeleton.riskLevel || "LOW";
 
+  // Attach deep evidence summary scoped to this service.
+  const deepSummary = summarizeDeepEvidenceForService(deepEvidence, serviceResult);
+
   const plan = {
     planId: uid("plan"),
     createdAt: nowIso(),
@@ -94,7 +116,7 @@ function buildPlanForService(serviceResult, allowlist, services) {
     host: serviceResult.host,
     issueType: skeleton.issueType,
     rootCause: pb.title,
-    confidence: confidenceFor(serviceResult, pb.id),
+    confidence: confidenceFor(serviceResult, pb.id, deepEvidence),
     riskLevel,
     requiresApproval: true, // ALWAYS true — engine never auto-executes.
     summary: skeleton.summary,
@@ -105,8 +127,57 @@ function buildPlanForService(serviceResult, allowlist, services) {
     manualNotes: skeleton.manualNotes || [],
     // Stash credentials reference (not the password) so execute can locate the service.
     serviceRef: svcEntry ? { id: svcEntry.id, host: svcEntry.host, port: svcEntry.port, username: svcEntry.username } : null,
+    deepEvidenceUsed: !!deepEvidence,
+    deepEvidenceSummary: deepSummary,
+    contradictions: deepSummary?.contradictions || [],
+    evidenceScore: deepEvidence?.evidenceScore ?? 0,
+    deepEvidenceCollectedAt: deepEvidence?.collectedAt || null,
   };
   return plan;
+}
+
+function summarizeDeepEvidenceForService(deepEvidence, serviceResult) {
+  if (!deepEvidence) return null;
+  const svcName = (serviceResult?.name || "").toLowerCase();
+  const matchSvc = (s) => {
+    const n = (s?.name || s?.id || "").toLowerCase();
+    return !!n && (n === svcName || n.includes(svcName) || svcName.includes(n));
+  };
+  const proc = (deepEvidence.processTruth?.services || []).find(matchSvc) || null;
+  const port = (deepEvidence.portTruth?.services || []).find(matchSvc) || null;
+  const net = (deepEvidence.networkTruth?.targets || []).find((t) => {
+    const h = String(t?.host || "").toLowerCase();
+    return h && (h === (serviceResult?.host || "").toLowerCase() || h.includes(svcName));
+  }) || null;
+
+  const contradictions = (deepEvidence.contradictions || []).filter((c) => {
+    const t = String(c.target || "").toLowerCase();
+    return !t || t.includes(svcName) || svcName.includes(t.split(":")[0] || t);
+  }).slice(0, 5);
+
+  return {
+    collectedAt: deepEvidence.collectedAt || null,
+    evidenceScore: deepEvidence.evidenceScore ?? 0,
+    network: net ? {
+      host: net.host,
+      pingOk: !!net.ping?.ok,
+      pingAvgMs: net.ping?.avgMs ?? null,
+      arpFound: !!net.arp?.found,
+      tcp: (net.tcp || []).map((p) => ({ port: p.port, open: !!p.open })),
+    } : null,
+    process: proc ? {
+      systemdActive: proc.systemd?.active ?? null,
+      dockerRunning: proc.docker?.running ?? null,
+      uptime: proc.uptime || null,
+    } : null,
+    port: port ? {
+      ports: (port.ports || []).map((p) => ({ port: p.port, listening: !!p.listening, process: p.process || null, expectedMismatch: !!p.expectedMismatch })),
+    } : null,
+    contradictions: contradictions.map((c) => ({
+      kind: c.kind, why: c.why, likelyLayer: c.likelyLayer, confidence: c.confidence,
+      sourceA: c.sourceA, sourceB: c.sourceB, target: c.target || null,
+    })),
+  };
 }
 
 function explainAction(a, resolved) {
@@ -143,11 +214,15 @@ export async function runScan({ services = [], vmInfo, siteOverrides = {} }) {
   const serviceResults = diag?.ok ? diag.services : [];
   state.monitoredCount = services.filter((s) => s.enabled !== false).length;
 
+  // Pull latest collected Deep Evidence (read-only — caller is responsible for
+  // collecting it; we only consume what is already there).
+  const deepEvidence = getLatestEvidence();
+
   const issues = [];
   const planIds = [];
   for (const s of serviceResults) {
     if (s.status === "PASS") continue;
-    const plan = buildPlanForService(s, allowlist, services);
+    const plan = buildPlanForService(s, allowlist, services, deepEvidence);
     if (!plan) continue;
     state.plans.set(plan.planId, plan);
     savePlan(plan);
@@ -163,6 +238,8 @@ export async function runScan({ services = [], vmInfo, siteOverrides = {} }) {
       rootCause: plan.rootCause,
       confidence: plan.confidence,
       riskLevel: plan.riskLevel,
+      deepEvidenceUsed: plan.deepEvidenceUsed,
+      contradictionsCount: (plan.contradictions || []).length,
     });
   }
 
@@ -174,6 +251,9 @@ export async function runScan({ services = [], vmInfo, siteOverrides = {} }) {
     issueCount: issues.length,
     issues,
     planIds,
+    deepEvidenceUsed: !!deepEvidence,
+    deepEvidenceCollectedAt: deepEvidence?.collectedAt || null,
+    deepEvidenceScore: deepEvidence?.evidenceScore ?? 0,
   };
   state.lastScan = scan;
   state.lastScanAt = scan.finishedAt;

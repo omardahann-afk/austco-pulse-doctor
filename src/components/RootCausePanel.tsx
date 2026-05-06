@@ -61,7 +61,22 @@ export function AdvancedRootCausePanel({ rc }: { rc: RootCauseAnalysis }) {
             <span className="rounded bg-background/60 px-2 py-0.5 font-mono">layer: {rc.primaryRootCause.layer}</span>
             <span className="rounded bg-background/60 px-2 py-0.5">Break found at: <span className="font-semibold">{rc.breakFoundAt}</span></span>
             <span className={cn("rounded bg-background/60 px-2 py-0.5 font-semibold", confidenceTone(rc.confidence))}>Confidence: {rc.confidence}%</span>
+            <span className={cn("rounded bg-background/60 px-2 py-0.5 font-semibold", rc.deepEvidenceUsed ? "text-info" : "text-muted-foreground")}>
+              Deep Evidence: {rc.deepEvidenceUsed ? `Yes${typeof rc.evidenceScore === "number" ? ` · score ${rc.evidenceScore}%` : ""}` : "No"}
+            </span>
+            {rc.contradictionsUsed && rc.contradictionsUsed.length > 0 && (
+              <span className="rounded bg-warning/15 px-2 py-0.5 font-semibold text-warning">
+                {rc.contradictionsUsed.length} contradiction{rc.contradictionsUsed.length === 1 ? "" : "s"} used
+              </span>
+            )}
           </div>
+          {rc.contradictionsUsed && rc.contradictionsUsed.length > 0 && (
+            <ul className="mt-2 space-y-0.5 text-[11px] text-foreground/80">
+              {rc.contradictionsUsed.slice(0, 3).map((c, i) => (
+                <li key={i}>· <span className="font-semibold">{c.kind}:</span> {c.why}</li>
+              ))}
+            </ul>
+          )}
         </div>
 
         {/* Confidence breakdown */}

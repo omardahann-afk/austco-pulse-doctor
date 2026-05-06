@@ -316,7 +316,7 @@ function buildNodeForLayer(layer, ctx) {
 
 /* ---------------- Public entry ---------------- */
 
-export function buildTraceResult({ target, siteConfig, serviceResults, deviceResults }) {
+export function buildTraceResult({ target, siteConfig, serviceResults, deviceResults, deepEvidence = null }) {
   const t = normalizeTarget(target);
   if (!t.value && !t.fqLocation && !t.mqttTopic && !t.callType) {
     return { ok: false, reason: "invalid_request", message: "Trace target is required (CP id, room, fqLocation, call type, or MQTT topic)." };
@@ -341,8 +341,79 @@ export function buildTraceResult({ target, siteConfig, serviceResults, deviceRes
   const propagationPath = LAYER_ORDER.map((layer, i) => {
     const node = buildNodeForLayer(layer, ctx);
     node.nextHop = LAYER_ORDER[i + 1] || null;
+    node.evidenceSource = (matchedByLayer[layer] || []).length > 0 ? "logs" : (node.evidence.length ? "logs" : "logs");
     return node;
   });
+
+  /* ===== Deep Evidence overrides on top of log-derived nodes =====
+   * Each override mutates the node status / evidence and tags evidenceSource.
+   * Deep Evidence is read-only — we only annotate or strengthen conclusions. */
+  const deepUsed = !!deepEvidence;
+  const traceContradictionsUsed = [];
+  if (deepUsed) {
+    const tv = (t.value || "").toLowerCase();
+    const inputNode = propagationPath.find((n) => n.layer === "Input");
+    const ingaNode = propagationPath.find((n) => n.layer === "Integration Gateway");
+    const mqttNode = propagationPath.find((n) => n.layer === "MQTT Broker");
+    const externalNode = propagationPath.find((n) => n.layer === "External Systems");
+
+    // (a) configTruth: CP missing from config → Input layer = CONFIG_MISMATCH
+    if (inputNode && t.kind === "cpId" && tv && Array.isArray(deepEvidence.configTruth?.unknownCpIds) &&
+        deepEvidence.configTruth.unknownCpIds.some((id) => String(id).toLowerCase() === tv || String(id).toLowerCase().includes(tv))) {
+      inputNode.status = "CONFIG_MISMATCH";
+      inputNode.breakDetected = true;
+      inputNode.confidence = Math.max(inputNode.confidence, 90);
+      inputNode.evidence.push(`[Deep Evidence] configTruth: CP ${t.value} not present in active site configuration.`);
+      inputNode.evidenceSource = "deepEvidence";
+      traceContradictionsUsed.push({ layer: "Input", kind: "config_unknown_cp_in_event", target: t.value });
+    }
+
+    // (b) INGA logged event but MQTT tap saw nothing for it
+    const cMissing = (deepEvidence.contradictions || []).find((c) => c.kind === "log_event_missing_on_mqtt");
+    if (cMissing && ingaNode && mqttNode) {
+      ingaNode.status = "EVENT_PROPAGATED";
+      ingaNode.evidence.push(`[Deep Evidence] INGA logged event observed; correlation with MQTT failed (${cMissing.sourceA.said}).`);
+      ingaNode.evidenceSource = "logs+deepEvidence";
+      mqttNode.status = "NO_EVIDENCE";
+      mqttNode.breakDetected = true;
+      mqttNode.confidence = Math.max(mqttNode.confidence, 88);
+      mqttNode.evidence.push(`[Deep Evidence] MQTT tap did NOT observe a matching event during the tap window — break is between INGA and the broker.`);
+      mqttNode.evidenceSource = "deepEvidence";
+      traceContradictionsUsed.push({ layer: "MQTT Broker", kind: "log_event_missing_on_mqtt" });
+    }
+
+    // (c) MQTT saw event but no downstream ACK → External Systems break
+    const cNoAck = (deepEvidence.contradictions || []).find((c) => c.kind === "mqtt_publish_no_ack");
+    if (cNoAck && mqttNode && externalNode) {
+      mqttNode.status = "EVENT_ROUTED";
+      mqttNode.evidence.push(`[Deep Evidence] MQTT tap observed event published; downstream ACK missing.`);
+      mqttNode.evidenceSource = "logs+deepEvidence";
+      externalNode.status = "NO_EVIDENCE";
+      externalNode.breakDetected = true;
+      externalNode.confidence = Math.max(externalNode.confidence, 80);
+      externalNode.evidence.push(`[Deep Evidence] No ACK on '${deepEvidence.mqttTruth?.ackTopic || "ack topic"}' — downstream consumer did not acknowledge.`);
+      externalNode.evidenceSource = "deepEvidence";
+      traceContradictionsUsed.push({ layer: "External Systems", kind: "mqtt_publish_no_ack" });
+    }
+
+    // (d) Host reachable but port closed for a service-bound layer
+    const portContradictions = (deepEvidence.contradictions || []).filter((c) => c.kind === "host_reachable_port_closed");
+    for (const c of portContradictions) {
+      // Map service name (target) back to layer
+      const target = (c.target || "").toLowerCase();
+      for (const node of propagationPath) {
+        if (node.componentName && target && node.componentName.toLowerCase().includes(target.split(":")[0])) {
+          node.status = "HOST_REACHABLE_PORT_CLOSED";
+          node.breakDetected = true;
+          node.confidence = Math.max(node.confidence, 88);
+          node.evidence.push(`[Deep Evidence] ${c.sourceA.said}; ${c.sourceB.said}.`);
+          node.evidenceSource = "logs+deepEvidence";
+          traceContradictionsUsed.push({ layer: node.layer, kind: c.kind, target: c.target });
+          break;
+        }
+      }
+    }
+  }
 
   const timing = { hops: [] };
   for (let i = 1; i < propagationPath.length; i++) {
@@ -411,6 +482,9 @@ export function buildTraceResult({ target, siteConfig, serviceResults, deviceRes
     ruledOutFailures,
     fixActions,
     notes: buildNotes({ matchedAll, serviceResults, target: t }),
+    deepEvidenceUsed: deepUsed,
+    deepEvidenceContradictionsUsed: traceContradictionsUsed,
+    evidenceScore: deepUsed ? (deepEvidence.evidenceScore ?? 0) : 0,
   };
 }
 
