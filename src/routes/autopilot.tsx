@@ -27,6 +27,7 @@ import { DeepEvidenceCard } from "@/components/autopilot/DeepEvidenceCard";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { AiCommanderTrigger } from "@/components/AiCommanderTrigger";
 import { useSiteConfigStore } from "@/stores/siteConfigStore";
+import { monitorApi } from "@/lib/monitorClient";
 
 export const Route = createFileRoute("/autopilot")({
   head: () => ({
@@ -62,8 +63,8 @@ function RiskPill({ risk }: { risk: AutopilotRisk }) {
 }
 
 function AutopilotPage() {
-  const monitoredDevices = useSiteConfigStore((state) => state.monitoredDevices);
   const hydrateFromBackend = useSiteConfigStore((state) => state.hydrateFromBackend);
+  const [registryCount, setRegistryCount] = useState(0);
   const [status, setStatus] = useState<AutopilotStatus | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
@@ -86,6 +87,14 @@ function AutopilotPage() {
   useEffect(() => {
     void hydrateFromBackend();
     refresh();
+    void (async () => {
+      try {
+        const registry = await monitorApi.devices();
+        if (registry.ok) setRegistryCount(registry.devices.length);
+      } catch {
+        setRegistryCount(0);
+      }
+    })();
     (async () => {
       const h = await checkHealth();
       setBackendOk(h.ok);
@@ -133,7 +142,7 @@ function AutopilotPage() {
   const issues: AutopilotIssue[] = status?.lastScan?.issues ?? [];
 
   // Mission Control derived metrics — all from real data only.
-  const monitored = monitoredDevices.length || status?.monitoredCount || 0;
+  const monitored = registryCount || status?.monitoredCount || 0;
   const needsAttention = status?.currentIssueCount ?? 0;
   const healthy = Math.max(0, monitored - needsAttention);
   const fixReady = (status?.recentPlans ?? []).filter((p) => p.riskLevel !== "HIGH").length;
