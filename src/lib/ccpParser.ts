@@ -16,6 +16,8 @@
 
 export type CcpConfidence = "high" | "medium" | "low" | "unknown";
 
+export const PARSER_VERSION = "ccp-parser/2.0.0";
+
 export type CcpController = {
   name: string;
   controllerId: string;
