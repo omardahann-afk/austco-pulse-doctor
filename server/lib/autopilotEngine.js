@@ -13,7 +13,6 @@ import { runServiceDiagnosis } from "./services.js";
 import { matchPlaybook } from "./remediationPlaybooks.js";
 import { buildAllowlist, resolveCommand, execOverSsh } from "./sshExecutor.js";
 import { savePlan, loadPlan, saveExecution, saveScan, saveApproval, listRecentScans, listRecentPlans, listRecentExecutions } from "./autopilotStore.js";
-import { recordAutopilotResult } from "./serviceNow.js";
 
 const state = {
   loopRunning: false,
