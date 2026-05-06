@@ -84,7 +84,9 @@ export type CcpParseStatus =
   | "not_provided"
   | "parsed"
   | "parsed_low_confidence"
-  | "parse_failed";
+  | "parse_failed"
+  | "ccp_zip_detected"
+  | "partial";
 
 /* -------------------------------------------------------------- */
 /* Structured warnings (V2)                                       */
@@ -145,7 +147,17 @@ export type CcpParseResult = {
   parserMetrics?: CcpParserMetrics;
   confidenceScore?: number; // 0-100
   parserVersion?: string;
+  /** ZIP archive (real .ccp) data — populated only when status === "ccp_zip_detected". */
+  archive?: CcpArchive;
+  plugins?: CcpPlugin[];
+  endpoints?: CcpEndpoint[];
+  fileType?: "ccp" | "cnfg";
 };
+
+export type CcpArchiveFile = { path: string; size: number; type: string; parsed: boolean; error: string | null };
+export type CcpArchive = { isZip: boolean; internalFileCount: number; xmlFileCount: number; files: CcpArchiveFile[] };
+export type CcpPlugin = { id: string; className: string | null; create: boolean | null; sourceFile: string; attributes: Record<string, unknown>; actions: Record<string, unknown> };
+export type CcpEndpoint = { host: string | null; ip: string | null; port: number | null; protocol: string | null; sourceFile: string; sourceAttribute: string };
 
 export const EMPTY_PARSE: CcpParseResult = {
   status: "not_provided",
