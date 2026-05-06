@@ -74,7 +74,7 @@ function MonitorPage() {
             </Button>
             <Link to="/monitor/devices">
               <Button size="sm" variant="secondary" className="h-8">
-                <Settings2 className="mr-1.5 h-3.5 w-3.5" /> Devices
+                <Plus className="mr-1.5 h-3.5 w-3.5" /> Add device
               </Button>
             </Link>
           </div>
