@@ -20,6 +20,7 @@ import { analyzeLogs } from "./lib/logs.js";
 import { testSshAuth, pullLogs } from "./lib/ssh.js";
 import { diagnoseService, runServiceDiagnosis } from "./lib/services.js";
 import { explainWithOllama } from "./lib/ollamaExplain.js";
+import { explainPlan as aiExplainPlan, explainExecution as aiExplainExecution } from "./lib/autopilotAi.js";
 import { buildTraceResult } from "./lib/traceEngine.js";
 import {
   runScan as autopilotScan,
@@ -232,6 +233,31 @@ app.post("/api/autopilot/verify", async (req, res) => {
 app.post("/api/autopilot/rollback", (_req, res) => {
   // No automatic rollbacks in v1 — rollback for service restarts is "do nothing".
   res.json({ ok: false, reason: "not_implemented", message: "Automatic rollback is not implemented. Restart actions have no rollback. Configuration changes are HIGH risk and remain manual." });
+});
+
+/* ===== Autopilot AI Copilot (explanation only — never executes) ===== */
+
+app.post("/api/autopilot/explain-plan", async (req, res) => {
+  try {
+    const { planId, endpoint, model } = req.body || {};
+    if (!planId) return res.status(400).json({ ok: false, reason: "invalid_request", message: "planId required" });
+    const plan = autopilotGetPlan(String(planId));
+    if (!plan) return res.status(404).json({ ok: false, reason: "plan_not_found" });
+    const r = await aiExplainPlan({ plan, endpoint, model });
+    res.json(r);
+  } catch (err) { res.status(500).json({ ok: false, reason: "agent_error", message: err?.message || String(err) }); }
+});
+
+app.post("/api/autopilot/explain-execution", async (req, res) => {
+  try {
+    const { planId, report, endpoint, model } = req.body || {};
+    if (!report || typeof report !== "object") {
+      return res.status(400).json({ ok: false, reason: "invalid_request", message: "report required" });
+    }
+    const plan = planId ? autopilotGetPlan(String(planId)) : null;
+    const r = await aiExplainExecution({ report, plan, endpoint, model });
+    res.json(r);
+  } catch (err) { res.status(500).json({ ok: false, reason: "agent_error", message: err?.message || String(err) }); }
 });
 
 app.listen(PORT, BIND, () => {
