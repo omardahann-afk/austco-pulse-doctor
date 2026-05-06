@@ -18,6 +18,7 @@ import {
 import { checkHealth, runDiagnosis } from "@/lib/agentClient";
 import { ServicesPanel } from "@/components/ServicesPanel";
 import { parseCcpSafe, type CcpParseResult } from "@/lib/ccpParser";
+import { fileIsZip, parseCcpZipViaBackend } from "@/lib/ccpZipClient";
 import { CcpImportPreview } from "@/components/CcpImportPreview";
 import { diffCcpAgainstConfig, type CcpDiff } from "@/lib/ccpDiff";
 import { buildAuditFromParse, saveAuditEntry } from "@/lib/ccpAudit";
@@ -178,30 +179,38 @@ function CommandCenter() {
     };
   }
 
-  function importCcp(file: File) {
-    const r = new FileReader();
-    r.onload = () => {
-      const text = String(r.result || "");
-      const t0 = Date.now();
-      const parsed = parseCcpSafe(text);
-      const durationMs = Date.now() - t0;
-      if (parsed.status === "parse_failed") {
-        // Still record the attempt in audit + show preview so the user can see the warnings
-        saveAuditEntry(buildAuditFromParse({
-          filename: file.name, fileType: "ccp", parsed, status: "failed",
-          rawText: text, technician: cfg.technician, durationMs,
-          previousConfig: cfg, newConfig: null,
-        }));
-        setError("CCP parse failed. Preview shows what the parser saw.");
+  async function importCcp(file: File) {
+    setError(null); setInfo(null);
+    const t0 = Date.now();
+    let parsed: CcpParseResult;
+    let text = "";
+    try {
+      const isZip = await fileIsZip(file);
+      if (isZip) {
+        parsed = await parseCcpZipViaBackend(file);
+      } else {
+        text = await file.text();
+        parsed = parseCcpSafe(text);
       }
-      const hasExisting = (cfg.controllers.length + cfg.modules.length) > 0;
-      const diff = hasExisting ? diffCcpAgainstConfig(parsed, cfg) : null;
-      setPreviewParsed(parsed);
-      setPreviewDiff(diff);
-      setPreviewFile({ name: file.name, size: text.length, text, type: "ccp", durationMs });
-      setPreviewOpen(true);
-    };
-    r.readAsText(file);
+    } catch (err) {
+      setError(`CCP read failed: ${err instanceof Error ? err.message : String(err)}`);
+      return;
+    }
+    const durationMs = Date.now() - t0;
+    if (parsed.status === "parse_failed") {
+      saveAuditEntry(buildAuditFromParse({
+        filename: file.name, fileType: "ccp", parsed, status: "failed",
+        rawText: text, technician: cfg.technician, durationMs,
+        previousConfig: cfg, newConfig: null,
+      }));
+      setError("CCP parse failed. Preview shows what the parser saw.");
+    }
+    const hasExisting = (cfg.controllers.length + cfg.modules.length) > 0;
+    const diff = hasExisting ? diffCcpAgainstConfig(parsed, cfg) : null;
+    setPreviewParsed(parsed);
+    setPreviewDiff(diff);
+    setPreviewFile({ name: file.name, size: file.size, text, type: "ccp", durationMs });
+    setPreviewOpen(true);
   }
 
   function confirmCcpImport() {
@@ -217,8 +226,10 @@ function CommandCenter() {
       rawText: previewFile.text, technician: cfg.technician, durationMs: previewFile.durationMs,
       previousConfig, newConfig: next,
     }));
-    const status = previewParsed.status === "parsed_low_confidence" ? " (low confidence — please verify)" : "";
-    setInfo(`CCP imported: ${previewParsed.controllers.length} controllers, ${previewParsed.devices.length} devices, ${previewParsed.rooms.length} rooms${status}.`);
+    const tag = previewParsed.status === "parsed_low_confidence" ? " (low confidence — please verify)"
+              : previewParsed.status === "ccp_zip_detected" ? ` (CCP ZIP — ${previewParsed.archive?.internalFileCount ?? 0} files, ${previewParsed.plugins?.length ?? 0} plugins, ${previewParsed.endpoints?.length ?? 0} endpoints)`
+              : "";
+    setInfo(`CCP imported: ${previewParsed.controllers.length} controllers, ${previewParsed.devices.length} devices, ${previewParsed.rooms.length} rooms${tag}.`);
     setError(null);
     setPreviewOpen(false);
   }
