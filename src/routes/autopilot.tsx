@@ -218,6 +218,27 @@ function PlanPanel(props: {
 }) {
   const { plan, loading, error, password, setPassword, acknowledged, setAcknowledged, report, setReport, setError, onRefresh } = props;
   const [running, setRunning] = useState(false);
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiStatus, setAiStatus] = useState<"idle" | "ok" | "off" | "error" | "stale">("idle");
+  const [aiStatusMsg, setAiStatusMsg] = useState<string>("");
+  const [aiExplain, setAiExplain] = useState<AutopilotPlanExplanation | null>(null);
+
+  // Mark stale when plan changes
+  useEffect(() => { setAiExplain(null); setAiStatus("idle"); setAiStatusMsg(""); }, [plan?.planId]);
+
+  const runAi = async () => {
+    if (!plan) return;
+    setAiLoading(true); setAiStatus("idle"); setAiStatusMsg("");
+    const r = await autopilotExplainPlan({ planId: plan.planId });
+    setAiLoading(false);
+    if ("ok" in r && r.ok) { setAiExplain(r.ai); setAiStatus("ok"); setAiStatusMsg(`Local Ollama · ${r.model}`); }
+    else {
+      setAiExplain(null);
+      const reason = ("reason" in r && r.reason) || "";
+      setAiStatus(reason === "ollama_unavailable" || reason === "ollama_timeout" ? "off" : "error");
+      setAiStatusMsg(("message" in r && r.message) || "AI unavailable");
+    }
+  };
 
   if (loading) return <div className="flex items-center gap-2 rounded-md border border-border/60 bg-muted/20 p-4 text-sm text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin" />Loading plan…</div>;
   if (error) return <div className="rounded-md border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive">{error}</div>;
@@ -320,6 +341,17 @@ function PlanPanel(props: {
       )}
 
       {report && <ReportPanel report={report} />}
+      {plan && (
+        <AiCopilotPlanPanel
+          plan={plan}
+          aiLoading={aiLoading}
+          aiStatus={aiStatus}
+          aiStatusMsg={aiStatusMsg}
+          aiExplain={aiExplain}
+          onRun={runAi}
+        />
+      )}
+      {report && plan && <AiCopilotExecutionPanel planId={plan.planId} report={report} />}
     </div>
   );
 }
