@@ -1,6 +1,6 @@
 import { Link, useRouterState } from "@tanstack/react-router";
 import { Sidebar, SidebarContent, SidebarGroup, SidebarGroupContent, SidebarMenu, SidebarMenuButton, SidebarMenuItem, SidebarHeader, SidebarFooter } from "@/components/ui/sidebar";
-import { Activity, Workflow, FileText, Stethoscope, GitBranch, ShieldCheck, Microscope } from "lucide-react";
+import { Activity, Workflow, FileText, Stethoscope, GitBranch, ShieldCheck, Microscope, History } from "lucide-react";
 import { useEffect, useState } from "react";
 import { loadSiteConfig } from "@/lib/siteConfig";
 
@@ -9,6 +9,7 @@ const NAV = [
   { to: "/trace",      label: "Trace Signal Path", icon: GitBranch },
   { to: "/autopilot",  label: "Autopilot", icon: ShieldCheck },
   { to: "/evidence",   label: "Deep Evidence", icon: Microscope },
+  { to: "/evidence/playback", label: "Evidence Playback", icon: History },
   { to: "/diagnosis",  label: "Diagnosis Result", icon: Workflow },
   { to: "/escalation", label: "Escalation Report", icon: FileText },
 ];

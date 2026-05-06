@@ -16,6 +16,7 @@ import { Route as EscalationRouteImport } from './routes/escalation'
 import { Route as DiagnosisRouteImport } from './routes/diagnosis'
 import { Route as AutopilotRouteImport } from './routes/autopilot'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as EvidencePlaybackRouteImport } from './routes/evidence.playback'
 
 const TraceRoute = TraceRouteImport.update({
   id: '/trace',
@@ -52,24 +53,31 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const EvidencePlaybackRoute = EvidencePlaybackRouteImport.update({
+  id: '/playback',
+  path: '/playback',
+  getParentRoute: () => EvidenceRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/autopilot': typeof AutopilotRoute
   '/diagnosis': typeof DiagnosisRoute
   '/escalation': typeof EscalationRoute
-  '/evidence': typeof EvidenceRoute
+  '/evidence': typeof EvidenceRouteWithChildren
   '/logs': typeof LogsRoute
   '/trace': typeof TraceRoute
+  '/evidence/playback': typeof EvidencePlaybackRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/autopilot': typeof AutopilotRoute
   '/diagnosis': typeof DiagnosisRoute
   '/escalation': typeof EscalationRoute
-  '/evidence': typeof EvidenceRoute
+  '/evidence': typeof EvidenceRouteWithChildren
   '/logs': typeof LogsRoute
   '/trace': typeof TraceRoute
+  '/evidence/playback': typeof EvidencePlaybackRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -77,9 +85,10 @@ export interface FileRoutesById {
   '/autopilot': typeof AutopilotRoute
   '/diagnosis': typeof DiagnosisRoute
   '/escalation': typeof EscalationRoute
-  '/evidence': typeof EvidenceRoute
+  '/evidence': typeof EvidenceRouteWithChildren
   '/logs': typeof LogsRoute
   '/trace': typeof TraceRoute
+  '/evidence/playback': typeof EvidencePlaybackRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -91,6 +100,7 @@ export interface FileRouteTypes {
     | '/evidence'
     | '/logs'
     | '/trace'
+    | '/evidence/playback'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -100,6 +110,7 @@ export interface FileRouteTypes {
     | '/evidence'
     | '/logs'
     | '/trace'
+    | '/evidence/playback'
   id:
     | '__root__'
     | '/'
@@ -109,6 +120,7 @@ export interface FileRouteTypes {
     | '/evidence'
     | '/logs'
     | '/trace'
+    | '/evidence/playback'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -116,7 +128,7 @@ export interface RootRouteChildren {
   AutopilotRoute: typeof AutopilotRoute
   DiagnosisRoute: typeof DiagnosisRoute
   EscalationRoute: typeof EscalationRoute
-  EvidenceRoute: typeof EvidenceRoute
+  EvidenceRoute: typeof EvidenceRouteWithChildren
   LogsRoute: typeof LogsRoute
   TraceRoute: typeof TraceRoute
 }
@@ -172,15 +184,34 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/evidence/playback': {
+      id: '/evidence/playback'
+      path: '/playback'
+      fullPath: '/evidence/playback'
+      preLoaderRoute: typeof EvidencePlaybackRouteImport
+      parentRoute: typeof EvidenceRoute
+    }
   }
 }
+
+interface EvidenceRouteChildren {
+  EvidencePlaybackRoute: typeof EvidencePlaybackRoute
+}
+
+const EvidenceRouteChildren: EvidenceRouteChildren = {
+  EvidencePlaybackRoute: EvidencePlaybackRoute,
+}
+
+const EvidenceRouteWithChildren = EvidenceRoute._addFileChildren(
+  EvidenceRouteChildren,
+)
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AutopilotRoute: AutopilotRoute,
   DiagnosisRoute: DiagnosisRoute,
   EscalationRoute: EscalationRoute,
-  EvidenceRoute: EvidenceRoute,
+  EvidenceRoute: EvidenceRouteWithChildren,
   LogsRoute: LogsRoute,
   TraceRoute: TraceRoute,
 }
