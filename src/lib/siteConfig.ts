@@ -168,9 +168,15 @@ function getBrowserDefaultBackendUrl(): string {
   return window.location.origin;
 }
 
+function isLegacyLoopbackBackend(value: string | null): boolean {
+  if (!value) return false;
+  return value === "http://localhost:3001" || value === "http://127.0.0.1:3001";
+}
+
 export function getBackendUrl(): string {
   if (typeof window === "undefined") return DEFAULT_BACKEND_URL;
-  return localStorage.getItem(BACKEND_KEY) || getBrowserDefaultBackendUrl();
+  const stored = localStorage.getItem(BACKEND_KEY);
+  return !stored || isLegacyLoopbackBackend(stored) ? getBrowserDefaultBackendUrl() : stored;
 }
 export function setBackendUrl(u: string) {
   if (typeof window === "undefined") return;
