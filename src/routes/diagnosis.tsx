@@ -8,6 +8,7 @@ import { cn } from "@/lib/utils";
 import { loadLastDiagnosis, loadSiteConfig, saveLastDiagnosis, getBackendUrl, type DiagnosisResult, type DeviceResult } from "@/lib/siteConfig";
 import { runDiagnosis, checkHealth } from "@/lib/agentClient";
 import { AdvancedRootCausePanel } from "@/components/RootCausePanel";
+import { AiCommanderTrigger } from "@/components/AiCommanderTrigger";
 
 export const Route = createFileRoute("/diagnosis")({
   head: () => ({ meta: [{ title: "Diagnosis Result — Tacera Doctor" }] }),
@@ -154,7 +155,31 @@ function Page() {
       {error && <div className="rounded border border-critical/40 bg-critical/10 px-3 py-2 text-xs text-critical">{error}</div>}
 
       {/* Advanced deterministic Root Cause Analysis (when backend returned it) */}
-      {data.rootCause && <AdvancedRootCausePanel rc={data.rootCause} />}
+      {data.rootCause && (
+        <>
+          <AdvancedRootCausePanel rc={data.rootCause} />
+          <div className="flex flex-wrap gap-2">
+            <AiCommanderTrigger
+              source="root-cause"
+              mode="explain_on_site"
+              context={{ rootCause: data.rootCause, affectedServices: data.rootCause.affectedServices, affectedHosts: data.rootCause.affectedHosts }}
+              label="Explain in AI Commander"
+            />
+            <AiCommanderTrigger
+              source="root-cause"
+              mode="root_cause_defender"
+              context={{ rootCause: data.rootCause, affectedServices: data.rootCause.affectedServices, affectedHosts: data.rootCause.affectedHosts }}
+              label="Defend this root cause"
+            />
+            <AiCommanderTrigger
+              source="root-cause"
+              mode="evidence_challenge"
+              context={{ rootCause: data.rootCause }}
+              label="Challenge this conclusion"
+            />
+          </div>
+        </>
+      )}
 
       {/* 2. Device Results */}
       <section className="space-y-2">
