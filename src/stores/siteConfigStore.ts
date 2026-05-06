@@ -136,7 +136,7 @@ async function pushSiteConfigSnapshot(config: SiteConfig) {
   }
 }
 
-let syncTimer: ReturnType<typeof setTimeout> | null = null;
+let syncTimer: number | null = null;
 let pendingHydration: Promise<void> | null = null;
 
 export const useSiteConfigStore = create<SiteConfigState>()(
@@ -223,15 +223,16 @@ export const useSiteConfigStore = create<SiteConfigState>()(
           if (!response.ok || !response.device) {
             throw new Error(response.errors?.join("; ") || response.reason || "Could not save device");
           }
+          const savedDevice = response.device;
 
           set((state) => ({
             monitoredDevices: sortDevices([
-              ...state.monitoredDevices.filter((entry) => entry.id !== response.device?.id),
-              response.device,
+              ...state.monitoredDevices.filter((entry) => entry.id !== savedDevice.id),
+              savedDevice,
             ]),
           }));
 
-          return response.device;
+          return savedDevice;
         },
 
         deleteMonitoredDevice: async (id) => {
