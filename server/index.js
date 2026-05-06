@@ -21,6 +21,7 @@ import { testSshAuth, pullLogs } from "./lib/ssh.js";
 import { diagnoseService, runServiceDiagnosis } from "./lib/services.js";
 import { explainWithOllama } from "./lib/ollamaExplain.js";
 import { explainPlan as aiExplainPlan, explainExecution as aiExplainExecution } from "./lib/autopilotAi.js";
+import { runCommander, COMMANDER_MODES, buildFallbackResponse } from "./lib/aiCommander.js";
 import { buildTraceResult } from "./lib/traceEngine.js";
 import {
   runScan as autopilotScan,
