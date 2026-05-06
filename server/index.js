@@ -530,6 +530,37 @@ app.get("/api/monitor/ws-info", (_req, res) => {
   res.json({ ok: true, path: "/ws/monitor", clients: wsClientCount() });
 });
 
+/* ------------------------------------------------------------------ */
+/* CCP ZIP parsing — accepts a real Austco/IPConnect .ccp file        */
+/* (a ZIP archive) and returns the structured manifest. Local-only.   */
+/* ------------------------------------------------------------------ */
+const ccpUpload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 50 * 1024 * 1024 } });
+app.post("/api/ccp/parse", ccpUpload.single("file"), (req, res) => {
+  try {
+    if (!req.file?.buffer) return res.status(400).json({ ok: false, reason: "no_file", message: "Upload a .ccp file in the 'file' form field." });
+    const buf = req.file.buffer;
+    const filename = req.file.originalname || "upload.ccp";
+    if (!isZipBuffer(buf)) {
+      return res.json({
+        ok: true,
+        result: {
+          parserStatus: "parse_failed",
+          fileType: "ccp",
+          filename,
+          archive: { isZip: false, internalFileCount: 0, xmlFileCount: 0, files: [] },
+          plugins: [], endpoints: [], controllers: [], devices: [], rooms: [], zones: [],
+          warnings: ["File is not a ZIP archive (no PK magic). Try the text parser for .cnfg."],
+          unknown: [],
+        },
+      });
+    }
+    const result = parseCcpZipBuffer(buf, { filename });
+    res.json({ ok: true, result });
+  } catch (err) {
+    res.status(500).json({ ok: false, reason: "agent_error", message: err?.message || String(err) });
+  }
+});
+
 const httpServer = http.createServer(app);
 attachWsBus(httpServer, { path: "/ws/monitor" });
 httpServer.listen(PORT, BIND, () => {
