@@ -14,6 +14,7 @@ import {
   type DeepEvidence, type EvidenceScenario,
 } from "@/lib/agentClient";
 import { loadSiteConfig } from "@/lib/siteConfig";
+import { AiCommanderTrigger } from "@/components/AiCommanderTrigger";
 
 export const Route = createFileRoute("/evidence")({
   head: () => ({
@@ -221,6 +222,13 @@ function EvidencePage() {
 
       {/* Debug panel */}
       {evidence && <DebugPanel evidence={evidence} ageLabel={ageLabel} />}
+
+      {evidence && (
+        <div className="flex flex-wrap gap-2">
+          <AiCommanderTrigger source="deep-evidence" mode="explain_on_site" context={{ deepEvidence: evidence, contradictions: evidence.contradictions }} label="Explain evidence in AI Commander" />
+          <AiCommanderTrigger source="deep-evidence" mode="evidence_challenge" context={{ deepEvidence: evidence, contradictions: evidence.contradictions }} label="Challenge this evidence" />
+        </div>
+      )}
 
       {!evidence ? (
         <Card><CardContent className="p-5 text-sm text-muted-foreground">
