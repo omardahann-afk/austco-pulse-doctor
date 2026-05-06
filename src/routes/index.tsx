@@ -17,6 +17,7 @@ import {
 } from "@/lib/siteConfig";
 import { checkHealth, runDiagnosis } from "@/lib/agentClient";
 import { ServicesPanel } from "@/components/ServicesPanel";
+import { parseCcp } from "@/lib/ccpParser";
 
 export const Route = createFileRoute("/")({
   head: () => ({ meta: [
@@ -116,6 +117,93 @@ function CommandCenter() {
         if (parsed.backendUrl) persistBackend(parsed.backendUrl);
         setInfo("Config imported.");
       } catch { setError("Import failed — file is not valid JSON site config."); }
+    };
+    r.readAsText(file);
+  }
+
+  function importCcp(file: File) {
+    const r = new FileReader();
+    r.onload = () => {
+      try {
+        const text = String(r.result || "");
+        const parsed = parseCcp(text);
+        if (parsed.status === "parse_failed") {
+          setError("CCP import failed — file does not contain recognizable Tacera/IPConnect markers.");
+          return;
+        }
+        const ipOf = (v: string) => (v && v !== "unknown" ? v : "");
+        const controllerModules: ModuleEntry[] = parsed.controllers.map((c) => ({
+          id: newId(),
+          role: "Controller" as ModuleRole,
+          name: c.name && c.name !== "unknown" ? c.name : (c.controllerId !== "unknown" ? `Controller ${c.controllerId}` : "Controller"),
+          ip: ipOf(c.ip),
+          hostname: "",
+          vlan: "",
+          expectedPorts: [],
+          notes: [
+            c.controllerId !== "unknown" ? `ControllerID: ${c.controllerId}` : "",
+            c.location !== "unknown" ? `Location: ${c.location}` : "",
+            `Imported from CCP (confidence: ${c.confidence})`,
+          ].filter(Boolean).join(" · "),
+        }));
+
+        // CP / device rows (callpoints, pendants, IPnet devices)
+        const cpModules: ModuleEntry[] = parsed.devices
+          .filter((d) => d.address !== "unknown" || d.name !== "unknown")
+          .map((d) => ({
+            id: newId(),
+            role: "Other" as ModuleRole,
+            name: d.name && d.name !== "unknown" ? d.name : `CP ${d.address}`,
+            ip: /^[0-9.]+$/.test(d.address) ? d.address : "",
+            hostname: "",
+            vlan: "",
+            expectedPorts: [],
+            notes: [
+              d.type !== "unknown" ? `Type: ${d.type}` : "",
+              d.controllerId !== "unknown" ? `Controller: ${d.controllerId}` : "",
+              d.room !== "unknown" ? `Room: ${d.room}` : "",
+              d.address && d.address !== "unknown" && !/^[0-9.]+$/.test(d.address) ? `Addr: ${d.address}` : "",
+              `Imported from CCP (confidence: ${d.confidence})`,
+            ].filter(Boolean).join(" · "),
+          }));
+
+        const next: SiteConfig = {
+          ...EMPTY_SITE_CONFIG,
+          siteName: file.name.replace(/\.ccp$/i, ""),
+          siteNotes: `Imported from ${file.name} · CCP parser confidence: ${parsed.confidence}` +
+            (parsed.warnings.length ? ` · Warnings: ${parsed.warnings.join("; ")}` : ""),
+          modules: [...controllerModules, ...cpModules],
+          controllers: parsed.controllers.map((c) => ({
+            id: newId(),
+            name: c.name && c.name !== "unknown" ? c.name : `Controller ${c.controllerId}`,
+            ip: ipOf(c.ip),
+            controllerId: c.controllerId !== "unknown" ? c.controllerId : "",
+            area: c.location !== "unknown" ? c.location : "",
+            expectedPorts: [],
+            notes: `Imported from CCP (confidence: ${c.confidence})`,
+          })),
+        };
+        setCfg(next);
+        const status = parsed.status === "parsed_low_confidence" ? " (low confidence — please verify)" : "";
+        setInfo(`CCP imported: ${parsed.controllers.length} controllers, ${parsed.devices.length} devices, ${parsed.rooms.length} rooms${status}.`);
+      } catch (err) {
+        setError(`CCP import failed — ${err instanceof Error ? err.message : String(err)}`);
+      }
+    };
+    r.readAsText(file);
+  }
+
+  function importSiteConfig(file: File) {
+    setError(null); setInfo(null);
+    const name = file.name.toLowerCase();
+    if (name.endsWith(".ccp")) return importCcp(file);
+    if (name.endsWith(".json")) return importJson(file);
+    // Fallback: sniff content
+    const r = new FileReader();
+    r.onload = () => {
+      const text = String(r.result || "").trim();
+      if (text.startsWith("{") || text.startsWith("[")) importJson(file);
+      else importCcp(file);
     };
     r.readAsText(file);
   }
@@ -306,14 +394,14 @@ function CommandCenter() {
           </CardContent>
         </Card>
 
-        {/* 5. JSON config */}
+        {/* 5. Site Config (JSON / CCP) */}
         <Card className="bg-card/70">
-          <CardHeader className="pb-3"><CardTitle className="text-sm">5 · JSON Config</CardTitle></CardHeader>
+          <CardHeader className="pb-3"><CardTitle className="text-sm">5 · Site Config (JSON / CCP)</CardTitle></CardHeader>
           <CardContent className="flex flex-wrap gap-2">
             <label className="inline-flex cursor-pointer items-center gap-1.5 rounded border border-border/60 bg-background/60 px-3 py-1.5 text-xs hover:bg-background">
-              <Upload className="h-3.5 w-3.5" /> Import JSON
-              <input type="file" accept="application/json,.json" className="hidden"
-                onChange={(e) => { const f = e.target.files?.[0]; if (f) importJson(f); e.currentTarget.value = ""; }} />
+              <Upload className="h-3.5 w-3.5" /> Import Site Config
+              <input type="file" accept=".json,.ccp,application/json" className="hidden"
+                onChange={(e) => { const f = e.target.files?.[0]; if (f) importSiteConfig(f); e.currentTarget.value = ""; }} />
             </label>
             <Button type="button" variant="outline" size="sm" onClick={exportJson}><Download className="mr-1.5 h-3.5 w-3.5" /> Export JSON</Button>
             <Button type="button" variant="outline" size="sm" onClick={saveCfgNow}><Save className="mr-1.5 h-3.5 w-3.5" /> Save Config</Button>
