@@ -162,13 +162,13 @@ function Page() {
             <AiCommanderTrigger
               source="root-cause"
               mode="explain_on_site"
-              context={{ rootCause: data.rootCause, affectedServices: data.rootCause.affectedServices, affectedHosts: data.rootCause.affectedHosts }}
+              context={{ rootCause: data.rootCause, affectedServices: data.rootCause.affectedServices }}
               label="Explain in AI Commander"
             />
             <AiCommanderTrigger
               source="root-cause"
               mode="root_cause_defender"
-              context={{ rootCause: data.rootCause, affectedServices: data.rootCause.affectedServices, affectedHosts: data.rootCause.affectedHosts }}
+              context={{ rootCause: data.rootCause, affectedServices: data.rootCause.affectedServices }}
               label="Defend this root cause"
             />
             <AiCommanderTrigger
