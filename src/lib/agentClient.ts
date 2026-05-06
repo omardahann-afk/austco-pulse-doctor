@@ -445,6 +445,12 @@ export async function autopilotGetPlan(planId: string): Promise<{ ok: true; plan
   return await res.json();
 }
 
+export async function autopilotListPlans(limit = 50): Promise<{ ok: true; plans: AutopilotPlan[] } | ApiError> {
+  const url = getBackendUrl().replace(/\/$/, "") + `/api/autopilot/plans?limit=${limit}`;
+  const res = await fetch(url);
+  return await res.json();
+}
+
 export async function autopilotExecute(opts: { planId: string; actionIds?: string[]; password: string; acknowledged: boolean; approvalConfirmed?: boolean }): Promise<{ ok: true; report: AutopilotExecutionReport } | ApiError> {
   const url = getBackendUrl().replace(/\/$/, "") + "/api/autopilot/execute";
   const res = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ approvalConfirmed: opts.acknowledged, ...opts }) });
