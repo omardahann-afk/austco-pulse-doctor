@@ -1,5 +1,29 @@
 [
   {
+    "at": "2026-05-06T17:34:20.200Z",
+    "planId": "plan_test_raw",
+    "actionIds": [
+      "a-injected-from-client"
+    ],
+    "acknowledged": true
+  },
+  {
+    "at": "2026-05-06T17:34:20.198Z",
+    "planId": "plan_test_med",
+    "actionIds": [
+      "a-med"
+    ],
+    "acknowledged": false
+  },
+  {
+    "at": "2026-05-06T17:34:20.194Z",
+    "planId": "plan_test_high",
+    "actionIds": [
+      "a-high"
+    ],
+    "acknowledged": true
+  },
+  {
     "at": "2026-05-06T17:34:09.688Z",
     "planId": "plan_test_raw",
     "actionIds": [
