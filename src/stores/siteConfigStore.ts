@@ -27,6 +27,7 @@ type SiteConfigState = {
 };
 
 const SHARED_STORE_KEY = "tacera.shared-registry.v1";
+const MONITOR_REGISTRY_UPDATED_EVENT = "monitor-registry:updated";
 
 const noopStorage: StateStorage = {
   getItem: () => null,
@@ -36,6 +37,11 @@ const noopStorage: StateStorage = {
 
 function cloneEmptySiteConfig() {
   return structuredClone(EMPTY_SITE_CONFIG);
+}
+
+function notifyMonitorRegistryUpdated() {
+  if (typeof window === "undefined") return;
+  window.dispatchEvent(new Event(MONITOR_REGISTRY_UPDATED_EVENT));
 }
 
 function backendBase() {
@@ -234,6 +240,7 @@ export const useSiteConfigStore = create<SiteConfigState>()(
 
           const monitoredDevices = await fetchMonitorDevicesSnapshot();
           set({ monitoredDevices });
+          notifyMonitorRegistryUpdated();
 
           return monitoredDevices.find((entry) => entry.id === response.device?.id) ?? response.device;
         },
@@ -246,6 +253,7 @@ export const useSiteConfigStore = create<SiteConfigState>()(
 
           const monitoredDevices = await fetchMonitorDevicesSnapshot();
           set({ monitoredDevices });
+          notifyMonitorRegistryUpdated();
         },
       };
     },

@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { PageHeader } from "@/components/PageHeader";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -13,6 +13,8 @@ import { Play, Square, RefreshCw, Plus } from "lucide-react";
 import { toast } from "sonner";
 import { AddDeviceDialog } from "@/components/monitor/AddDeviceDialog";
 import { useSiteConfigStore } from "@/stores/siteConfigStore";
+
+const MONITOR_REGISTRY_UPDATED_EVENT = "monitor-registry:updated";
 
 export const Route = createFileRoute("/monitor")({
   head: () => ({ meta: [
@@ -28,6 +30,16 @@ function MonitorPage() {
   const { conn, scheduler, devices, lastEventAt, requestSnapshot } = useMonitorBus();
   const hydrateFromBackend = useSiteConfigStore((state) => state.hydrateFromBackend);
   const [dialogOpen, setDialogOpen] = useState(false);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return undefined;
+    const handleRegistryUpdated = () => {
+      void hydrateFromBackend();
+      requestSnapshot();
+    };
+    window.addEventListener(MONITOR_REGISTRY_UPDATED_EVENT, handleRegistryUpdated);
+    return () => window.removeEventListener(MONITOR_REGISTRY_UPDATED_EVENT, handleRegistryUpdated);
+  }, [hydrateFromBackend, requestSnapshot]);
 
   const grouped = useMemo(() => {
     const buckets = new Map<DeviceState, typeof devices>();
