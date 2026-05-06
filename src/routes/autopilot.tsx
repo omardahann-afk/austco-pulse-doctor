@@ -6,16 +6,16 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Loader2, Play, Square, RefreshCw, ShieldAlert, ShieldCheck, AlertTriangle, Copy, ChevronDown, Sparkles, Bot } from "lucide-react";
+import { Loader2, Play, Square, RefreshCw, ShieldAlert, ShieldCheck, AlertTriangle, Copy, ChevronDown, Sparkles, Bot, FlaskConical, Info, Lightbulb } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { loadSiteConfig } from "@/lib/siteConfig";
 import {
   autopilotGetStatus, autopilotScanNow, autopilotStart, autopilotStop,
   autopilotGetPlan, autopilotExecute, autopilotVerify,
   autopilotExplainPlan, autopilotExplainExecution,
-  checkHealth,
+  checkHealth, evidenceLatest,
   type AutopilotStatus, type AutopilotPlan, type AutopilotIssue, type AutopilotExecutionReport, type AutopilotRisk,
-  type AutopilotPlanExplanation, type AutopilotExecExplanation,
+  type AutopilotPlanExplanation, type AutopilotExecExplanation, type DeepEvidence,
 } from "@/lib/agentClient";
 import { MissionStatusBar } from "@/components/autopilot/MissionStatusBar";
 import { MissionKpiCards } from "@/components/autopilot/MissionKpiCards";
@@ -24,6 +24,7 @@ import { ConfidenceLadder } from "@/components/autopilot/ConfidenceLadder";
 import { AuditTimeline } from "@/components/autopilot/AuditTimeline";
 import { ProofPanel } from "@/components/autopilot/ProofPanel";
 import { DeepEvidenceCard } from "@/components/autopilot/DeepEvidenceCard";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 export const Route = createFileRoute("/autopilot")({
   head: () => ({
@@ -42,7 +43,20 @@ const RISK_STYLES: Record<AutopilotRisk, string> = {
 };
 
 function RiskPill({ risk }: { risk: AutopilotRisk }) {
-  return <span className={cn("inline-flex items-center rounded-md border px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wider", RISK_STYLES[risk])}>{risk}</span>;
+  const tip =
+    risk === "HIGH" ? "High risk — engine refuses to execute. Manual action required." :
+    risk === "MEDIUM" ? "Medium risk — restarts a service. Requires explicit acknowledgement." :
+    "Low risk — read-only or idempotent action. Still requires technician approval.";
+  return (
+    <TooltipProvider delayDuration={200}>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <span className={cn("inline-flex items-center rounded-md border px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wider cursor-help", RISK_STYLES[risk])}>{risk}</span>
+        </TooltipTrigger>
+        <TooltipContent className="max-w-xs">{tip}</TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
+  );
 }
 
 function AutopilotPage() {
@@ -57,6 +71,7 @@ function AutopilotPage() {
   const [report, setReport] = useState<AutopilotExecutionReport | null>(null);
   const [backendOk, setBackendOk] = useState<boolean>(true);
   const [aiAvailable, setAiAvailable] = useState<"available" | "unavailable" | "unknown">("unknown");
+  const [latestEvidence, setLatestEvidence] = useState<DeepEvidence | null>(null);
 
   const refresh = async () => {
     const r = await autopilotGetStatus();
@@ -69,6 +84,10 @@ function AutopilotPage() {
     (async () => {
       const h = await checkHealth();
       setBackendOk(h.ok);
+    })();
+    (async () => {
+      const r = await evidenceLatest();
+      if ("ok" in r && r.ok) setLatestEvidence(r.evidence);
     })();
   }, []);
 
@@ -120,6 +139,23 @@ function AutopilotPage() {
     !lastExec ? "none" : lastExec.fixVerified ? "verified" : lastExec.success ? "success" : "failed";
   const lastFixAt = lastExec?.finishedAt ?? null;
 
+  // Mock / freshness signals (used for the "What should I do next?" card and global banner).
+  const evidenceMock = !!latestEvidence?.mock;
+  const evidenceAgeMs = latestEvidence?.collectedAt ? Date.now() - new Date(latestEvidence.collectedAt).getTime() : null;
+  const evidenceStale = evidenceAgeMs !== null && evidenceAgeMs > 15 * 60 * 1000;
+  const noServices = enabledServices.length === 0;
+  const noEvidence = !latestEvidence;
+
+  const nextStep: { tone: "info" | "warn" | "ok" | "danger"; title: string; body: string } = (() => {
+    if (noServices) return { tone: "warn", title: "Add services in Command Center first.", body: "Autopilot has nothing to monitor. Define at least one service on the Command Center." };
+    if (evidenceMock) return { tone: "danger", title: "DEV mock evidence is loaded.", body: "Autopilot execution is permanently blocked while a mock scenario is active. Clear the mock from the Deep Evidence page before running real remediation." };
+    if (noEvidence) return { tone: "warn", title: "Collect Deep Evidence before trusting automation.", body: "Without Deep Evidence the engine works from logs alone — contradictions will not be detected." };
+    if (evidenceStale) return { tone: "warn", title: "Deep Evidence is stale.", body: "Re-collect Deep Evidence before approving a remediation plan." };
+    if (needsAttention > 0 && fixReady > 0) return { tone: "info", title: "Review the suggested fix plan.", body: "An issue is detected and a deterministic plan is ready. Approve only after confirming the risk and verification steps." };
+    if (needsAttention > 0) return { tone: "warn", title: "Issues detected — manual review required.", body: "Detected issues are HIGH risk or have no safe automated playbook. Open the issue to escalate." };
+    return { tone: "ok", title: "All monitored services look healthy.", body: "Last scan found no actionable issues. Re-run Scan Now to refresh." };
+  })();
+
   return (
     <div className="container mx-auto max-w-6xl space-y-6 px-4 py-6">
       <PageHeader
@@ -163,6 +199,20 @@ function AutopilotPage() {
         fixExecuted={fixExecuted}
         manualRequired={manualRequired}
       />
+
+      {/* Global mock banner — make it impossible to miss when running against synthetic evidence. */}
+      {evidenceMock && (
+        <Card className="border-warning/60 bg-warning/10">
+          <CardContent className="flex flex-wrap items-center gap-2 p-3 text-sm text-warning">
+            <FlaskConical className="h-4 w-4" />
+            <strong>DEV MOCK evidence active</strong>
+            <span className="text-xs">Autopilot execution against mock evidence is permanently blocked.</span>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* "What should I do next?" guidance card */}
+      <NextStepCard step={nextStep} />
 
       {/* 3. Security proof card */}
       <SecurityProofCard />
@@ -211,6 +261,8 @@ function AutopilotPage() {
                   onRefresh={refresh}
                   lastScanAt={status?.lastScanAt ?? null}
                   onAiAvailability={setAiAvailable}
+                  evidenceMock={evidenceMock}
+                  evidenceStale={evidenceStale}
                 />
               )}
             </CardContent>
@@ -254,8 +306,10 @@ function PlanPanel(props: {
   onRefresh: () => void;
   lastScanAt: string | null;
   onAiAvailability: (s: "available" | "unavailable" | "unknown") => void;
+  evidenceMock?: boolean;
+  evidenceStale?: boolean;
 }) {
-  const { plan, loading, error, password, setPassword, acknowledged, setAcknowledged, report, setReport, setError, onRefresh, lastScanAt, onAiAvailability } = props;
+  const { plan, loading, error, password, setPassword, acknowledged, setAcknowledged, report, setReport, setError, onRefresh, lastScanAt, onAiAvailability, evidenceMock, evidenceStale } = props;
   const [running, setRunning] = useState(false);
   const [aiLoading, setAiLoading] = useState(false);
   const [aiStatus, setAiStatus] = useState<"idle" | "ok" | "off" | "error" | "stale">("idle");
@@ -290,8 +344,22 @@ function PlanPanel(props: {
   if (error) return <div className="rounded-md border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive">{error}</div>;
   if (!plan) return null;
 
-  const hasMedium = plan.actions.some((a) => a.risk === "MEDIUM" && !a.blocked);
-  const allBlocked = plan.actions.every((a) => a.blocked || a.risk === "HIGH");
+  const actions = plan.actions ?? [];
+  const hasMedium = actions.some((a) => a.risk === "MEDIUM" && !a.blocked);
+  const allBlocked = actions.length === 0 || actions.every((a) => a.blocked || a.risk === "HIGH");
+  const planIsMock = !!plan.mockEvidence || !!evidenceMock;
+  const executeBlocked = allBlocked || planIsMock;
+  const executeBlockReason =
+    planIsMock ? "Mock evidence — execution permanently blocked."
+    : allBlocked ? "All actions blocked (HIGH risk or not allowlisted)."
+    : evidenceStale ? "Deep Evidence is stale. Re-collect before executing."
+    : "";
+
+  // Evidence source label (logs / deep evidence / both / mock).
+  const evidenceSourceLabel: { label: string; cls: string } =
+    planIsMock ? { label: "MOCK EVIDENCE", cls: "bg-warning/15 text-warning border-warning/40" }
+    : plan.deepEvidenceUsed ? { label: "logs + deep evidence", cls: "bg-info/15 text-info border-info/40" }
+    : { label: "logs only", cls: "bg-muted/40 text-muted-foreground border-border" };
 
   const exec = async (mode: "all" | "readonly") => {
     if (!plan.serviceRef) { setError("Plan has no service credentials reference."); return; }
@@ -312,19 +380,36 @@ function PlanPanel(props: {
 
   return (
     <div className="space-y-3 rounded-md border border-border/60 bg-muted/20 p-4">
+      {planIsMock && (
+        <div className="flex flex-wrap items-center gap-2 rounded border border-warning/50 bg-warning/10 p-2 text-xs text-warning">
+          <FlaskConical className="h-4 w-4" />
+          <strong>Mock evidence plan.</strong>
+          <span>This plan was built from a DEV mock scenario. Execute is permanently blocked.</span>
+        </div>
+      )}
+      {!planIsMock && evidenceStale && (
+        <div className="flex items-center gap-2 rounded border border-warning/40 bg-warning/5 p-2 text-xs text-warning">
+          <AlertTriangle className="h-4 w-4" /> Deep Evidence is stale (&gt;15 min). Re-collect before approving.
+        </div>
+      )}
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="text-sm">
           <div className="font-medium">{plan.summary}</div>
           <div className="text-xs text-muted-foreground">plan {plan.planId} · verify: {plan.verification}{plan.rollbackAvailable ? " · rollback available" : ""}</div>
         </div>
-        <div className="flex items-center gap-2"><RiskPill risk={plan.riskLevel} /></div>
+        <div className="flex flex-wrap items-center gap-2">
+          <span className={cn("rounded-md border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider", evidenceSourceLabel.cls)} title="Where the diagnosis came from">
+            {evidenceSourceLabel.label}
+          </span>
+          <RiskPill risk={plan.riskLevel} />
+        </div>
       </div>
 
-      {plan.evidence.length > 0 && (
+      {(plan.evidence ?? []).length > 0 && (
         <details className="text-xs">
-          <summary className="cursor-pointer text-muted-foreground">Evidence ({plan.evidence.length})</summary>
+          <summary className="cursor-pointer text-muted-foreground">Evidence ({plan.evidence?.length ?? 0})</summary>
           <ul className="mt-2 space-y-1 font-mono text-[11px]">
-            {plan.evidence.map((e, i) => <li key={i} className="rounded bg-background/50 px-2 py-1">{e}</li>)}
+            {(plan.evidence ?? []).map((e, i) => <li key={i} className="rounded bg-background/50 px-2 py-1 break-all">{e}</li>)}
           </ul>
         </details>
       )}
@@ -334,16 +419,23 @@ function PlanPanel(props: {
 
       <div className="space-y-2">
         <div className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Planned actions</div>
-        {plan.actions.map((a) => (
+        {actions.length === 0 && (
+          <div className="rounded border border-border/40 bg-background/40 p-3 text-xs text-muted-foreground">
+            No actions in this plan — engine refused to suggest a remediation. Manual triage required.
+          </div>
+        )}
+        {actions.map((a) => (
           <div key={a.id} className="rounded border border-border/40 bg-background/40 p-2 text-xs">
             <div className="flex items-center justify-between gap-2">
               <span className="font-medium">{a.label}</span>
               <RiskPill risk={a.risk} />
             </div>
             {a.blocked ? (
-              <div className="mt-1 text-destructive">Blocked: {a.blockReason}</div>
+              <div className="mt-1 rounded border border-destructive/30 bg-destructive/10 p-1.5 text-destructive">
+                <strong>Blocked:</strong> {a.blockReason || "Action not allowlisted."}
+              </div>
             ) : (
-              <pre className="mt-1 overflow-x-auto whitespace-pre-wrap rounded bg-muted/60 p-2 font-mono text-[11px]">{a.command}</pre>
+              <pre className="mt-1 max-h-40 overflow-auto whitespace-pre-wrap break-all rounded bg-muted/60 p-2 font-mono text-[11px]">{a.command}</pre>
             )}
             {a.verifyCommand && <div className="mt-1 text-[11px] text-muted-foreground">Verify: <span className="font-mono">{a.verifyCommand}</span>{a.verifyExpect ? ` (expect /${a.verifyExpect}/)` : ""}</div>}
             <div className="mt-1 text-[11px] text-muted-foreground">{a.explanation}</div>
@@ -351,9 +443,9 @@ function PlanPanel(props: {
         ))}
       </div>
 
-      {plan.manualNotes.length > 0 && (
+      {(plan.manualNotes ?? []).length > 0 && (
         <div className="rounded border border-warning/40 bg-warning/5 p-2 text-xs text-warning">
-          {plan.manualNotes.map((n, i) => <div key={i}>⚠ {n}</div>)}
+          {(plan.manualNotes ?? []).map((n, i) => <div key={i}>⚠ {n}</div>)}
         </div>
       )}
 
@@ -377,7 +469,7 @@ function PlanPanel(props: {
             )}
           </div>
           <div className="flex flex-wrap gap-2">
-            <Button size="sm" onClick={() => exec("all")} disabled={running || allBlocked}>
+            <Button size="sm" onClick={() => exec("all")} disabled={running || executeBlocked}>
               {running ? <Loader2 className="h-4 w-4 animate-spin" /> : <ShieldCheck className="h-4 w-4" />} Approve and Execute
             </Button>
             <Button size="sm" variant="outline" onClick={() => exec("readonly")} disabled={running}>
@@ -386,6 +478,11 @@ function PlanPanel(props: {
             <Button size="sm" variant="ghost" onClick={() => { setReport(null); }}>Reject</Button>
             <Button size="sm" variant="ghost" onClick={copyPlan}><Copy className="h-4 w-4" />Copy Plan</Button>
           </div>
+          {executeBlocked && executeBlockReason && (
+            <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
+              <Info className="h-3 w-3" /> {executeBlockReason}
+            </div>
+          )}
         </div>
       )}
 
@@ -411,6 +508,31 @@ function PlanPanel(props: {
 }
 
 function ReportPanel({ report }: { report: AutopilotExecutionReport }) {
+  return _ReportPanel({ report });
+}
+
+function NextStepCard({ step }: { step: { tone: "info" | "warn" | "ok" | "danger"; title: string; body: string } }) {
+  const tone =
+    step.tone === "ok" ? "border-success/40 bg-success/5 text-success" :
+    step.tone === "warn" ? "border-warning/40 bg-warning/5 text-warning" :
+    step.tone === "danger" ? "border-destructive/40 bg-destructive/5 text-destructive" :
+    "border-info/40 bg-info/5 text-info";
+  const Icon = step.tone === "ok" ? ShieldCheck : step.tone === "danger" ? ShieldAlert : step.tone === "warn" ? AlertTriangle : Lightbulb;
+  return (
+    <Card className={cn("border", tone)}>
+      <CardContent className="flex items-start gap-3 p-4">
+        <Icon className="mt-0.5 h-5 w-5 shrink-0" />
+        <div className="min-w-0">
+          <div className="text-[10px] font-bold uppercase tracking-wider opacity-80">What should I do next?</div>
+          <div className="mt-0.5 text-sm font-semibold">{step.title}</div>
+          <div className="mt-1 text-xs opacity-90">{step.body}</div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+function _ReportPanel({ report }: { report: AutopilotExecutionReport }) {
   return (
     <div className="space-y-2 rounded border border-border/60 bg-background/40 p-3 text-xs">
       <div className="flex items-center gap-2">

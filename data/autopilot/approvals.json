@@ -1,5 +1,53 @@
 [
   {
+    "at": "2026-05-06T02:12:41.137Z",
+    "planId": "plan_test_raw",
+    "actionIds": [
+      "a-injected-from-client"
+    ],
+    "acknowledged": true
+  },
+  {
+    "at": "2026-05-06T02:12:41.133Z",
+    "planId": "plan_test_med",
+    "actionIds": [
+      "a-med"
+    ],
+    "acknowledged": false
+  },
+  {
+    "at": "2026-05-06T02:12:41.126Z",
+    "planId": "plan_test_high",
+    "actionIds": [
+      "a-high"
+    ],
+    "acknowledged": true
+  },
+  {
+    "at": "2026-05-06T02:09:28.941Z",
+    "planId": "plan_test_raw",
+    "actionIds": [
+      "a-injected-from-client"
+    ],
+    "acknowledged": true
+  },
+  {
+    "at": "2026-05-06T02:09:28.938Z",
+    "planId": "plan_test_med",
+    "actionIds": [
+      "a-med"
+    ],
+    "acknowledged": false
+  },
+  {
+    "at": "2026-05-06T02:09:28.935Z",
+    "planId": "plan_test_high",
+    "actionIds": [
+      "a-high"
+    ],
+    "acknowledged": true
+  },
+  {
     "at": "2026-05-06T01:57:23.003Z",
     "planId": "plan_test_raw",
     "actionIds": [
