@@ -10,6 +10,7 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as TraceRouteImport } from './routes/trace'
+import { Route as MonitorRouteImport } from './routes/monitor'
 import { Route as LogsRouteImport } from './routes/logs'
 import { Route as ImportHistoryRouteImport } from './routes/import-history'
 import { Route as EvidenceRouteImport } from './routes/evidence'
@@ -23,6 +24,11 @@ import { Route as EvidencePlaybackRouteImport } from './routes/evidence.playback
 const TraceRoute = TraceRouteImport.update({
   id: '/trace',
   path: '/trace',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const MonitorRoute = MonitorRouteImport.update({
+  id: '/monitor',
+  path: '/monitor',
   getParentRoute: () => rootRouteImport,
 } as any)
 const LogsRoute = LogsRouteImport.update({
@@ -80,6 +86,7 @@ export interface FileRoutesByFullPath {
   '/evidence': typeof EvidenceRouteWithChildren
   '/import-history': typeof ImportHistoryRoute
   '/logs': typeof LogsRoute
+  '/monitor': typeof MonitorRoute
   '/trace': typeof TraceRoute
   '/evidence/playback': typeof EvidencePlaybackRoute
 }
@@ -92,6 +99,7 @@ export interface FileRoutesByTo {
   '/evidence': typeof EvidenceRouteWithChildren
   '/import-history': typeof ImportHistoryRoute
   '/logs': typeof LogsRoute
+  '/monitor': typeof MonitorRoute
   '/trace': typeof TraceRoute
   '/evidence/playback': typeof EvidencePlaybackRoute
 }
@@ -105,6 +113,7 @@ export interface FileRoutesById {
   '/evidence': typeof EvidenceRouteWithChildren
   '/import-history': typeof ImportHistoryRoute
   '/logs': typeof LogsRoute
+  '/monitor': typeof MonitorRoute
   '/trace': typeof TraceRoute
   '/evidence/playback': typeof EvidencePlaybackRoute
 }
@@ -119,6 +128,7 @@ export interface FileRouteTypes {
     | '/evidence'
     | '/import-history'
     | '/logs'
+    | '/monitor'
     | '/trace'
     | '/evidence/playback'
   fileRoutesByTo: FileRoutesByTo
@@ -131,6 +141,7 @@ export interface FileRouteTypes {
     | '/evidence'
     | '/import-history'
     | '/logs'
+    | '/monitor'
     | '/trace'
     | '/evidence/playback'
   id:
@@ -143,6 +154,7 @@ export interface FileRouteTypes {
     | '/evidence'
     | '/import-history'
     | '/logs'
+    | '/monitor'
     | '/trace'
     | '/evidence/playback'
   fileRoutesById: FileRoutesById
@@ -156,6 +168,7 @@ export interface RootRouteChildren {
   EvidenceRoute: typeof EvidenceRouteWithChildren
   ImportHistoryRoute: typeof ImportHistoryRoute
   LogsRoute: typeof LogsRoute
+  MonitorRoute: typeof MonitorRoute
   TraceRoute: typeof TraceRoute
 }
 
@@ -166,6 +179,13 @@ declare module '@tanstack/react-router' {
       path: '/trace'
       fullPath: '/trace'
       preLoaderRoute: typeof TraceRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/monitor': {
+      id: '/monitor'
+      path: '/monitor'
+      fullPath: '/monitor'
+      preLoaderRoute: typeof MonitorRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/logs': {
@@ -255,6 +275,7 @@ const rootRouteChildren: RootRouteChildren = {
   EvidenceRoute: EvidenceRouteWithChildren,
   ImportHistoryRoute: ImportHistoryRoute,
   LogsRoute: LogsRoute,
+  MonitorRoute: MonitorRoute,
   TraceRoute: TraceRoute,
 }
 export const routeTree = rootRouteImport
