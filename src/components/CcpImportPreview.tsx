@@ -15,7 +15,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Brain, AlertTriangle, AlertOctagon, Info, CheckCircle2, FileWarning, ShieldAlert } from "lucide-react";
 import { Link } from "@tanstack/react-router";
 import { setHandoff } from "@/lib/aiCommanderHandoff";
-import type { CcpParseResult, CcpWarning } from "@/lib/ccpParser";
+import type { CcpParseResult, CcpWarning, CcpArchiveFile, CcpPlugin, CcpEndpoint } from "@/lib/ccpParser";
 import type { CcpDiff } from "@/lib/ccpDiff";
 
 type Props = {
@@ -53,6 +53,7 @@ export function CcpImportPreview(props: Props) {
 
   const lowConfidence = (parsed?.confidenceScore ?? 0) < 60;
   const canImport = !!parsed && parsed.status !== "parse_failed";
+  const isZip = parsed?.status === "ccp_zip_detected" || !!parsed?.archive?.isZip;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -91,6 +92,11 @@ export function CcpImportPreview(props: Props) {
                   <Badge variant="outline" className="bg-muted/30">
                     {parsed.controllers.length} controllers · {parsed.devices.length} devices · {parsed.rooms.length} rooms
                   </Badge>
+                  {isZip && (
+                    <Badge variant="outline" className="bg-info/15 text-info border-info/40">
+                      CCP ZIP detected · {parsed.archive?.internalFileCount ?? 0} files · {parsed.archive?.xmlFileCount ?? 0} XML · {parsed.plugins?.length ?? 0} plugins · {parsed.endpoints?.length ?? 0} endpoints
+                    </Badge>
+                  )}
                   {parsed.parserMetrics && (
                     <Badge variant="outline" className="bg-muted/30 font-mono">
                       lines:{parsed.parserMetrics.linesRead} · matched:{parsed.parserMetrics.matchedSections} · unknown:{parsed.parserMetrics.unknownSections} · {parsed.parserMetrics.parseDurationMs}ms
@@ -135,6 +141,9 @@ export function CcpImportPreview(props: Props) {
                   <TabsTrigger value="devices">Devices ({parsed.devices.length})</TabsTrigger>
                   <TabsTrigger value="rooms">Rooms ({parsed.rooms.length})</TabsTrigger>
                   <TabsTrigger value="zones">Zones ({parsed.zones.length + parsed.groupSignals.length})</TabsTrigger>
+                  {isZip && <TabsTrigger value="files">Files ({parsed.archive?.internalFileCount ?? 0})</TabsTrigger>}
+                  {isZip && <TabsTrigger value="plugins">Plugins ({parsed.plugins?.length ?? 0})</TabsTrigger>}
+                  {isZip && <TabsTrigger value="endpoints">Endpoints ({parsed.endpoints?.length ?? 0})</TabsTrigger>}
                   <TabsTrigger value="unknown">Unknown ({(parsed.rawUnparsed || []).length})</TabsTrigger>
                   {hasExistingConfig && <TabsTrigger value="diff">Diff{diff ? ` (${diff.totals.added}/${diff.totals.changed}/${diff.totals.removed})` : ""}</TabsTrigger>}
                 </TabsList>
@@ -166,6 +175,21 @@ export function CcpImportPreview(props: Props) {
                     ]}
                   />
                 </TabsContent>
+                {isZip && (
+                  <TabsContent value="files">
+                    <FilesTab files={parsed.archive?.files || []} />
+                  </TabsContent>
+                )}
+                {isZip && (
+                  <TabsContent value="plugins">
+                    <PluginsTab plugins={parsed.plugins || []} />
+                  </TabsContent>
+                )}
+                {isZip && (
+                  <TabsContent value="endpoints">
+                    <EndpointsTab endpoints={parsed.endpoints || []} />
+                  </TabsContent>
+                )}
                 <TabsContent value="unknown">
                   {(parsed.rawUnparsed && parsed.rawUnparsed.length > 0) ? (
                     <pre className="max-h-64 overflow-auto rounded bg-muted/30 p-2 font-mono text-[11px] leading-relaxed">
@@ -298,6 +322,84 @@ function DiffSection({ title, tone, count, children }: { title: string; tone: "a
         <span>{title}</span><span className="font-mono">{count}</span>
       </div>
       <ul className="ml-4 list-disc space-y-0.5 text-[11px]">{count === 0 ? <li className="opacity-70 list-none">—</li> : children}</ul>
+    </div>
+  );
+}
+
+function FilesTab({ files }: { files: CcpArchiveFile[] }) {
+  if (files.length === 0) return <div className="rounded border border-border/40 bg-card/40 p-3 text-xs text-muted-foreground">No internal files.</div>;
+  return (
+    <div className="max-h-72 overflow-auto rounded border border-border/40">
+      <Table>
+        <TableHeader><TableRow>
+          <TableHead className="text-[11px]">Path</TableHead>
+          <TableHead className="text-[11px]">Type</TableHead>
+          <TableHead className="text-[11px] text-right">Size</TableHead>
+          <TableHead className="text-[11px]">Status</TableHead>
+        </TableRow></TableHeader>
+        <TableBody>
+          {files.map((f) => (
+            <TableRow key={f.path}>
+              <TableCell className="font-mono text-[11px]">{f.path}</TableCell>
+              <TableCell className="font-mono text-[11px]">{f.type}</TableCell>
+              <TableCell className="font-mono text-[11px] text-right">{f.size} B</TableCell>
+              <TableCell className="text-[11px]">
+                {f.error ? <span className="text-critical" title={f.error}>error</span>
+                  : f.parsed ? <span className="text-success">parsed</span>
+                  : <span className="text-muted-foreground">skipped</span>}
+              </TableCell>
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
+    </div>
+  );
+}
+
+function PluginsTab({ plugins }: { plugins: CcpPlugin[] }) {
+  if (plugins.length === 0) return <div className="rounded border border-border/40 bg-card/40 p-3 text-xs text-muted-foreground">No plugin manifests detected.</div>;
+  return (
+    <div className="max-h-72 space-y-2 overflow-auto pr-1">
+      {plugins.map((p) => (
+        <div key={p.sourceFile} className="rounded border border-border/40 bg-background/40 p-2 text-[11px]">
+          <div className="flex flex-wrap items-center gap-2">
+            <Badge variant="outline" className="font-mono">{p.id}</Badge>
+            {p.create != null && <Badge variant="outline" className={p.create ? "bg-success/10 text-success border-success/40" : "bg-muted/30"}>create={String(p.create)}</Badge>}
+            <span className="font-mono text-muted-foreground">{p.sourceFile}</span>
+          </div>
+          {p.className && <div className="mt-1 font-mono text-[10px] text-muted-foreground">class: {p.className}</div>}
+          <details className="mt-1">
+            <summary className="cursor-pointer text-[10px] text-muted-foreground">attributes ({Object.keys(p.attributes).length})</summary>
+            <pre className="mt-1 max-h-40 overflow-auto rounded bg-muted/30 p-1.5 text-[10px]">{JSON.stringify(p.attributes, null, 2)}</pre>
+          </details>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function EndpointsTab({ endpoints }: { endpoints: CcpEndpoint[] }) {
+  if (endpoints.length === 0) return <div className="rounded border border-border/40 bg-card/40 p-3 text-xs text-muted-foreground">No host/port endpoints extracted.</div>;
+  return (
+    <div className="max-h-72 overflow-auto rounded border border-border/40">
+      <Table>
+        <TableHeader><TableRow>
+          <TableHead className="text-[11px]">Host / IP</TableHead>
+          <TableHead className="text-[11px] text-right">Port</TableHead>
+          <TableHead className="text-[11px]">Protocol</TableHead>
+          <TableHead className="text-[11px]">Source</TableHead>
+        </TableRow></TableHeader>
+        <TableBody>
+          {endpoints.map((e, i) => (
+            <TableRow key={i}>
+              <TableCell className="font-mono text-[11px]">{e.host || e.ip || "—"}</TableCell>
+              <TableCell className="font-mono text-[11px] text-right">{e.port ?? "—"}</TableCell>
+              <TableCell className="font-mono text-[11px]">{e.protocol || "—"}</TableCell>
+              <TableCell className="font-mono text-[10px] text-muted-foreground">{e.sourceFile} · {e.sourceAttribute}</TableCell>
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
     </div>
   );
 }

@@ -9,7 +9,7 @@ import { useMonitorBus } from "@/hooks/useMonitorBus";
 import { StateBadge } from "@/components/monitor/StateBadge";
 import { ConnectionPill } from "@/components/monitor/ConnectionPill";
 import { monitorApi, relativeTime, type DeviceState } from "@/lib/monitorClient";
-import { Play, Square, RefreshCw, Plus, Settings2 } from "lucide-react";
+import { Play, Square, RefreshCw, Plus } from "lucide-react";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/monitor")({
@@ -74,7 +74,7 @@ function MonitorPage() {
             </Button>
             <Link to="/monitor/devices">
               <Button size="sm" variant="secondary" className="h-8">
-                <Settings2 className="mr-1.5 h-3.5 w-3.5" /> Devices
+                <Plus className="mr-1.5 h-3.5 w-3.5" /> Add device
               </Button>
             </Link>
           </div>
