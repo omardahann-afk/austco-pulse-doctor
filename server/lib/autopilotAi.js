@@ -192,8 +192,9 @@ const TOOL_PLAN = [{
         whatCouldGoWrong: { type: "string" },
         approvalGuidance: { type: "string" },
         escalationDraft: { type: "string" },
+        whyDeepEvidenceChangedConclusion: { type: "string" },
       },
-      required: ["plainEnglishSummary", "whyThisMatched", "riskExplanation", "whatWillHappen", "whatCouldGoWrong", "approvalGuidance", "escalationDraft"],
+      required: ["plainEnglishSummary", "whyThisMatched", "riskExplanation", "whatWillHappen", "whatCouldGoWrong", "approvalGuidance", "escalationDraft", "whyDeepEvidenceChangedConclusion"],
     },
   },
 }];
@@ -303,9 +304,13 @@ function sanitizePlanAi(ai) {
     whatCouldGoWrong: stripCommandSuggestions(safeStr(ai?.whatCouldGoWrong)),
     approvalGuidance: stripCommandSuggestions(safeStr(ai?.approvalGuidance)),
     escalationDraft: stripCommandSuggestions(safeStr(ai?.escalationDraft)),
+    whyDeepEvidenceChangedConclusion: stripCommandSuggestions(safeStr(ai?.whyDeepEvidenceChangedConclusion)),
   };
   if (!out.approvalGuidance.includes(DISCLAIMER)) {
     out.approvalGuidance = (out.approvalGuidance ? out.approvalGuidance.replace(/\.?\s*$/, ". ") : "") + DISCLAIMER;
+  }
+  if (!out.whyDeepEvidenceChangedConclusion) {
+    out.whyDeepEvidenceChangedConclusion = "No Deep Evidence collected — explanation based on logs and service checks only.";
   }
   return out;
 }
