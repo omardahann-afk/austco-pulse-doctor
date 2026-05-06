@@ -83,7 +83,7 @@ function buildPlanForService(serviceResult, allowlist, services, deepEvidence) {
     if (a.verifyTemplateId) {
       try { verifyCommand = resolveCommand(a.verifyTemplateId, a.verifyParams || {}, allowlist).command; } catch {}
     }
-    return {
+    const action = {
       id: a.id,
       label: a.label,
       templateId: a.templateId,
@@ -97,6 +97,13 @@ function buildPlanForService(serviceResult, allowlist, services, deepEvidence) {
       verifyExpect: a.verifyExpect ? a.verifyExpect.source : null,
       rollbackCommand: null,
     };
+    // SAFETY: if the plan was built from MOCK Deep Evidence, hard-block every
+    // executable action. Mock evidence must never trigger real remediation.
+    if (deepEvidence?.mock) {
+      action.blocked = true;
+      action.blockReason = "Plan built from DEV MOCK evidence — execution blocked.";
+    }
+    return action;
   });
 
   // Compute final risk: HIGH playbooks would be flagged here. Today no playbook
@@ -132,6 +139,8 @@ function buildPlanForService(serviceResult, allowlist, services, deepEvidence) {
     contradictions: deepSummary?.contradictions || [],
     evidenceScore: deepEvidence?.evidenceScore ?? 0,
     deepEvidenceCollectedAt: deepEvidence?.collectedAt || null,
+    mockEvidence: !!deepEvidence?.mock,
+    mockTag: deepEvidence?.mock ? (deepEvidence.mockTag || "mock") : null,
   };
   return plan;
 }
