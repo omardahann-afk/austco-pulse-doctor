@@ -4,12 +4,13 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, Microscope, AlertTriangle, ShieldCheck, Radio, Network, Activity, Cog, GitBranch, FlaskConical, X, ArrowRight, History } from "lucide-react";
+import { Loader2, Microscope, AlertTriangle, ShieldCheck, Radio, Network, Activity, Cog, GitBranch, FlaskConical, X, ArrowRight, History, Info } from "lucide-react";
 import { Label } from "@/components/ui/label";
 import {
   evidenceCollect, evidenceLatest,
   mqttTapStart, mqttTapStop, mqttTapEvents,
   evidenceMockScenarios, evidenceMockSet, evidenceMockClear,
+  checkHealth,
   type DeepEvidence, type EvidenceScenario,
 } from "@/lib/agentClient";
 import { loadSiteConfig } from "@/lib/siteConfig";
@@ -31,6 +32,7 @@ function EvidencePage() {
   const [busy, setBusy] = useState<"" | "collect" | "mqtt-start" | "mqtt-stop" | "mqtt-poll" | "mock-set" | "mock-clear">("");
   const [error, setError] = useState<string | null>(null);
   const [scenarios, setScenarios] = useState<EvidenceScenario[]>([]);
+  const [backendOk, setBackendOk] = useState<boolean | null>(null);
 
   // MQTT tap state
   const [mqttSessionId, setMqttSessionId] = useState<string | null>(null);
@@ -50,17 +52,25 @@ function EvidencePage() {
       const r = await evidenceMockScenarios();
       if ("ok" in r && r.ok) setScenarios(r.scenarios);
     })();
+    void (async () => {
+      const r = await checkHealth();
+      setBackendOk(r.ok);
+    })();
   }, []);
 
   async function collect() {
     setBusy("collect"); setError(null);
     try {
       const cfg = loadSiteConfig();
+      if (!cfg.services || cfg.services.length === 0) {
+        setError("No services configured. Add services on the Command Center first.");
+        return;
+      }
       const r = await evidenceCollect({ siteConfig: cfg, services: cfg.services, mqttSessionId });
       if ("ok" in r && r.ok) setEvidence(r.evidence);
-      else setError(("message" in r && r.message) || "Collection failed");
+      else setError(humanError(("message" in r && r.message) || "Collection failed"));
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
+      setError(humanError(e instanceof Error ? e.message : String(e)));
     } finally { setBusy(""); }
   }
 
@@ -114,6 +124,7 @@ function EvidencePage() {
   const stale = ageMs !== null && ageMs > 15 * 60 * 1000;
   const isMock = !!evidence?.mock;
   const ageLabel = ageMs == null ? "—" : ageMs < 60_000 ? `${Math.round(ageMs / 1000)}s ago` : `${Math.round(ageMs / 60_000)}m ago`;
+  const noServices = !!cfg && (cfg.services?.length ?? 0) === 0;
 
   return (
     <div className="container mx-auto max-w-6xl space-y-6 px-4 py-6">
@@ -121,9 +132,16 @@ function EvidencePage() {
         <div>
           <h1 className="flex items-center gap-2 text-2xl font-bold"><Microscope className="h-6 w-6 text-info" /> Deep Evidence</h1>
           <p className="text-sm text-muted-foreground">Read-only X-ray across network, process, ports, MQTT, and configuration. Contradictions feed Root Cause, Trace, and Autopilot.</p>
+          <div className="mt-1 flex flex-wrap items-center gap-2 text-[11px]">
+            <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 ${backendOk === false ? "bg-destructive/15 text-destructive" : backendOk ? "bg-success/15 text-success" : "bg-muted/40 text-muted-foreground"}`}>
+              <span className={`h-1.5 w-1.5 rounded-full ${backendOk === false ? "bg-destructive" : backendOk ? "bg-success" : "bg-muted-foreground"}`} />
+              Backend {backendOk === false ? "unreachable" : backendOk ? "connected" : "checking…"}
+            </span>
+            {evidence && <span className="text-muted-foreground">Last collected {ageLabel}</span>}
+          </div>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <Button size="sm" onClick={collect} disabled={!!busy}>
+          <Button size="sm" onClick={collect} disabled={!!busy || noServices}>
             {busy === "collect" ? <Loader2 className="h-4 w-4 animate-spin" /> : <Microscope className="h-4 w-4" />}
             Collect Deep Evidence
           </Button>
@@ -133,6 +151,18 @@ function EvidencePage() {
           <Button size="sm" variant="outline" asChild><Link to="/evidence/playback"><History className="h-4 w-4" /> Playback</Link></Button>
         </div>
       </header>
+
+      {noServices && (
+        <Card className="border-info/40 bg-info/5">
+          <CardContent className="flex items-start gap-2 p-3 text-xs text-info">
+            <Info className="mt-0.5 h-4 w-4 shrink-0" />
+            <div>
+              <strong>No services configured.</strong> Add services on the Command Center before collecting Deep Evidence.
+              You can still load a DEV mock scenario below to see how the engine behaves.
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {error && <Card><CardContent className="flex items-center gap-2 p-4 text-sm text-destructive"><AlertTriangle className="h-4 w-4" />{error}</CardContent></Card>}
 
@@ -339,13 +369,25 @@ function EvidencePage() {
 
       {/* 6. Raw evidence */}
       {evidence && (
-        <section className="space-y-2">
-          <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Raw evidence</h2>
-          <Card><CardContent className="p-3"><pre className="max-h-96 overflow-auto text-[11px] leading-snug">{JSON.stringify(evidence, null, 2)}</pre></CardContent></Card>
-        </section>
+        <details className="rounded border border-border/60 bg-card">
+          <summary className="cursor-pointer px-4 py-2 text-sm font-semibold uppercase tracking-wider text-muted-foreground">
+            Raw evidence (JSON)
+          </summary>
+          <pre className="max-h-96 overflow-auto border-t border-border/40 p-3 text-[11px] leading-snug">{JSON.stringify(evidence, null, 2)}</pre>
+        </details>
       )}
     </div>
   );
+}
+
+function humanError(msg: string): string {
+  const m = (msg || "").toLowerCase();
+  if (m.includes("econnrefused")) return "Connection refused — host is reachable, but nothing is listening on this port.";
+  if (m.includes("ehostunreach")) return "Host unreachable — no route from the agent to this host.";
+  if (m.includes("etimedout") || m.includes("timeout")) return "Timed out — the host did not respond. Firewall or service may be down.";
+  if (m.includes("enotfound")) return "Hostname could not be resolved — check DNS or use the IP directly.";
+  if (m.includes("authentication failed") || m.includes("permission denied")) return "Authentication failed — verify SSH credentials.";
+  return msg;
 }
 
 function SummaryStat({ icon, label, value, tone }: { icon: React.ReactNode; label: string; value: string; tone?: "ok" | "warn" }) {
