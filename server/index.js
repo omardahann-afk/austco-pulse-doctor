@@ -34,6 +34,11 @@ import {
   runReadOnlyChecks as autopilotReadOnly,
 } from "./lib/autopilotEngine.js";
 import { listRecentPlans } from "./lib/autopilotStore.js";
+import {
+  listServices as listAutopilotServices,
+  upsertService as upsertAutopilotService,
+  deleteService as deleteAutopilotService,
+} from "./lib/autopilotServicesStore.js";
 import { collectDeepEvidence, getLatestEvidence, setMockEvidence, clearMockEvidence } from "./lib/deepEvidenceEngine.js";
 import { listScenarios, buildScenario } from "./lib/mockEvidenceScenarios.js";
 import { startMqttTap, stopMqttTap, getMqttSession, listMqttSessions } from "./lib/evidenceCollectors/mqttTruth.js";
