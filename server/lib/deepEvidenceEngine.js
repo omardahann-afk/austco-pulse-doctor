@@ -285,3 +285,25 @@ export async function collectDeepEvidence({ siteConfig = {}, services = [], mqtt
 }
 
 export function getLatestEvidence() { return latestEvidence; }
+
+/* ===== DEV-ONLY mock evidence injection =====
+ *
+ * Used by /api/evidence/mock/set to seed the in-memory evidence cache with a
+ * synthetic scenario for QA. Mock evidence carries `mock: true` so downstream
+ * engines (Autopilot in particular) can refuse to execute against it.
+ */
+export function setMockEvidence(evidence) {
+  if (!evidence || typeof evidence !== "object") {
+    throw new Error("setMockEvidence requires an evidence object");
+  }
+  latestEvidence = { ...evidence, mock: true };
+  return latestEvidence;
+}
+
+export function clearMockEvidence() {
+  if (latestEvidence?.mock) {
+    latestEvidence = null;
+    return { ok: true, cleared: true };
+  }
+  return { ok: true, cleared: false };
+}
