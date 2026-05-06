@@ -163,6 +163,7 @@ app.post("/api/trace/run", async (req, res) => {
       siteConfig: siteConfig || {},
       serviceResults,
       deviceResults: Array.isArray(req.body?.deviceResults) ? req.body.deviceResults : [],
+      deepEvidence: getLatestEvidence(),
     });
     if (!trace.ok) return res.status(400).json(trace);
     res.json({ ...trace, vm: vmInfo() });
