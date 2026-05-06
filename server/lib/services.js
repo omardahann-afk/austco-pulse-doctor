@@ -8,6 +8,7 @@ import { parseLogFile } from "./logs.js";
 import { parseLogIntelligence } from "./logIntelligence.js";
 import { buildAustcoDiagnosis } from "./austcoRules.js";
 import { buildRootCauseAnalysis } from "./rootCauseEngine.js";
+import { getLatestEvidence } from "./deepEvidenceEngine.js";
 
 function nowIso() { return new Date().toISOString(); }
 
@@ -236,10 +237,12 @@ export async function runServiceDiagnosis(services, vm) {
   });
 
   // Advanced deterministic root-cause correlation
+  const deepEvidence = getLatestEvidence();
   const rootCause = buildRootCauseAnalysis({
     siteConfig: {},
     deviceResults: [],
     serviceResults: results,
+    deepEvidence,
   });
 
   return {
