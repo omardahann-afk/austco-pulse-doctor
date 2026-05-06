@@ -508,6 +508,31 @@ function PlanPanel(props: {
 }
 
 function ReportPanel({ report }: { report: AutopilotExecutionReport }) {
+  return _ReportPanel({ report });
+}
+
+function NextStepCard({ step }: { step: { tone: "info" | "warn" | "ok" | "danger"; title: string; body: string } }) {
+  const tone =
+    step.tone === "ok" ? "border-success/40 bg-success/5 text-success" :
+    step.tone === "warn" ? "border-warning/40 bg-warning/5 text-warning" :
+    step.tone === "danger" ? "border-destructive/40 bg-destructive/5 text-destructive" :
+    "border-info/40 bg-info/5 text-info";
+  const Icon = step.tone === "ok" ? ShieldCheck : step.tone === "danger" ? ShieldAlert : step.tone === "warn" ? AlertTriangle : Lightbulb;
+  return (
+    <Card className={cn("border", tone)}>
+      <CardContent className="flex items-start gap-3 p-4">
+        <Icon className="mt-0.5 h-5 w-5 shrink-0" />
+        <div className="min-w-0">
+          <div className="text-[10px] font-bold uppercase tracking-wider opacity-80">What should I do next?</div>
+          <div className="mt-0.5 text-sm font-semibold">{step.title}</div>
+          <div className="mt-1 text-xs opacity-90">{step.body}</div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+function _ReportPanel({ report }: { report: AutopilotExecutionReport }) {
   return (
     <div className="space-y-2 rounded border border-border/60 bg-background/40 p-3 text-xs">
       <div className="flex items-center gap-2">
