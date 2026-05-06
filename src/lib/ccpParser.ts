@@ -84,6 +84,46 @@ export type CcpParseStatus =
   | "parsed_low_confidence"
   | "parse_failed";
 
+/* -------------------------------------------------------------- */
+/* Structured warnings (V2)                                       */
+/* -------------------------------------------------------------- */
+
+export type CcpWarningCode =
+  | "duplicate_controller_ip"
+  | "duplicate_controller_id"
+  | "invalid_ip"
+  | "orphan_device"
+  | "unknown_controller_reference"
+  | "malformed_section"
+  | "partial_parse"
+  | "low_confidence_match"
+  | "unsupported_object_type"
+  | "missing_room_mapping"
+  | "no_ccp_markers"
+  | "no_section_markers"
+  | "parser_exception";
+
+export type CcpWarningSeverity = "INFO" | "WARNING" | "CRITICAL";
+
+export type CcpWarning = {
+  code: CcpWarningCode;
+  severity: CcpWarningSeverity;
+  title: string;
+  explanation: string;
+  affectedObject: string;   // e.g. "controller:C01" / "device:CP-12" / ""
+  rawEvidence: string;      // short raw snippet (truncated)
+  line?: number | null;
+};
+
+export type CcpParserMetrics = {
+  linesRead: number;
+  matchedSections: number;
+  unknownSections: number;
+  recoveredSections: number;
+  malformedSections: number;
+  parseDurationMs: number;
+};
+
 export type CcpParseResult = {
   status: CcpParseStatus;
   confidence: CcpConfidence;
@@ -97,6 +137,12 @@ export type CcpParseResult = {
   cancelRules: CcpCancelRule[];
   warnings: string[];
   rawSize: number;
+  /** V2 enrichment — always present, may be empty when parse_failed. */
+  structuredWarnings?: CcpWarning[];
+  rawUnparsed?: string[];
+  parserMetrics?: CcpParserMetrics;
+  confidenceScore?: number; // 0-100
+  parserVersion?: string;
 };
 
 export const EMPTY_PARSE: CcpParseResult = {
@@ -105,6 +151,10 @@ export const EMPTY_PARSE: CcpParseResult = {
   controllers: [], rooms: [], devices: [], zones: [],
   groupSignals: [], callTypes: [], outputRules: [], cancelRules: [],
   warnings: [], rawSize: 0,
+  structuredWarnings: [], rawUnparsed: [],
+  parserMetrics: { linesRead: 0, matchedSections: 0, unknownSections: 0, recoveredSections: 0, malformedSections: 0, parseDurationMs: 0 },
+  confidenceScore: 0,
+  parserVersion: PARSER_VERSION,
 };
 
 /* -------------------------------------------------------------- */
