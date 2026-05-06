@@ -283,6 +283,40 @@ app.post("/api/autopilot/rollback", (_req, res) => {
   res.json({ ok: false, reason: "not_implemented", message: "Automatic rollback is not implemented. Restart actions have no rollback. Configuration changes are HIGH risk and remain manual." });
 });
 
+/* ===== Autopilot Services Registry ===== */
+
+app.get("/api/autopilot/services", (_req, res) => {
+  try { res.json({ ok: true, services: listAutopilotServices() }); }
+  catch (err) { res.status(500).json({ ok: false, message: err?.message || String(err) }); }
+});
+
+app.post("/api/autopilot/services", (req, res) => {
+  try {
+    const saved = upsertAutopilotService(req.body || {});
+    res.json({ ok: true, service: saved });
+  } catch (err) {
+    res.status(400).json({ ok: false, message: err?.message || String(err) });
+  }
+});
+
+app.put("/api/autopilot/services/:id", (req, res) => {
+  try {
+    const saved = upsertAutopilotService({ ...(req.body || {}), id: req.params.id });
+    res.json({ ok: true, service: saved });
+  } catch (err) {
+    res.status(400).json({ ok: false, message: err?.message || String(err) });
+  }
+});
+
+app.delete("/api/autopilot/services/:id", (req, res) => {
+  try {
+    const removed = deleteAutopilotService(req.params.id);
+    res.json({ ok: true, removed });
+  } catch (err) {
+    res.status(500).json({ ok: false, message: err?.message || String(err) });
+  }
+});
+
 /* ===== Autopilot AI Copilot (explanation only — never executes) ===== */
 
 app.post("/api/autopilot/explain-plan", async (req, res) => {
