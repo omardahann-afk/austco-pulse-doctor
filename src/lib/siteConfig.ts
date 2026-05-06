@@ -294,6 +294,10 @@ export type RootCauseAnalysis = {
   fixActions: string[];
   escalationSummary: string;
   developerSummary: string;
+  deepEvidenceUsed?: boolean;
+  deepEvidenceSignals?: { layer: string; signal: string; target: string | null; confidence: number; message: string }[];
+  contradictionsUsed?: { kind: string; sourceA: { layer: string; said: string }; sourceB: { layer: string; said: string }; why: string; likelyLayer: string; confidence: number; target?: string | null }[];
+  evidenceScore?: number;
 };
 
 export type DiagnosisError = { ok: false; reason: string; message: string };
