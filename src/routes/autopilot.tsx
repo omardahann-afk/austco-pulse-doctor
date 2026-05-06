@@ -63,6 +63,7 @@ function RiskPill({ risk }: { risk: AutopilotRisk }) {
 
 function AutopilotPage() {
   const monitoredDevices = useSiteConfigStore((state) => state.monitoredDevices);
+  const hydrateFromBackend = useSiteConfigStore((state) => state.hydrateFromBackend);
   const [status, setStatus] = useState<AutopilotStatus | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
@@ -83,6 +84,7 @@ function AutopilotPage() {
   };
 
   useEffect(() => {
+    void hydrateFromBackend();
     refresh();
     (async () => {
       const h = await checkHealth();
@@ -92,7 +94,7 @@ function AutopilotPage() {
       const r = await evidenceLatest();
       if ("ok" in r && r.ok) setLatestEvidence(r.evidence);
     })();
-  }, []);
+  }, [hydrateFromBackend]);
 
   const enabledServices = useMemo(() => loadSiteConfig().services.filter((s) => s.enabled !== false), []);
 
