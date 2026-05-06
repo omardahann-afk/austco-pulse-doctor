@@ -21,6 +21,15 @@ import { testSshAuth, pullLogs } from "./lib/ssh.js";
 import { diagnoseService, runServiceDiagnosis } from "./lib/services.js";
 import { explainWithOllama } from "./lib/ollamaExplain.js";
 import { buildTraceResult } from "./lib/traceEngine.js";
+import {
+  runScan as autopilotScan,
+  startLoop as autopilotStart,
+  stopLoop as autopilotStop,
+  getStatus as autopilotStatus,
+  getPlan as autopilotGetPlan,
+  executeActions as autopilotExecute,
+  runReadOnlyChecks as autopilotReadOnly,
+} from "./lib/autopilotEngine.js";
 
 const PORT = Number(process.env.PORT || 3001);
 const BIND = process.env.BIND_HOST || "0.0.0.0"; // change to 127.0.0.1 for localhost-only
@@ -158,6 +167,70 @@ app.post("/api/trace/run", async (req, res) => {
     console.error("trace error:", err);
     res.status(500).json({ ok: false, reason: "agent_error", message: err?.message || String(err) });
   }
+});
+
+/* ===== Autopilot ===== */
+
+app.get("/api/autopilot/status", (_req, res) => {
+  try { res.json(autopilotStatus()); }
+  catch (err) { res.status(500).json({ ok: false, reason: "agent_error", message: err?.message || String(err) }); }
+});
+
+app.post("/api/autopilot/scan", async (req, res) => {
+  try {
+    const services = Array.isArray(req.body?.services) ? req.body.services : [];
+    const siteOverrides = req.body?.siteOverrides || {};
+    const r = await autopilotScan({ services, vmInfo: vmInfo(), siteOverrides });
+    res.json(r);
+  } catch (err) { res.status(500).json({ ok: false, reason: "agent_error", message: err?.message || String(err) }); }
+});
+
+app.post("/api/autopilot/start", (req, res) => {
+  try {
+    const services = Array.isArray(req.body?.services) ? req.body.services : [];
+    const siteOverrides = req.body?.siteOverrides || {};
+    const intervalMs = Number(req.body?.intervalMs) || 60_000;
+    const r = autopilotStart({ services, vmInfo: vmInfo(), siteOverrides, intervalMs });
+    res.json(r);
+  } catch (err) { res.status(500).json({ ok: false, reason: "agent_error", message: err?.message || String(err) }); }
+});
+
+app.post("/api/autopilot/stop", (_req, res) => {
+  try { res.json(autopilotStop()); }
+  catch (err) { res.status(500).json({ ok: false, reason: "agent_error", message: err?.message || String(err) }); }
+});
+
+app.post("/api/autopilot/plan", (req, res) => {
+  try {
+    const planId = String(req.body?.planId || "");
+    if (!planId) return res.status(400).json({ ok: false, reason: "invalid_request", message: "planId required" });
+    const plan = autopilotGetPlan(planId);
+    if (!plan) return res.status(404).json({ ok: false, reason: "plan_not_found" });
+    res.json({ ok: true, plan });
+  } catch (err) { res.status(500).json({ ok: false, reason: "agent_error", message: err?.message || String(err) }); }
+});
+
+app.post("/api/autopilot/execute", async (req, res) => {
+  try {
+    const { planId, actionIds, password, acknowledged } = req.body || {};
+    if (!planId) return res.status(400).json({ ok: false, reason: "invalid_request", message: "planId required" });
+    const r = await autopilotExecute({ planId, actionIds, password, acknowledged: Boolean(acknowledged) });
+    res.json(r);
+  } catch (err) { res.status(500).json({ ok: false, reason: "agent_error", message: err?.message || String(err) }); }
+});
+
+app.post("/api/autopilot/verify", async (req, res) => {
+  try {
+    const { planId, password } = req.body || {};
+    if (!planId) return res.status(400).json({ ok: false, reason: "invalid_request", message: "planId required" });
+    const r = await autopilotReadOnly({ planId, password });
+    res.json(r);
+  } catch (err) { res.status(500).json({ ok: false, reason: "agent_error", message: err?.message || String(err) }); }
+});
+
+app.post("/api/autopilot/rollback", (_req, res) => {
+  // No automatic rollbacks in v1 — rollback for service restarts is "do nothing".
+  res.json({ ok: false, reason: "not_implemented", message: "Automatic rollback is not implemented. Restart actions have no rollback. Configuration changes are HIGH risk and remain manual." });
 });
 
 app.listen(PORT, BIND, () => {

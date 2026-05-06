@@ -295,3 +295,151 @@ export async function runTrace(opts: {
   });
   return await res.json();
 }
+
+/* ===== Autopilot ===== */
+
+export type AutopilotRisk = "LOW" | "MEDIUM" | "HIGH";
+
+export type AutopilotAction = {
+  id: string;
+  label: string;
+  templateId: string;
+  params: Record<string, unknown>;
+  risk: AutopilotRisk;
+  requiresSudo: boolean;
+  command: string | null;
+  blocked?: boolean;
+  blockReason?: string;
+  explanation: string;
+  timeoutSeconds: number;
+  verifyCommand: string | null;
+  verifyExpect: string | null;
+  rollbackCommand: string | null;
+};
+
+export type AutopilotPlan = {
+  planId: string;
+  createdAt: string;
+  serviceId: string;
+  serviceName: string;
+  role: string;
+  host: string;
+  issueType: string;
+  rootCause: string;
+  confidence: number;
+  riskLevel: AutopilotRisk;
+  requiresApproval: true;
+  summary: string;
+  evidence: string[];
+  actions: AutopilotAction[];
+  verification: "automatic" | "manual";
+  rollbackAvailable: boolean;
+  manualNotes: string[];
+  serviceRef: { id: string; host: string; port: number; username: string } | null;
+};
+
+export type AutopilotIssue = {
+  planId: string;
+  serviceId: string;
+  serviceName: string;
+  role: string;
+  host: string;
+  severity: "FAIL" | "WARN" | "PASS" | "UNKNOWN";
+  issueType: string;
+  rootCause: string;
+  confidence: number;
+  riskLevel: AutopilotRisk;
+};
+
+export type AutopilotScan = {
+  scanId: string;
+  startedAt: string;
+  finishedAt: string;
+  monitoredCount: number;
+  issueCount: number;
+  issues: AutopilotIssue[];
+  planIds: string[];
+};
+
+export type AutopilotStatus = {
+  ok: true;
+  loopRunning: boolean;
+  intervalMs: number;
+  lastScanAt: string | null;
+  monitoredCount: number;
+  currentIssueCount: number;
+  lastScan: AutopilotScan | null;
+  recentPlans: Array<Pick<AutopilotPlan, "planId" | "createdAt" | "serviceName" | "role" | "host" | "issueType" | "rootCause" | "riskLevel" | "confidence"> & { actionCount: number }>;
+  recentExecutions: AutopilotExecutionReport[];
+  recentScans: Array<Pick<AutopilotScan, "scanId" | "startedAt" | "finishedAt" | "monitoredCount" | "issueCount">>;
+};
+
+export type AutopilotActionResult = {
+  actionId: string;
+  label?: string;
+  risk?: AutopilotRisk;
+  command?: string;
+  ok: boolean;
+  reason?: string;
+  exitCode?: number | null;
+  stdout?: string;
+  stderr?: string;
+  durationMs?: number;
+  stage?: string | null;
+  error?: string | null;
+  verify?: { ok: boolean; matched?: boolean; stdout?: string; stderr?: string } | null;
+};
+
+export type AutopilotExecutionReport = {
+  executionId: string;
+  planId: string;
+  startedAt: string;
+  finishedAt: string;
+  actionsRun: number;
+  success: boolean;
+  commandOutputs: AutopilotActionResult[];
+  verificationResult: unknown[];
+  nextSteps: string[];
+};
+
+export async function autopilotGetStatus(): Promise<AutopilotStatus | ApiError> {
+  const url = getBackendUrl().replace(/\/$/, "") + "/api/autopilot/status";
+  const res = await fetch(url);
+  return await res.json();
+}
+
+export async function autopilotScanNow(opts: { services: ServiceEntry[]; siteOverrides?: { systemd?: string[]; docker?: string[] } }): Promise<{ ok: true; scan: AutopilotScan } | ApiError> {
+  const url = getBackendUrl().replace(/\/$/, "") + "/api/autopilot/scan";
+  const res = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(opts) });
+  return await res.json();
+}
+
+export async function autopilotStart(opts: { services: ServiceEntry[]; siteOverrides?: { systemd?: string[]; docker?: string[] }; intervalMs?: number }): Promise<{ ok: true; alreadyRunning: boolean; intervalMs?: number } | ApiError> {
+  const url = getBackendUrl().replace(/\/$/, "") + "/api/autopilot/start";
+  const res = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(opts) });
+  return await res.json();
+}
+
+export async function autopilotStop(): Promise<{ ok: true } | ApiError> {
+  const url = getBackendUrl().replace(/\/$/, "") + "/api/autopilot/stop";
+  const res = await fetch(url, { method: "POST" });
+  return await res.json();
+}
+
+export async function autopilotGetPlan(planId: string): Promise<{ ok: true; plan: AutopilotPlan } | ApiError> {
+  const url = getBackendUrl().replace(/\/$/, "") + "/api/autopilot/plan";
+  const res = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ planId }) });
+  return await res.json();
+}
+
+export async function autopilotExecute(opts: { planId: string; actionIds?: string[]; password: string; acknowledged: boolean }): Promise<{ ok: true; report: AutopilotExecutionReport } | ApiError> {
+  const url = getBackendUrl().replace(/\/$/, "") + "/api/autopilot/execute";
+  const res = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(opts) });
+  return await res.json();
+}
+
+export async function autopilotVerify(opts: { planId: string; password: string }): Promise<{ ok: true; report: AutopilotExecutionReport } | ApiError> {
+  const url = getBackendUrl().replace(/\/$/, "") + "/api/autopilot/verify";
+  const res = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(opts) });
+  return await res.json();
+}
