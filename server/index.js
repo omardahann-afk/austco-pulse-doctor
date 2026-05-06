@@ -31,6 +31,7 @@ import {
   executeActions as autopilotExecute,
   runReadOnlyChecks as autopilotReadOnly,
 } from "./lib/autopilotEngine.js";
+import { listRecentPlans } from "./lib/autopilotStore.js";
 import { collectDeepEvidence, getLatestEvidence, setMockEvidence, clearMockEvidence } from "./lib/deepEvidenceEngine.js";
 import { listScenarios, buildScenario } from "./lib/mockEvidenceScenarios.js";
 import { startMqttTap, stopMqttTap, getMqttSession, listMqttSessions } from "./lib/evidenceCollectors/mqttTruth.js";
@@ -212,6 +213,18 @@ app.post("/api/autopilot/plan", (req, res) => {
     const plan = autopilotGetPlan(planId);
     if (!plan) return res.status(404).json({ ok: false, reason: "plan_not_found" });
     res.json({ ok: true, plan });
+  } catch (err) { res.status(500).json({ ok: false, reason: "agent_error", message: err?.message || String(err) }); }
+});
+
+/**
+ * Read-only list of recently generated plans. Used by the Evidence Playback
+ * Timeline to correlate "which Autopilot plan was generated from this
+ * contradiction". Plans are already redacted by autopilotStore.
+ */
+app.get("/api/autopilot/plans", (req, res) => {
+  try {
+    const limit = Math.max(1, Math.min(200, Number(req.query?.limit) || 50));
+    res.json({ ok: true, plans: listRecentPlans(limit) });
   } catch (err) { res.status(500).json({ ok: false, reason: "agent_error", message: err?.message || String(err) }); }
 });
 
