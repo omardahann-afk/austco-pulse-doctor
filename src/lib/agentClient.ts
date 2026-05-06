@@ -447,3 +447,40 @@ export async function autopilotVerify(opts: { planId: string; password: string }
   const res = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(opts) });
   return await res.json();
 }
+
+/* ===== Autopilot AI Copilot ===== */
+
+export type AutopilotPlanExplanation = {
+  plainEnglishSummary: string;
+  whyThisMatched: string;
+  riskExplanation: string;
+  whatWillHappen: string;
+  whatCouldGoWrong: string;
+  approvalGuidance: string;
+  escalationDraft: string;
+};
+
+export type AutopilotExecExplanation = {
+  resultSummary: string;
+  whatChanged: string;
+  verificationExplanation: string;
+  remainingRisk: string;
+  nextSteps: string;
+  escalationUpdateDraft: string;
+};
+
+export type AutopilotAiResult<T> =
+  | { ok: true; mode: "LOCAL_OLLAMA"; endpoint: string; model: string; ai: T; notice: string }
+  | { ok: false; reason: string; message: string; endpoint?: string; model?: string };
+
+export async function autopilotExplainPlan(opts: { planId: string; endpoint?: string; model?: string }): Promise<AutopilotAiResult<AutopilotPlanExplanation>> {
+  const url = getBackendUrl().replace(/\/$/, "") + "/api/autopilot/explain-plan";
+  const res = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(opts) });
+  return await res.json();
+}
+
+export async function autopilotExplainExecution(opts: { planId: string; report: AutopilotExecutionReport; endpoint?: string; model?: string }): Promise<AutopilotAiResult<AutopilotExecExplanation>> {
+  const url = getBackendUrl().replace(/\/$/, "") + "/api/autopilot/explain-execution";
+  const res = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(opts) });
+  return await res.json();
+}
