@@ -3,13 +3,14 @@ import { useEffect, useMemo, useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, Microscope, AlertTriangle, ShieldCheck, Radio, Network, Activity, Cog, GitBranch, ArrowRight } from "lucide-react";
+import { Loader2, Microscope, AlertTriangle, ShieldCheck, Radio, Network, Activity, Cog, GitBranch, FlaskConical, X, ArrowRight } from "lucide-react";
+import { Label } from "@/components/ui/label";
 import {
   evidenceCollect, evidenceLatest,
   mqttTapStart, mqttTapStop, mqttTapEvents,
-  type DeepEvidence,
+  evidenceMockScenarios, evidenceMockSet, evidenceMockClear,
+  type DeepEvidence, type EvidenceScenario,
 } from "@/lib/agentClient";
 import { loadSiteConfig } from "@/lib/siteConfig";
 
@@ -27,8 +28,9 @@ export const Route = createFileRoute("/evidence")({
 
 function EvidencePage() {
   const [evidence, setEvidence] = useState<DeepEvidence | null>(null);
-  const [busy, setBusy] = useState<"" | "collect" | "mqtt-start" | "mqtt-stop" | "mqtt-poll">("");
+  const [busy, setBusy] = useState<"" | "collect" | "mqtt-start" | "mqtt-stop" | "mqtt-poll" | "mock-set" | "mock-clear">("");
   const [error, setError] = useState<string | null>(null);
+  const [scenarios, setScenarios] = useState<EvidenceScenario[]>([]);
 
   // MQTT tap state
   const [mqttSessionId, setMqttSessionId] = useState<string | null>(null);
@@ -43,6 +45,10 @@ function EvidencePage() {
     void (async () => {
       const r = await evidenceLatest();
       if ("ok" in r && r.ok) setEvidence(r.evidence);
+    })();
+    void (async () => {
+      const r = await evidenceMockScenarios();
+      if ("ok" in r && r.ok) setScenarios(r.scenarios);
     })();
   }, []);
 
@@ -84,9 +90,30 @@ function EvidencePage() {
     setBusy("");
   }
 
+  async function loadMock(id: string) {
+    setBusy("mock-set"); setError(null);
+    try {
+      const r = await evidenceMockSet(id);
+      if ("ok" in r && r.ok) setEvidence(r.evidence);
+      else setError(("message" in r && r.message) || "Mock load failed");
+    } finally { setBusy(""); }
+  }
+
+  async function clearMock() {
+    setBusy("mock-clear"); setError(null);
+    try {
+      await evidenceMockClear();
+      setEvidence(null);
+    } finally { setBusy(""); }
+  }
+
   const score = evidence?.evidenceScore ?? 0;
   const contradictions = evidence?.contradictions ?? [];
   const cfg = useMemo(() => (typeof window !== "undefined" ? loadSiteConfig() : null), []);
+  const ageMs = evidence?.collectedAt ? Date.now() - new Date(evidence.collectedAt).getTime() : null;
+  const stale = ageMs !== null && ageMs > 15 * 60 * 1000;
+  const isMock = !!evidence?.mock;
+  const ageLabel = ageMs == null ? "—" : ageMs < 60_000 ? `${Math.round(ageMs / 1000)}s ago` : `${Math.round(ageMs / 60_000)}m ago`;
 
   return (
     <div className="container mx-auto max-w-6xl space-y-6 px-4 py-6">
@@ -108,16 +135,67 @@ function EvidencePage() {
 
       {error && <Card><CardContent className="flex items-center gap-2 p-4 text-sm text-destructive"><AlertTriangle className="h-4 w-4" />{error}</CardContent></Card>}
 
+      {isMock && (
+        <Card className="border-warning/60 bg-warning/10">
+          <CardContent className="flex flex-wrap items-center justify-between gap-3 p-3 text-sm">
+            <div className="flex items-center gap-2 text-warning"><FlaskConical className="h-4 w-4" />
+              <strong>DEV MOCK — not real site data.</strong>
+              <span className="text-xs text-muted-foreground">{evidence?.mockTag} · {evidence?.mockDescription}</span>
+            </div>
+            <Button size="sm" variant="outline" onClick={clearMock} disabled={!!busy}>
+              <X className="h-3.5 w-3.5" /> Clear mock
+            </Button>
+          </CardContent>
+        </Card>
+      )}
+
+      {stale && (
+        <Card className="border-warning/40 bg-warning/5">
+          <CardContent className="p-3 text-xs text-warning">
+            ⚠ Deep Evidence stale ({ageLabel}) — collect again before remediation.
+          </CardContent>
+        </Card>
+      )}
+
       {/* 1. Controls + summary */}
       <section className="grid gap-3 md:grid-cols-4">
-        <SummaryStat icon={<Activity className="h-4 w-4" />} label="Evidence score" value={`${Math.round(score * 100)}%`} />
+        <SummaryStat icon={<Activity className="h-4 w-4" />} label="Evidence score" value={`${Math.round(score)}%`} />
         <SummaryStat icon={<AlertTriangle className="h-4 w-4" />} label="Contradictions" value={String(contradictions.length)} tone={contradictions.length > 0 ? "warn" : "ok"} />
         <SummaryStat icon={<Network className="h-4 w-4" />} label="Targets" value={String(evidence?.targets?.length ?? 0)} />
         <SummaryStat icon={<Radio className="h-4 w-4" />} label="MQTT tap" value={evidence?.mqttTruth?.available ? `live (${evidence.mqttTruth.eventCount ?? 0})` : "off"} />
       </section>
 
+      {/* DEV mock scenarios */}
+      <section className="space-y-2">
+        <h2 className="flex items-center gap-2 text-sm font-semibold uppercase tracking-wider text-muted-foreground">
+          <FlaskConical className="h-4 w-4" /> DEV mock scenarios
+        </h2>
+        <Card>
+          <CardContent className="space-y-2 p-3 text-xs">
+            <p className="text-muted-foreground">
+              Inject synthetic Deep Evidence to verify Root Cause / Trace / Autopilot behave correctly.
+              Mock evidence is tagged <strong>DEV MOCK</strong> and Autopilot is permanently blocked from executing remediation against it.
+            </p>
+            <div className="flex flex-wrap gap-2">
+              {scenarios.map((s) => (
+                <Button key={s.id} size="sm" variant="outline" disabled={!!busy} onClick={() => loadMock(s.id)}>
+                  {busy === "mock-set" ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <FlaskConical className="h-3.5 w-3.5" />}
+                  {s.label}
+                </Button>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      </section>
+
+      {/* Debug panel */}
+      {evidence && <DebugPanel evidence={evidence} ageLabel={ageLabel} />}
+
       {!evidence ? (
-        <Card><CardContent className="p-5 text-sm text-muted-foreground">No evidence collected yet. Click <strong>Collect Deep Evidence</strong> to gather read-only truth from the configured services.{cfg && cfg.services.length === 0 && <> No services are configured — add some on the Command Center.</>}</CardContent></Card>
+        <Card><CardContent className="p-5 text-sm text-muted-foreground">
+          <strong>Deep Evidence not available.</strong> Click <strong>Collect Deep Evidence</strong> to gather read-only truth from the configured services, or load a DEV mock scenario above.
+          {cfg && cfg.services.length === 0 && <> No services are configured — add some on the Command Center.</>}
+        </CardContent></Card>
       ) : (
         <>
           {/* 2. Evidence Matrix */}
@@ -125,26 +203,34 @@ function EvidencePage() {
             <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Evidence matrix</h2>
             <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
               <LayerCard title="Network truth" icon={<Network className="h-4 w-4" />} items={(evidence.networkTruth.targets || []).map((t: any) => ({
-                label: t.host || t.id || "target",
+                label: t.name || t.host || "target",
                 badges: [
-                  t.ping?.ok ? { label: `ping ${t.ping?.avgMs ?? "?"}ms`, tone: "ok" as const } : { label: "ping fail", tone: "fail" as const },
-                  t.dns?.ok ? { label: "dns ok", tone: "ok" as const } : { label: "dns fail", tone: "fail" as const },
-                  t.arp?.found ? { label: "arp seen", tone: "ok" as const } : { label: "arp absent", tone: "warn" as const },
+                  t.ping?.reachable
+                    ? { label: `ping ${t.ping?.avgLatencyMs ?? "?"}ms`, tone: "ok" as const }
+                    : { label: "ping fail", tone: "fail" as const },
+                  t.arp?.entry?.mac
+                    ? { label: "arp seen", tone: "ok" as const }
+                    : { label: "arp absent", tone: "warn" as const },
                 ],
-                lines: (t.tcp || []).map((p: any) => `tcp/${p.port} ${p.open ? "open" : "closed"}`),
+                lines: (t.tcpChecks || []).map((p: any) => `tcp/${p.port} ${p.open ? "open" : `closed${p.error ? " (" + p.error + ")" : ""}`}`),
               }))} />
               <LayerCard title="Process truth" icon={<Activity className="h-4 w-4" />} items={(evidence.processTruth.services || []).map((s: any) => ({
-                label: s.name || s.id,
+                label: s.name || s.host || "service",
                 badges: [
-                  s.systemd?.active ? { label: "systemd active", tone: "ok" as const } : { label: "systemd inactive", tone: s.systemd ? "fail" as const : "muted" as const },
-                  s.docker?.running ? { label: "docker up", tone: "ok" as const } : null,
-                ].filter(Boolean) as any,
-                lines: [s.uptime, s.memory, s.disk].filter(Boolean) as string[],
+                  s.sshConnected === false
+                    ? { label: "ssh unreachable", tone: "warn" as const }
+                    : s.isActive === "active"
+                      ? { label: "systemd active", tone: "ok" as const }
+                      : s.isActive
+                        ? { label: `systemd ${s.isActive}`, tone: "fail" as const }
+                        : { label: "no systemd unit", tone: "muted" as const },
+                ],
+                lines: [s.unit ? `unit: ${s.unit}` : null, ...((s.issues || []).map((i: any) => `${i.kind}: ${i.detail}`))].filter(Boolean) as string[],
               }))} />
               <LayerCard title="Port truth" icon={<Network className="h-4 w-4" />} items={(evidence.portTruth.services || []).map((s: any) => ({
-                label: s.name || s.id,
-                badges: [],
-                lines: (s.ports || []).map((p: any) => `:${p.port} ${p.listening ? "listening" : "silent"}${p.process ? " — " + p.process : ""}${p.expectedMismatch ? " ⚠ wrong owner" : ""}`),
+                label: s.name || s.host || "service",
+                badges: s.sshConnected === false ? [{ label: "ssh unreachable", tone: "warn" as const }] : [],
+                lines: (s.portChecks || []).map((p: any) => `:${p.port} ${p.listening ? "listening" : "silent"}${(p.owners || []).length ? " — " + p.owners.map((o: any) => o.name).join(",") : ""}${p.expected && p.expectedProcOk === false && p.listening ? " ⚠ wrong owner" : ""}`),
               }))} />
               <LayerCard title="Config truth" icon={<Cog className="h-4 w-4" />} items={[{
                 label: "Site config",
@@ -324,4 +410,46 @@ function FeedCard({ title, icon, count, to, preview }: { title: string; icon: Re
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return <div className="space-y-1"><Label className="text-[11px]">{label}</Label>{children}</div>;
+}
+
+function DebugPanel({ evidence, ageLabel }: { evidence: DeepEvidence; ageLabel: string }) {
+  const networkTargets = evidence.networkTruth?.targets?.length ?? 0;
+  const processTargets = evidence.processTruth?.services?.length ?? 0;
+  const portTargets = evidence.portTruth?.services?.length ?? 0;
+  const configIssues = evidence.configTruth?.issues?.length ?? 0;
+  const contradictions = evidence.contradictions?.length ?? 0;
+  const rcSignals = evidence.rootCauseSignals?.length ?? 0;
+  const traceSignals = evidence.traceSignals?.length ?? 0;
+  const mqttAvailable = evidence.mqttTruth?.available ? "yes" : "no";
+
+  const stats: Array<[string, string | number]> = [
+    ["Age", ageLabel],
+    ["Score", `${Math.round(evidence.evidenceScore ?? 0)}%`],
+    ["Targets collected", evidence.targets?.length ?? 0],
+    ["Network targets", networkTargets],
+    ["Process targets", processTargets],
+    ["Port targets", portTargets],
+    ["MQTT available", mqttAvailable],
+    ["Config issues", configIssues],
+    ["Contradictions", contradictions],
+    ["Root-cause signals", rcSignals],
+    ["Trace signals", traceSignals],
+    ["Source", evidence.mock ? "DEV MOCK" : "live"],
+  ];
+
+  return (
+    <section className="space-y-2">
+      <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Debug panel</h2>
+      <Card>
+        <CardContent className="grid grid-cols-2 gap-2 p-3 text-xs sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6">
+          {stats.map(([k, v]) => (
+            <div key={k} className="rounded border border-border/60 bg-muted/30 p-2">
+              <div className="text-[10px] uppercase tracking-wider text-muted-foreground">{k}</div>
+              <div className="font-mono text-sm">{String(v)}</div>
+            </div>
+          ))}
+        </CardContent>
+      </Card>
+    </section>
+  );
 }

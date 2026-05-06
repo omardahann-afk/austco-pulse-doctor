@@ -31,7 +31,8 @@ import {
   executeActions as autopilotExecute,
   runReadOnlyChecks as autopilotReadOnly,
 } from "./lib/autopilotEngine.js";
-import { collectDeepEvidence, getLatestEvidence } from "./lib/deepEvidenceEngine.js";
+import { collectDeepEvidence, getLatestEvidence, setMockEvidence, clearMockEvidence } from "./lib/deepEvidenceEngine.js";
+import { listScenarios, buildScenario } from "./lib/mockEvidenceScenarios.js";
 import { startMqttTap, stopMqttTap, getMqttSession, listMqttSessions } from "./lib/evidenceCollectors/mqttTruth.js";
 
 const PORT = Number(process.env.PORT || 3001);
@@ -298,6 +299,30 @@ app.get("/api/evidence/mqtt/events", (req, res) => {
   const s = getMqttSession(sessionId);
   if (!s) return res.status(404).json({ ok: false, reason: "session_not_found" });
   res.json({ ok: true, session: s });
+});
+
+/* ===== Deep Evidence — DEV MOCK scenarios =====
+ * These endpoints inject synthetic evidence for QA. The cache is marked
+ * `mock: true` so Autopilot refuses to execute against it.
+ */
+app.get("/api/evidence/mock/scenarios", (_req, res) => {
+  res.json({ ok: true, scenarios: listScenarios() });
+});
+
+app.post("/api/evidence/mock/set", (req, res) => {
+  try {
+    const id = String(req.body?.scenarioId || "");
+    if (!id) return res.status(400).json({ ok: false, reason: "invalid_request", message: "scenarioId required" });
+    const evidence = buildScenario(id);
+    const stored = setMockEvidence(evidence);
+    res.json({ ok: true, evidence: stored });
+  } catch (err) {
+    res.status(400).json({ ok: false, reason: "scenario_error", message: err?.message || String(err) });
+  }
+});
+
+app.post("/api/evidence/mock/clear", (_req, res) => {
+  res.json(clearMockEvidence());
 });
 
 app.listen(PORT, BIND, () => {

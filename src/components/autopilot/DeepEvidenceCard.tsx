@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { Link } from "@tanstack/react-router";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Loader2, Microscope, AlertTriangle, ShieldCheck, ArrowRight } from "lucide-react";
+import { Loader2, Microscope, AlertTriangle, ShieldCheck, ArrowRight, FlaskConical } from "lucide-react";
 import { evidenceCollect, evidenceLatest, type DeepEvidence } from "@/lib/agentClient";
 import { loadSiteConfig } from "@/lib/siteConfig";
 
@@ -38,6 +38,7 @@ export function DeepEvidenceCard() {
   const score = evidence?.evidenceScore ?? 0;
   const ageMs = evidence?.collectedAt ? Date.now() - new Date(evidence.collectedAt).getTime() : null;
   const stale = ageMs !== null && ageMs > 15 * 60 * 1000;
+  const isMock = !!evidence?.mock;
 
   return (
     <Card>
@@ -66,13 +67,19 @@ export function DeepEvidenceCard() {
         </div>
 
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-          <Stat label="Evidence score" value={`${Math.round(score * 100)}%`} />
+          <Stat label="Evidence score" value={`${Math.round(score)}%`} />
           <Stat label="Contradictions" value={String(contradictions.length)} tone={contradictions.length > 0 ? "warn" : "ok"} />
           <Stat label="Targets" value={String(evidence?.targets?.length ?? 0)} />
           <Stat label="MQTT tap" value={evidence?.mqttTruth?.available ? "live" : "off"} />
         </div>
 
         {error && <div className="text-xs text-destructive">{error}</div>}
+
+        {isMock && (
+          <div className="flex items-center gap-2 rounded-md border border-warning/40 bg-warning/10 p-2 text-xs text-warning">
+            <FlaskConical className="h-3.5 w-3.5" /> DEV MOCK evidence loaded — Autopilot execution is blocked.
+          </div>
+        )}
 
         {stale && (
           <div className="rounded-md border border-warning/40 bg-warning/5 p-2 text-xs text-warning">

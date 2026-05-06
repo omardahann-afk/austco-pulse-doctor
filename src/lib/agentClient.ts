@@ -343,6 +343,8 @@ export type AutopilotPlan = {
   contradictions?: Array<{ kind: string; why: string; likelyLayer: string; confidence: number; sourceA: { layer: string; said: string }; sourceB: { layer: string; said: string }; target?: string | null }>;
   evidenceScore?: number;
   deepEvidenceCollectedAt?: string | null;
+  mockEvidence?: boolean;
+  mockTag?: string | null;
 };
 
 export type AutopilotIssue = {
@@ -509,6 +511,9 @@ export type EvidenceContradiction = {
 export type DeepEvidence = {
   collectedAt: string;
   finishedAt: string;
+  mock?: boolean;
+  mockTag?: string;
+  mockDescription?: string;
   targets: Array<{ id: string; name: string; role: string; host: string; hostname: string; kind: string }>;
   networkTruth: { collectedAt: string; sourceVm: { interfaces: Array<{ iface: string; addr: string; mac: string }> }; targets: Array<Record<string, unknown>> };
   processTruth: { collectedAt: string; services: Array<Record<string, unknown>> };
@@ -531,6 +536,27 @@ export async function evidenceCollect(opts: { siteConfig: unknown; services: Ser
 export async function evidenceLatest(): Promise<{ ok: true; evidence: DeepEvidence } | ApiError> {
   const url = getBackendUrl().replace(/\/$/, "") + "/api/evidence/latest";
   const res = await fetch(url);
+  return await res.json();
+}
+
+/* ===== DEV-only mock Deep Evidence scenarios ===== */
+export type EvidenceScenario = { id: string; label: string };
+
+export async function evidenceMockScenarios(): Promise<{ ok: true; scenarios: EvidenceScenario[] } | ApiError> {
+  const url = getBackendUrl().replace(/\/$/, "") + "/api/evidence/mock/scenarios";
+  const res = await fetch(url);
+  return await res.json();
+}
+
+export async function evidenceMockSet(scenarioId: string): Promise<{ ok: true; evidence: DeepEvidence } | ApiError> {
+  const url = getBackendUrl().replace(/\/$/, "") + "/api/evidence/mock/set";
+  const res = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ scenarioId }) });
+  return await res.json();
+}
+
+export async function evidenceMockClear(): Promise<{ ok: true; cleared: boolean }> {
+  const url = getBackendUrl().replace(/\/$/, "") + "/api/evidence/mock/clear";
+  const res = await fetch(url, { method: "POST" });
   return await res.json();
 }
 
