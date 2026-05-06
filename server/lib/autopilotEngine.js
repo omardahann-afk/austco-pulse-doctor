@@ -13,7 +13,6 @@ import { runServiceDiagnosis } from "./services.js";
 import { matchPlaybook } from "./remediationPlaybooks.js";
 import { buildAllowlist, resolveCommand, execOverSsh } from "./sshExecutor.js";
 import { savePlan, loadPlan, saveExecution, saveScan, saveApproval, listRecentScans, listRecentPlans, listRecentExecutions } from "./autopilotStore.js";
-import { recordAutopilotResult } from "./serviceNow.js";
 
 const state = {
   loopRunning: false,
@@ -313,8 +312,6 @@ export async function executeActions({ planId, actionIds, password, acknowledged
   };
   saveExecution(report);
   saveApproval({ at: startedAt, planId, actionIds: ids, acknowledged: !!acknowledged });
-  // Best-effort ServiceNow update; never blocks/affects the execution result.
-  try { await recordAutopilotResult({ plan, report }); } catch {}
   return { ok: true, report };
 }
 
