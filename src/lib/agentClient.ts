@@ -343,6 +343,8 @@ export type AutopilotPlan = {
   contradictions?: Array<{ kind: string; why: string; likelyLayer: string; confidence: number; sourceA: { layer: string; said: string }; sourceB: { layer: string; said: string }; target?: string | null }>;
   evidenceScore?: number;
   deepEvidenceCollectedAt?: string | null;
+  mockEvidence?: boolean;
+  mockTag?: string | null;
 };
 
 export type AutopilotIssue = {
