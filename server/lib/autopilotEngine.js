@@ -335,6 +335,9 @@ export function getPlan(planId) {
 export async function executeActions({ planId, actionIds, password, acknowledged }) {
   const plan = getPlan(planId);
   if (!plan) return { ok: false, reason: "plan_not_found" };
+  if (plan.mockEvidence) {
+    return { ok: false, reason: "mock_evidence_block", message: "This plan was generated from DEV MOCK Deep Evidence. Execution is permanently blocked. Clear the mock and re-collect real evidence." };
+  }
   if (!plan.serviceRef || !plan.serviceRef.host) return { ok: false, reason: "service_ref_missing" };
   if (!password) return { ok: false, reason: "credentials_required", message: "SSH password required for execution." };
 
