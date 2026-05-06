@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { PageHeader } from "@/components/PageHeader";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -31,9 +31,7 @@ function MonitorPage() {
   const hydrateFromBackend = useSiteConfigStore((state) => state.hydrateFromBackend);
   const [dialogOpen, setDialogOpen] = useState(false);
 
-  useMemo(() => undefined, []);
-
-  useState(() => {
+  useEffect(() => {
     if (typeof window === "undefined") return undefined;
     const handleRegistryUpdated = () => {
       void hydrateFromBackend();
@@ -41,7 +39,7 @@ function MonitorPage() {
     };
     window.addEventListener(MONITOR_REGISTRY_UPDATED_EVENT, handleRegistryUpdated);
     return () => window.removeEventListener(MONITOR_REGISTRY_UPDATED_EVENT, handleRegistryUpdated);
-  });
+  }, [hydrateFromBackend, requestSnapshot]);
 
   const grouped = useMemo(() => {
     const buckets = new Map<DeviceState, typeof devices>();
