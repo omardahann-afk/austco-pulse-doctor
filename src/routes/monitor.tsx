@@ -173,7 +173,7 @@ function MonitorPage() {
         </CardContent>
       </Card>
 
-      <AddDeviceDialog open={dialogOpen} onOpenChange={setDialogOpen} />
+      <AddDeviceDialog open={dialogOpen} onOpenChange={setDialogOpen} onSaved={() => requestSnapshot()} />
     </div>
   );
 }
