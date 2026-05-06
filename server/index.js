@@ -212,9 +212,10 @@ app.post("/api/autopilot/plan", (req, res) => {
 
 app.post("/api/autopilot/execute", async (req, res) => {
   try {
-    const { planId, actionIds, password, acknowledged } = req.body || {};
+    const { planId, actionIds, password, acknowledged, approvalConfirmed } = req.body || {};
     if (!planId) return res.status(400).json({ ok: false, reason: "invalid_request", message: "planId required" });
-    const r = await autopilotExecute({ planId, actionIds, password, acknowledged: Boolean(acknowledged) });
+    const ack = Boolean(acknowledged) || Boolean(approvalConfirmed);
+    const r = await autopilotExecute({ planId, actionIds, password, acknowledged: ack });
     res.json(r);
   } catch (err) { res.status(500).json({ ok: false, reason: "agent_error", message: err?.message || String(err) }); }
 });
