@@ -31,6 +31,7 @@ import {
   autopilotServicesApi,
   type AutopilotService,
 } from "@/lib/autopilotServicesClient";
+import type { ServiceRole } from "@/lib/siteConfig";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/autopilot")({
@@ -125,7 +126,7 @@ function AutopilotPage() {
   const enabledServices = useMemo(
     () => services.filter((s) => s.enabled !== false).map((s) => ({
       id: s.id,
-      role: s.role || s.type,
+      role: (s.role || s.type) as ServiceRole,
       name: s.name,
       host: s.host,
       hostname: s.host,
