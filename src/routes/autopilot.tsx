@@ -1,14 +1,13 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { PageHeader } from "@/components/PageHeader";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Loader2, Play, Square, RefreshCw, ShieldAlert, ShieldCheck, AlertTriangle, Copy, ChevronDown, Sparkles, Bot, FlaskConical, Info, Lightbulb } from "lucide-react";
+import { Loader2, Play, Square, RefreshCw, ShieldAlert, ShieldCheck, AlertTriangle, Copy, ChevronDown, Sparkles, Bot, FlaskConical, Info, Lightbulb, Plus, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { loadSiteConfig } from "@/lib/siteConfig";
 import {
   autopilotGetStatus, autopilotScanNow, autopilotStart, autopilotStop,
   autopilotGetPlan, autopilotExecute, autopilotVerify,
@@ -26,10 +25,14 @@ import { ProofPanel } from "@/components/autopilot/ProofPanel";
 import { DeepEvidenceCard } from "@/components/autopilot/DeepEvidenceCard";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { AiCommanderTrigger } from "@/components/AiCommanderTrigger";
-import { useSiteConfigStore } from "@/stores/siteConfigStore";
-import { monitorApi } from "@/lib/monitorClient";
-
-const MONITOR_REGISTRY_UPDATED_EVENT = "monitor-registry:updated";
+import { AddAutopilotServiceDialog } from "@/components/autopilot/AddAutopilotServiceDialog";
+import {
+  AUTOPILOT_SERVICES_UPDATED_EVENT,
+  autopilotServicesApi,
+  type AutopilotService,
+} from "@/lib/autopilotServicesClient";
+import type { ServiceRole } from "@/lib/siteConfig";
+import { toast } from "sonner";
 
 export const Route = createFileRoute("/autopilot")({
   head: () => ({
@@ -65,7 +68,9 @@ function RiskPill({ risk }: { risk: AutopilotRisk }) {
 }
 
 function AutopilotPage() {
-  const [registryCount, setRegistryCount] = useState(0);
+  const [services, setServices] = useState<AutopilotService[]>([]);
+  const [serviceDialogOpen, setServiceDialogOpen] = useState(false);
+  const [editingService, setEditingService] = useState<AutopilotService | null>(null);
   const [status, setStatus] = useState<AutopilotStatus | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
@@ -86,24 +91,21 @@ function AutopilotPage() {
   };
 
   useEffect(() => {
-    const refreshRegistryCount = async () => {
+    const refreshServices = async () => {
       try {
-        const registry = await monitorApi.devices();
-        setRegistryCount(registry.ok ? registry.devices.length : 0);
+        const r = await autopilotServicesApi.list();
+        setServices(r.ok ? r.services : []);
       } catch {
-        setRegistryCount(0);
+        setServices([]);
       }
     };
 
     refresh();
-    void refreshRegistryCount();
+    void refreshServices();
 
-    const handleRegistryUpdated = () => {
-      void refreshRegistryCount();
-    };
-
+    const handleUpdated = () => { void refreshServices(); };
     if (typeof window !== "undefined") {
-      window.addEventListener(MONITOR_REGISTRY_UPDATED_EVENT, handleRegistryUpdated);
+      window.addEventListener(AUTOPILOT_SERVICES_UPDATED_EVENT, handleUpdated);
     }
 
     (async () => {
@@ -116,12 +118,43 @@ function AutopilotPage() {
     })();
     return () => {
       if (typeof window !== "undefined") {
-        window.removeEventListener(MONITOR_REGISTRY_UPDATED_EVENT, handleRegistryUpdated);
+        window.removeEventListener(AUTOPILOT_SERVICES_UPDATED_EVENT, handleUpdated);
       }
     };
   }, []);
 
-  const enabledServices = useMemo(() => loadSiteConfig().services.filter((s) => s.enabled !== false), []);
+  const enabledServices = useMemo(
+    () => services.filter((s) => s.enabled !== false).map((s) => ({
+      id: s.id,
+      role: (s.role || s.type) as ServiceRole,
+      name: s.name,
+      host: s.host,
+      hostname: s.host,
+      port: s.sshPort || 22,
+      username: s.sshUsername || "tech",
+      password: "",
+      saveCredentials: false,
+      enabled: true,
+      required: false,
+      logPaths: [],
+      notes: s.notes || "",
+      serviceManager: s.serviceManager,
+      systemdUnit: s.systemdUnit,
+      dockerContainer: s.dockerContainer,
+      webminPort: s.webminPort,
+    })),
+    [services],
+  );
+
+  async function handleDeleteService(id: string) {
+    if (!confirm("Delete this Autopilot service?")) return;
+    try {
+      await autopilotServicesApi.remove(id);
+      toast.success("Service removed");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : String(err));
+    }
+  }
 
   const scanNow = async () => {
     setBusy("scan"); setError(null);
@@ -158,7 +191,7 @@ function AutopilotPage() {
   const issues: AutopilotIssue[] = status?.lastScan?.issues ?? [];
 
   // Mission Control derived metrics — all from real data only.
-  const monitored = registryCount;
+  const monitored = services.filter((s) => s.enabled !== false).length;
   const needsAttention = status?.currentIssueCount ?? 0;
   const healthy = Math.max(0, monitored - needsAttention);
   const fixReady = (status?.recentPlans ?? []).filter((p) => p.riskLevel !== "HIGH").length;
@@ -177,7 +210,7 @@ function AutopilotPage() {
   const noEvidence = !latestEvidence;
 
   const nextStep: { tone: "info" | "warn" | "ok" | "danger"; title: string; body: string } = (() => {
-    if (monitored === 0) return { tone: "warn", title: "Add a monitored device first.", body: "Autopilot has nothing to track until a device is saved into the monitor registry." };
+    if (monitored === 0) return { tone: "warn", title: "No Autopilot services configured yet.", body: "Add IPC, Pulse Gateway, Pulse Manage, INGA, MQTT, HL7, or IPConnect services here." };
     if (evidenceMock) return { tone: "danger", title: "DEV mock evidence is loaded.", body: "Autopilot execution is permanently blocked while a mock scenario is active. Clear the mock from the Deep Evidence page before running real remediation." };
     if (noEvidence) return { tone: "warn", title: "Collect Deep Evidence before trusting automation.", body: "Without Deep Evidence the engine works from logs alone — contradictions will not be detected." };
     if (evidenceStale) return { tone: "warn", title: "Deep Evidence is stale.", body: "Re-collect Deep Evidence before approving a remediation plan." };
@@ -195,6 +228,9 @@ function AutopilotPage() {
         actions={
           <div className="flex flex-wrap items-center gap-2">
             <Button size="sm" variant="outline" onClick={refresh} disabled={!!busy}><RefreshCw className="h-4 w-4" />Refresh</Button>
+            <Button size="sm" variant="secondary" onClick={() => { setEditingService(null); setServiceDialogOpen(true); }}>
+              <Plus className="h-4 w-4" />Add Autopilot Service
+            </Button>
             <Button size="sm" onClick={scanNow} disabled={!!busy}>{busy === "scan" ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}Scan Now</Button>
             {status?.loopRunning ? (
               <Button size="sm" variant="destructive" onClick={stopLoop} disabled={!!busy}><Square className="h-4 w-4" />Stop Autopilot</Button>
@@ -249,6 +285,59 @@ function AutopilotPage() {
 
       {/* 3b. Deep Evidence summary */}
       <DeepEvidenceCard />
+
+      {/* Autopilot Services registry */}
+      <section className="space-y-3">
+        <div className="flex items-center justify-between">
+          <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Autopilot services ({services.length})</h2>
+          <Button size="sm" variant="outline" onClick={() => { setEditingService(null); setServiceDialogOpen(true); }}>
+            <Plus className="h-4 w-4" /> Add Autopilot Service
+          </Button>
+        </div>
+        {services.length === 0 ? (
+          <Card>
+            <CardContent className="space-y-3 p-6 text-center text-sm">
+              <div className="font-medium">No Autopilot services configured yet.</div>
+              <div className="text-muted-foreground">
+                Add IPC, Pulse Gateway, Pulse Manage, INGA, MQTT, HL7, or IPConnect services here.
+              </div>
+              <div className="flex justify-center">
+                <Button size="sm" onClick={() => { setEditingService(null); setServiceDialogOpen(true); }}>
+                  <Plus className="h-4 w-4" /> Add Autopilot Service
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        ) : (
+          <div className="space-y-2">
+            {services.map((s) => (
+              <Card key={s.id}>
+                <CardContent className="flex flex-wrap items-center justify-between gap-3 p-3 text-sm">
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2">
+                      <span className="font-medium">{s.name}</span>
+                      <span className="rounded border border-border/60 bg-muted/30 px-1.5 py-0.5 text-[10px] font-mono uppercase">{s.type}</span>
+                      {!s.enabled && <span className="text-[10px] text-muted-foreground">disabled</span>}
+                    </div>
+                    <div className="mt-0.5 text-xs text-muted-foreground font-mono">
+                      {s.sshUsername}@{s.host}:{s.sshPort} · {s.serviceManager}
+                      {s.systemdUnit ? ` · unit=${s.systemdUnit}` : ""}
+                      {s.dockerContainer ? ` · container=${s.dockerContainer}` : ""}
+                      {s.webminPort ? ` · webmin=${s.webminPort}` : ""}
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Button size="sm" variant="ghost" className="h-7" onClick={() => { setEditingService(s); setServiceDialogOpen(true); }}>Edit</Button>
+                    <Button size="sm" variant="ghost" className="h-7 text-red-400 hover:text-red-300" onClick={() => handleDeleteService(s.id)}>
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        )}
+      </section>
 
       {/* 2. Issues + plans */}
       <section className="space-y-3">
@@ -318,6 +407,13 @@ function AutopilotPage() {
           ))}
         </section>
       ) : null}
+
+      <AddAutopilotServiceDialog
+        open={serviceDialogOpen}
+        onOpenChange={setServiceDialogOpen}
+        initial={editingService}
+        onSaved={() => setEditingService(null)}
+      />
     </div>
   );
 }

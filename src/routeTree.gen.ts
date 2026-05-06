@@ -25,6 +25,8 @@ import { Route as EvidencePlaybackRouteImport } from './routes/evidence.playback
 import { Route as ApiMonitorStatusRouteImport } from './routes/api/monitor.status'
 import { Route as ApiMonitorStateRouteImport } from './routes/api/monitor.state'
 import { Route as ApiMonitorDevicesRouteImport } from './routes/api/monitor.devices'
+import { Route as ApiAutopilotServicesRouteImport } from './routes/api/autopilot.services'
+import { Route as ApiAutopilotServicesIdRouteImport } from './routes/api/autopilot.services.$id'
 
 const TraceRoute = TraceRouteImport.update({
   id: '/trace',
@@ -106,6 +108,16 @@ const ApiMonitorDevicesRoute = ApiMonitorDevicesRouteImport.update({
   path: '/api/monitor/devices',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiAutopilotServicesRoute = ApiAutopilotServicesRouteImport.update({
+  id: '/api/autopilot/services',
+  path: '/api/autopilot/services',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiAutopilotServicesIdRoute = ApiAutopilotServicesIdRouteImport.update({
+  id: '/$id',
+  path: '/$id',
+  getParentRoute: () => ApiAutopilotServicesRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -121,9 +133,11 @@ export interface FileRoutesByFullPath {
   '/evidence/playback': typeof EvidencePlaybackRoute
   '/monitor/$id': typeof MonitorIdRoute
   '/monitor/devices': typeof MonitorDevicesRoute
+  '/api/autopilot/services': typeof ApiAutopilotServicesRouteWithChildren
   '/api/monitor/devices': typeof ApiMonitorDevicesRoute
   '/api/monitor/state': typeof ApiMonitorStateRoute
   '/api/monitor/status': typeof ApiMonitorStatusRoute
+  '/api/autopilot/services/$id': typeof ApiAutopilotServicesIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -139,9 +153,11 @@ export interface FileRoutesByTo {
   '/evidence/playback': typeof EvidencePlaybackRoute
   '/monitor/$id': typeof MonitorIdRoute
   '/monitor/devices': typeof MonitorDevicesRoute
+  '/api/autopilot/services': typeof ApiAutopilotServicesRouteWithChildren
   '/api/monitor/devices': typeof ApiMonitorDevicesRoute
   '/api/monitor/state': typeof ApiMonitorStateRoute
   '/api/monitor/status': typeof ApiMonitorStatusRoute
+  '/api/autopilot/services/$id': typeof ApiAutopilotServicesIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -158,9 +174,11 @@ export interface FileRoutesById {
   '/evidence/playback': typeof EvidencePlaybackRoute
   '/monitor/$id': typeof MonitorIdRoute
   '/monitor/devices': typeof MonitorDevicesRoute
+  '/api/autopilot/services': typeof ApiAutopilotServicesRouteWithChildren
   '/api/monitor/devices': typeof ApiMonitorDevicesRoute
   '/api/monitor/state': typeof ApiMonitorStateRoute
   '/api/monitor/status': typeof ApiMonitorStatusRoute
+  '/api/autopilot/services/$id': typeof ApiAutopilotServicesIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -178,9 +196,11 @@ export interface FileRouteTypes {
     | '/evidence/playback'
     | '/monitor/$id'
     | '/monitor/devices'
+    | '/api/autopilot/services'
     | '/api/monitor/devices'
     | '/api/monitor/state'
     | '/api/monitor/status'
+    | '/api/autopilot/services/$id'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -196,9 +216,11 @@ export interface FileRouteTypes {
     | '/evidence/playback'
     | '/monitor/$id'
     | '/monitor/devices'
+    | '/api/autopilot/services'
     | '/api/monitor/devices'
     | '/api/monitor/state'
     | '/api/monitor/status'
+    | '/api/autopilot/services/$id'
   id:
     | '__root__'
     | '/'
@@ -214,9 +236,11 @@ export interface FileRouteTypes {
     | '/evidence/playback'
     | '/monitor/$id'
     | '/monitor/devices'
+    | '/api/autopilot/services'
     | '/api/monitor/devices'
     | '/api/monitor/state'
     | '/api/monitor/status'
+    | '/api/autopilot/services/$id'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -230,6 +254,7 @@ export interface RootRouteChildren {
   LogsRoute: typeof LogsRoute
   MonitorRoute: typeof MonitorRouteWithChildren
   TraceRoute: typeof TraceRoute
+  ApiAutopilotServicesRoute: typeof ApiAutopilotServicesRouteWithChildren
   ApiMonitorDevicesRoute: typeof ApiMonitorDevicesRoute
   ApiMonitorStateRoute: typeof ApiMonitorStateRoute
   ApiMonitorStatusRoute: typeof ApiMonitorStatusRoute
@@ -349,6 +374,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiMonitorDevicesRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/autopilot/services': {
+      id: '/api/autopilot/services'
+      path: '/api/autopilot/services'
+      fullPath: '/api/autopilot/services'
+      preLoaderRoute: typeof ApiAutopilotServicesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/autopilot/services/$id': {
+      id: '/api/autopilot/services/$id'
+      path: '/$id'
+      fullPath: '/api/autopilot/services/$id'
+      preLoaderRoute: typeof ApiAutopilotServicesIdRouteImport
+      parentRoute: typeof ApiAutopilotServicesRoute
+    }
   }
 }
 
@@ -377,6 +416,17 @@ const MonitorRouteChildren: MonitorRouteChildren = {
 const MonitorRouteWithChildren =
   MonitorRoute._addFileChildren(MonitorRouteChildren)
 
+interface ApiAutopilotServicesRouteChildren {
+  ApiAutopilotServicesIdRoute: typeof ApiAutopilotServicesIdRoute
+}
+
+const ApiAutopilotServicesRouteChildren: ApiAutopilotServicesRouteChildren = {
+  ApiAutopilotServicesIdRoute: ApiAutopilotServicesIdRoute,
+}
+
+const ApiAutopilotServicesRouteWithChildren =
+  ApiAutopilotServicesRoute._addFileChildren(ApiAutopilotServicesRouteChildren)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AiCommanderRoute: AiCommanderRoute,
@@ -388,6 +438,7 @@ const rootRouteChildren: RootRouteChildren = {
   LogsRoute: LogsRoute,
   MonitorRoute: MonitorRouteWithChildren,
   TraceRoute: TraceRoute,
+  ApiAutopilotServicesRoute: ApiAutopilotServicesRouteWithChildren,
   ApiMonitorDevicesRoute: ApiMonitorDevicesRoute,
   ApiMonitorStateRoute: ApiMonitorStateRoute,
   ApiMonitorStatusRoute: ApiMonitorStatusRoute,

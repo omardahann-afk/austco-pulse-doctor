@@ -34,6 +34,11 @@ import {
   runReadOnlyChecks as autopilotReadOnly,
 } from "./lib/autopilotEngine.js";
 import { listRecentPlans } from "./lib/autopilotStore.js";
+import {
+  listServices as listAutopilotServices,
+  upsertService as upsertAutopilotService,
+  deleteService as deleteAutopilotService,
+} from "./lib/autopilotServicesStore.js";
 import { collectDeepEvidence, getLatestEvidence, setMockEvidence, clearMockEvidence } from "./lib/deepEvidenceEngine.js";
 import { listScenarios, buildScenario } from "./lib/mockEvidenceScenarios.js";
 import { startMqttTap, stopMqttTap, getMqttSession, listMqttSessions } from "./lib/evidenceCollectors/mqttTruth.js";
@@ -276,6 +281,40 @@ app.post("/api/autopilot/verify", async (req, res) => {
 app.post("/api/autopilot/rollback", (_req, res) => {
   // No automatic rollbacks in v1 — rollback for service restarts is "do nothing".
   res.json({ ok: false, reason: "not_implemented", message: "Automatic rollback is not implemented. Restart actions have no rollback. Configuration changes are HIGH risk and remain manual." });
+});
+
+/* ===== Autopilot Services Registry ===== */
+
+app.get("/api/autopilot/services", (_req, res) => {
+  try { res.json({ ok: true, services: listAutopilotServices() }); }
+  catch (err) { res.status(500).json({ ok: false, message: err?.message || String(err) }); }
+});
+
+app.post("/api/autopilot/services", (req, res) => {
+  try {
+    const saved = upsertAutopilotService(req.body || {});
+    res.json({ ok: true, service: saved });
+  } catch (err) {
+    res.status(400).json({ ok: false, message: err?.message || String(err) });
+  }
+});
+
+app.put("/api/autopilot/services/:id", (req, res) => {
+  try {
+    const saved = upsertAutopilotService({ ...(req.body || {}), id: req.params.id });
+    res.json({ ok: true, service: saved });
+  } catch (err) {
+    res.status(400).json({ ok: false, message: err?.message || String(err) });
+  }
+});
+
+app.delete("/api/autopilot/services/:id", (req, res) => {
+  try {
+    const removed = deleteAutopilotService(req.params.id);
+    res.json({ ok: true, removed });
+  } catch (err) {
+    res.status(500).json({ ok: false, message: err?.message || String(err) });
+  }
 });
 
 /* ===== Autopilot AI Copilot (explanation only — never executes) ===== */
