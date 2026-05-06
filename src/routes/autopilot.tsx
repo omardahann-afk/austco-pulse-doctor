@@ -13,9 +13,16 @@ import {
   autopilotGetStatus, autopilotScanNow, autopilotStart, autopilotStop,
   autopilotGetPlan, autopilotExecute, autopilotVerify,
   autopilotExplainPlan, autopilotExplainExecution,
+  checkHealth,
   type AutopilotStatus, type AutopilotPlan, type AutopilotIssue, type AutopilotExecutionReport, type AutopilotRisk,
   type AutopilotPlanExplanation, type AutopilotExecExplanation,
 } from "@/lib/agentClient";
+import { MissionStatusBar } from "@/components/autopilot/MissionStatusBar";
+import { MissionKpiCards } from "@/components/autopilot/MissionKpiCards";
+import { SecurityProofCard } from "@/components/autopilot/SecurityProofCard";
+import { ConfidenceLadder } from "@/components/autopilot/ConfidenceLadder";
+import { AuditTimeline } from "@/components/autopilot/AuditTimeline";
+import { ProofPanel } from "@/components/autopilot/ProofPanel";
 
 export const Route = createFileRoute("/autopilot")({
   head: () => ({
@@ -47,6 +54,8 @@ function AutopilotPage() {
   const [acknowledged, setAcknowledged] = useState(false);
   const [password, setPassword] = useState("");
   const [report, setReport] = useState<AutopilotExecutionReport | null>(null);
+  const [backendOk, setBackendOk] = useState<boolean>(true);
+  const [aiAvailable, setAiAvailable] = useState<"available" | "unavailable" | "unknown">("unknown");
 
   const refresh = async () => {
     const r = await autopilotGetStatus();
@@ -54,7 +63,13 @@ function AutopilotPage() {
     else setError(("message" in r && r.message) || "Failed to load Autopilot status.");
   };
 
-  useEffect(() => { refresh(); }, []);
+  useEffect(() => {
+    refresh();
+    (async () => {
+      const h = await checkHealth();
+      setBackendOk(h.ok);
+    })();
+  }, []);
 
   const enabledServices = useMemo(() => loadSiteConfig().services.filter((s) => s.enabled !== false), []);
 
@@ -92,10 +107,22 @@ function AutopilotPage() {
 
   const issues: AutopilotIssue[] = status?.lastScan?.issues ?? [];
 
+  // Mission Control derived metrics — all from real data only.
+  const monitored = status?.monitoredCount ?? enabledServices.length;
+  const needsAttention = status?.currentIssueCount ?? 0;
+  const healthy = Math.max(0, monitored - needsAttention);
+  const fixReady = (status?.recentPlans ?? []).filter((p) => p.riskLevel !== "HIGH").length;
+  const manualRequired = (status?.recentPlans ?? []).filter((p) => p.riskLevel === "HIGH").length;
+  const fixExecuted = (status?.recentExecutions ?? []).filter((r) => r.success).length;
+  const lastExec = status?.recentExecutions?.[0] ?? null;
+  const lastFixResult: "success" | "failed" | "verified" | "none" =
+    !lastExec ? "none" : lastExec.fixVerified ? "verified" : lastExec.success ? "success" : "failed";
+  const lastFixAt = lastExec?.finishedAt ?? null;
+
   return (
     <div className="container mx-auto max-w-6xl space-y-6 px-4 py-6">
       <PageHeader
-        eyebrow="Autopilot"
+        eyebrow="Autopilot · Mission Control"
         title="Safe Remediation Engine"
         description="Continuously monitors configured services, prepares deterministic fix plans, and executes only after technician approval. AI explains, the engine decides."
         actions={
@@ -115,15 +142,29 @@ function AutopilotPage() {
         <Card><CardContent className="flex items-center gap-2 p-4 text-sm text-destructive"><AlertTriangle className="h-4 w-4" />{error}</CardContent></Card>
       )}
 
-      {/* 1. Status */}
-      <Card>
-        <CardContent className="grid gap-4 p-5 sm:grid-cols-2 lg:grid-cols-4">
-          <Stat label="Loop" value={status?.loopRunning ? "Running" : "Stopped"} tone={status?.loopRunning ? "success" : "muted"} />
-          <Stat label="Monitored services" value={String(status?.monitoredCount ?? enabledServices.length)} />
-          <Stat label="Last scan" value={status?.lastScanAt ? new Date(status.lastScanAt).toLocaleTimeString() : "—"} />
-          <Stat label="Open issues" value={String(status?.currentIssueCount ?? 0)} tone={(status?.currentIssueCount ?? 0) > 0 ? "warning" : "success"} />
-        </CardContent>
-      </Card>
+      {/* 1. Mission Control top status bar */}
+      <MissionStatusBar
+        loopRunning={!!status?.loopRunning}
+        aiAvailable={aiAvailable}
+        backendConnected={backendOk}
+        monitored={monitored}
+        activeIssues={needsAttention}
+        lastScanAt={status?.lastScanAt ?? null}
+        lastFixResult={lastFixResult}
+        lastFixAt={lastFixAt}
+      />
+
+      {/* 2. Mission Control KPI cards */}
+      <MissionKpiCards
+        healthy={healthy}
+        needsAttention={needsAttention}
+        fixReady={fixReady}
+        fixExecuted={fixExecuted}
+        manualRequired={manualRequired}
+      />
+
+      {/* 3. Security proof card */}
+      <SecurityProofCard />
 
       {/* 2. Issues + plans */}
       <section className="space-y-3">
@@ -164,6 +205,8 @@ function AutopilotPage() {
                   setReport={setReport}
                   setError={setError}
                   onRefresh={refresh}
+                  lastScanAt={status?.lastScanAt ?? null}
+                  onAiAvailability={setAiAvailable}
                 />
               )}
             </CardContent>
@@ -193,16 +236,6 @@ function AutopilotPage() {
   );
 }
 
-function Stat({ label, value, tone = "default" }: { label: string; value: string; tone?: "default" | "success" | "warning" | "muted" }) {
-  const toneCls = tone === "success" ? "text-success" : tone === "warning" ? "text-warning" : tone === "muted" ? "text-muted-foreground" : "";
-  return (
-    <div className="space-y-0.5">
-      <div className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">{label}</div>
-      <div className={cn("text-lg font-semibold", toneCls)}>{value}</div>
-    </div>
-  );
-}
-
 function PlanPanel(props: {
   plan: AutopilotPlan | null;
   loading: boolean;
@@ -215,28 +248,37 @@ function PlanPanel(props: {
   setReport: (r: AutopilotExecutionReport | null) => void;
   setError: (s: string | null) => void;
   onRefresh: () => void;
+  lastScanAt: string | null;
+  onAiAvailability: (s: "available" | "unavailable" | "unknown") => void;
 }) {
-  const { plan, loading, error, password, setPassword, acknowledged, setAcknowledged, report, setReport, setError, onRefresh } = props;
+  const { plan, loading, error, password, setPassword, acknowledged, setAcknowledged, report, setReport, setError, onRefresh, lastScanAt, onAiAvailability } = props;
   const [running, setRunning] = useState(false);
   const [aiLoading, setAiLoading] = useState(false);
   const [aiStatus, setAiStatus] = useState<"idle" | "ok" | "off" | "error" | "stale">("idle");
   const [aiStatusMsg, setAiStatusMsg] = useState<string>("");
   const [aiExplain, setAiExplain] = useState<AutopilotPlanExplanation | null>(null);
+  const [aiExplainedAt, setAiExplainedAt] = useState<string | null>(null);
 
   // Mark stale when plan changes
-  useEffect(() => { setAiExplain(null); setAiStatus("idle"); setAiStatusMsg(""); }, [plan?.planId]);
+  useEffect(() => { setAiExplain(null); setAiExplainedAt(null); setAiStatus("idle"); setAiStatusMsg(""); }, [plan?.planId]);
 
   const runAi = async () => {
     if (!plan) return;
     setAiLoading(true); setAiStatus("idle"); setAiStatusMsg("");
     const r = await autopilotExplainPlan({ planId: plan.planId });
     setAiLoading(false);
-    if ("ok" in r && r.ok) { setAiExplain(r.ai); setAiStatus("ok"); setAiStatusMsg(`Local Ollama · ${r.model}`); }
+    if ("ok" in r && r.ok) {
+      setAiExplain(r.ai); setAiStatus("ok"); setAiStatusMsg(`Local Ollama · ${r.model}`);
+      setAiExplainedAt(new Date().toISOString());
+      onAiAvailability("available");
+    }
     else {
       setAiExplain(null);
       const reason = ("reason" in r && r.reason) || "";
-      setAiStatus(reason === "ollama_unavailable" || reason === "ollama_timeout" ? "off" : "error");
+      const off = reason === "ollama_unavailable" || reason === "ollama_timeout";
+      setAiStatus(off ? "off" : "error");
       setAiStatusMsg(("message" in r && r.message) || "AI unavailable");
+      onAiAvailability(off ? "unavailable" : "unavailable");
     }
   };
 
@@ -282,6 +324,9 @@ function PlanPanel(props: {
           </ul>
         </details>
       )}
+
+      {/* Confidence ladder — proves the engine is not guessing */}
+      <ConfidenceLadder plan={plan} report={report} approved={acknowledged} />
 
       <div className="space-y-2">
         <div className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Planned actions</div>
@@ -340,7 +385,12 @@ function PlanPanel(props: {
         </div>
       )}
 
+      {report && <ProofPanel plan={plan} report={report} />}
       {report && <ReportPanel report={report} />}
+
+      {/* Audit trail — always visible alongside the plan */}
+      <AuditTimeline plan={plan} report={report} approved={acknowledged} aiExplained={aiExplainedAt} lastScanAt={lastScanAt} />
+
       {plan && (
         <AiCopilotPlanPanel
           plan={plan}
