@@ -411,3 +411,45 @@ function FeedCard({ title, icon, count, to, preview }: { title: string; icon: Re
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return <div className="space-y-1"><Label className="text-[11px]">{label}</Label>{children}</div>;
 }
+
+function DebugPanel({ evidence, ageLabel }: { evidence: DeepEvidence; ageLabel: string }) {
+  const networkTargets = evidence.networkTruth?.targets?.length ?? 0;
+  const processTargets = evidence.processTruth?.services?.length ?? 0;
+  const portTargets = evidence.portTruth?.services?.length ?? 0;
+  const configIssues = evidence.configTruth?.issues?.length ?? 0;
+  const contradictions = evidence.contradictions?.length ?? 0;
+  const rcSignals = evidence.rootCauseSignals?.length ?? 0;
+  const traceSignals = evidence.traceSignals?.length ?? 0;
+  const mqttAvailable = evidence.mqttTruth?.available ? "yes" : "no";
+
+  const stats: Array<[string, string | number]> = [
+    ["Age", ageLabel],
+    ["Score", `${Math.round(evidence.evidenceScore ?? 0)}%`],
+    ["Targets collected", evidence.targets?.length ?? 0],
+    ["Network targets", networkTargets],
+    ["Process targets", processTargets],
+    ["Port targets", portTargets],
+    ["MQTT available", mqttAvailable],
+    ["Config issues", configIssues],
+    ["Contradictions", contradictions],
+    ["Root-cause signals", rcSignals],
+    ["Trace signals", traceSignals],
+    ["Source", evidence.mock ? "DEV MOCK" : "live"],
+  ];
+
+  return (
+    <section className="space-y-2">
+      <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Debug panel</h2>
+      <Card>
+        <CardContent className="grid grid-cols-2 gap-2 p-3 text-xs sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6">
+          {stats.map(([k, v]) => (
+            <div key={k} className="rounded border border-border/60 bg-muted/30 p-2">
+              <div className="text-[10px] uppercase tracking-wider text-muted-foreground">{k}</div>
+              <div className="font-mono text-sm">{String(v)}</div>
+            </div>
+          ))}
+        </CardContent>
+      </Card>
+    </section>
+  );
+}
