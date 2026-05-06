@@ -29,6 +29,8 @@ import { AiCommanderTrigger } from "@/components/AiCommanderTrigger";
 import { useSiteConfigStore } from "@/stores/siteConfigStore";
 import { monitorApi } from "@/lib/monitorClient";
 
+const MONITOR_REGISTRY_UPDATED_EVENT = "monitor-registry:updated";
+
 export const Route = createFileRoute("/autopilot")({
   head: () => ({
     meta: [
@@ -63,7 +65,6 @@ function RiskPill({ risk }: { risk: AutopilotRisk }) {
 }
 
 function AutopilotPage() {
-  const hydrateFromBackend = useSiteConfigStore((state) => state.hydrateFromBackend);
   const [registryCount, setRegistryCount] = useState(0);
   const [status, setStatus] = useState<AutopilotStatus | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -85,16 +86,26 @@ function AutopilotPage() {
   };
 
   useEffect(() => {
-    void hydrateFromBackend();
-    refresh();
-    void (async () => {
+    const refreshRegistryCount = async () => {
       try {
         const registry = await monitorApi.devices();
-        if (registry.ok) setRegistryCount(registry.devices.length);
+        setRegistryCount(registry.ok ? registry.devices.length : 0);
       } catch {
         setRegistryCount(0);
       }
-    })();
+    };
+
+    refresh();
+    void refreshRegistryCount();
+
+    const handleRegistryUpdated = () => {
+      void refreshRegistryCount();
+    };
+
+    if (typeof window !== "undefined") {
+      window.addEventListener(MONITOR_REGISTRY_UPDATED_EVENT, handleRegistryUpdated);
+    }
+
     (async () => {
       const h = await checkHealth();
       setBackendOk(h.ok);
@@ -103,7 +114,12 @@ function AutopilotPage() {
       const r = await evidenceLatest();
       if ("ok" in r && r.ok) setLatestEvidence(r.evidence);
     })();
-  }, [hydrateFromBackend]);
+    return () => {
+      if (typeof window !== "undefined") {
+        window.removeEventListener(MONITOR_REGISTRY_UPDATED_EVENT, handleRegistryUpdated);
+      }
+    };
+  }, []);
 
   const enabledServices = useMemo(() => loadSiteConfig().services.filter((s) => s.enabled !== false), []);
 
@@ -142,7 +158,7 @@ function AutopilotPage() {
   const issues: AutopilotIssue[] = status?.lastScan?.issues ?? [];
 
   // Mission Control derived metrics — all from real data only.
-  const monitored = registryCount || status?.monitoredCount || 0;
+  const monitored = registryCount;
   const needsAttention = status?.currentIssueCount ?? 0;
   const healthy = Math.max(0, monitored - needsAttention);
   const fixReady = (status?.recentPlans ?? []).filter((p) => p.riskLevel !== "HIGH").length;
