@@ -6,13 +6,15 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Loader2, Play, Square, RefreshCw, ShieldAlert, ShieldCheck, AlertTriangle, Copy, ChevronDown } from "lucide-react";
+import { Loader2, Play, Square, RefreshCw, ShieldAlert, ShieldCheck, AlertTriangle, Copy, ChevronDown, Sparkles, Bot } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { loadSiteConfig } from "@/lib/siteConfig";
 import {
   autopilotGetStatus, autopilotScanNow, autopilotStart, autopilotStop,
   autopilotGetPlan, autopilotExecute, autopilotVerify,
+  autopilotExplainPlan, autopilotExplainExecution,
   type AutopilotStatus, type AutopilotPlan, type AutopilotIssue, type AutopilotExecutionReport, type AutopilotRisk,
+  type AutopilotPlanExplanation, type AutopilotExecExplanation,
 } from "@/lib/agentClient";
 
 export const Route = createFileRoute("/autopilot")({
@@ -216,6 +218,27 @@ function PlanPanel(props: {
 }) {
   const { plan, loading, error, password, setPassword, acknowledged, setAcknowledged, report, setReport, setError, onRefresh } = props;
   const [running, setRunning] = useState(false);
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiStatus, setAiStatus] = useState<"idle" | "ok" | "off" | "error" | "stale">("idle");
+  const [aiStatusMsg, setAiStatusMsg] = useState<string>("");
+  const [aiExplain, setAiExplain] = useState<AutopilotPlanExplanation | null>(null);
+
+  // Mark stale when plan changes
+  useEffect(() => { setAiExplain(null); setAiStatus("idle"); setAiStatusMsg(""); }, [plan?.planId]);
+
+  const runAi = async () => {
+    if (!plan) return;
+    setAiLoading(true); setAiStatus("idle"); setAiStatusMsg("");
+    const r = await autopilotExplainPlan({ planId: plan.planId });
+    setAiLoading(false);
+    if ("ok" in r && r.ok) { setAiExplain(r.ai); setAiStatus("ok"); setAiStatusMsg(`Local Ollama · ${r.model}`); }
+    else {
+      setAiExplain(null);
+      const reason = ("reason" in r && r.reason) || "";
+      setAiStatus(reason === "ollama_unavailable" || reason === "ollama_timeout" ? "off" : "error");
+      setAiStatusMsg(("message" in r && r.message) || "AI unavailable");
+    }
+  };
 
   if (loading) return <div className="flex items-center gap-2 rounded-md border border-border/60 bg-muted/20 p-4 text-sm text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin" />Loading plan…</div>;
   if (error) return <div className="rounded-md border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive">{error}</div>;
@@ -318,6 +341,17 @@ function PlanPanel(props: {
       )}
 
       {report && <ReportPanel report={report} />}
+      {plan && (
+        <AiCopilotPlanPanel
+          plan={plan}
+          aiLoading={aiLoading}
+          aiStatus={aiStatus}
+          aiStatusMsg={aiStatusMsg}
+          aiExplain={aiExplain}
+          onRun={runAi}
+        />
+      )}
+      {report && plan && <AiCopilotExecutionPanel planId={plan.planId} report={report} />}
     </div>
   );
 }
@@ -372,6 +406,167 @@ function BeforeAfterBox({ label, data }: { label: string; data?: { ok: boolean; 
       </div>
       {data.stdout && <pre className="mt-1 max-h-32 overflow-auto whitespace-pre-wrap font-mono text-[10px]">{data.stdout}</pre>}
       {data.stderr && <pre className="mt-1 max-h-24 overflow-auto whitespace-pre-wrap font-mono text-[10px] text-destructive">{data.stderr}</pre>}
+    </div>
+  );
+}
+/* ===== AI Copilot panels ===== */
+
+const AI_DISCLAIMER = "AI explanation only. Fix decision and safety are controlled by the deterministic engine.";
+
+function AiStatusBadge({ status, msg }: { status: "idle" | "ok" | "off" | "error" | "stale"; msg: string }) {
+  const map: Record<typeof status, { label: string; cls: string }> = {
+    idle: { label: "AI: Off", cls: "bg-muted text-muted-foreground border-border" },
+    ok: { label: "AI: Local Ollama", cls: "bg-success/10 text-success border-success/30" },
+    off: { label: "AI unavailable", cls: "bg-muted text-muted-foreground border-border" },
+    error: { label: "AI failed", cls: "bg-destructive/10 text-destructive border-destructive/30" },
+    stale: { label: "AI explanation stale", cls: "bg-warning/10 text-warning border-warning/30" },
+  };
+  const s = map[status];
+  return (
+    <span className={cn("inline-flex items-center gap-1 rounded-md border px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wider", s.cls)} title={msg}>
+      <Bot className="h-3 w-3" /> {s.label}
+    </span>
+  );
+}
+
+function AiField({ label, value }: { label: string; value: string }) {
+  if (!value) return null;
+  return (
+    <div>
+      <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">{label}</div>
+      <div className="mt-0.5 whitespace-pre-wrap text-[12px] leading-snug">{value}</div>
+    </div>
+  );
+}
+
+function copyText(text: string) {
+  navigator.clipboard?.writeText(text).catch(() => {});
+}
+
+function AiCopilotPlanPanel(props: {
+  plan: AutopilotPlan;
+  aiLoading: boolean;
+  aiStatus: "idle" | "ok" | "off" | "error" | "stale";
+  aiStatusMsg: string;
+  aiExplain: AutopilotPlanExplanation | null;
+  onRun: () => void;
+}) {
+  const { aiLoading, aiStatus, aiStatusMsg, aiExplain, onRun } = props;
+  return (
+    <div className="space-y-3 rounded-md border border-primary/30 bg-primary/5 p-3">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="flex items-center gap-2 text-sm font-semibold">
+          <Sparkles className="h-4 w-4 text-primary" /> AI Copilot
+        </div>
+        <AiStatusBadge status={aiStatus} msg={aiStatusMsg} />
+      </div>
+      <div className="text-[11px] italic text-muted-foreground">{AI_DISCLAIMER}</div>
+
+      <div className="flex flex-wrap gap-2">
+        <Button size="sm" variant="default" onClick={onRun} disabled={aiLoading}>
+          {aiLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+          {aiExplain ? "Re-run AI Explanation" : "Explain Plan with AI"}
+        </Button>
+        {aiExplain && (
+          <>
+            <Button size="sm" variant="outline" onClick={() => copyText(aiExplain.escalationDraft)}>
+              <Copy className="h-4 w-4" /> Copy Escalation Draft
+            </Button>
+          </>
+        )}
+      </div>
+
+      {aiStatus === "off" && (
+        <div className="rounded border border-border/40 bg-background/40 p-2 text-[11px] text-muted-foreground">
+          AI unavailable — deterministic Autopilot still works. {aiStatusMsg}
+        </div>
+      )}
+      {aiStatus === "error" && (
+        <div className="rounded border border-destructive/30 bg-destructive/10 p-2 text-[11px] text-destructive">{aiStatusMsg}</div>
+      )}
+
+      {aiExplain && (
+        <div className="space-y-3 rounded border border-border/40 bg-background/50 p-3">
+          <AiField label="Plain English Summary" value={aiExplain.plainEnglishSummary} />
+          <AiField label="Why This Matched" value={aiExplain.whyThisMatched} />
+          <AiField label="Risk Explanation" value={aiExplain.riskExplanation} />
+          <AiField label="What Will Happen" value={aiExplain.whatWillHappen} />
+          <AiField label="What Could Go Wrong" value={aiExplain.whatCouldGoWrong} />
+          <AiField label="Approval Guidance" value={aiExplain.approvalGuidance} />
+          <details className="text-[11px]">
+            <summary className="cursor-pointer text-muted-foreground">Escalation Draft (not sent anywhere)</summary>
+            <pre className="mt-1 whitespace-pre-wrap rounded bg-muted/50 p-2 font-mono text-[11px]">{aiExplain.escalationDraft}</pre>
+          </details>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function AiCopilotExecutionPanel({ planId, report }: { planId: string; report: AutopilotExecutionReport }) {
+  const [loading, setLoading] = useState(false);
+  const [status, setStatus] = useState<"idle" | "ok" | "off" | "error">("idle");
+  const [statusMsg, setStatusMsg] = useState("");
+  const [ai, setAi] = useState<AutopilotExecExplanation | null>(null);
+
+  useEffect(() => { setAi(null); setStatus("idle"); setStatusMsg(""); }, [report.executionId]);
+
+  const run = async () => {
+    setLoading(true); setStatus("idle"); setStatusMsg("");
+    const r = await autopilotExplainExecution({ planId, report });
+    setLoading(false);
+    if ("ok" in r && r.ok) { setAi(r.ai); setStatus("ok"); setStatusMsg(`Local Ollama · ${r.model}`); }
+    else {
+      setAi(null);
+      const reason = ("reason" in r && r.reason) || "";
+      setStatus(reason === "ollama_unavailable" || reason === "ollama_timeout" ? "off" : "error");
+      setStatusMsg(("message" in r && r.message) || "AI unavailable");
+    }
+  };
+
+  return (
+    <div className="space-y-3 rounded-md border border-primary/30 bg-primary/5 p-3">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="flex items-center gap-2 text-sm font-semibold">
+          <Sparkles className="h-4 w-4 text-primary" /> AI Copilot — Result
+        </div>
+        <AiStatusBadge status={status === "idle" ? "idle" : status === "ok" ? "ok" : status === "off" ? "off" : "error"} msg={statusMsg} />
+      </div>
+      <div className="text-[11px] italic text-muted-foreground">{AI_DISCLAIMER}</div>
+      <div className="flex flex-wrap gap-2">
+        <Button size="sm" onClick={run} disabled={loading}>
+          {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+          {ai ? "Re-run AI Explanation" : "Explain Result with AI"}
+        </Button>
+        {ai && (
+          <Button size="sm" variant="outline" onClick={() => copyText(ai.escalationUpdateDraft)}>
+            <Copy className="h-4 w-4" /> Copy Escalation Update
+          </Button>
+        )}
+      </div>
+
+      {status === "off" && (
+        <div className="rounded border border-border/40 bg-background/40 p-2 text-[11px] text-muted-foreground">
+          AI unavailable — deterministic Autopilot still works. {statusMsg}
+        </div>
+      )}
+      {status === "error" && (
+        <div className="rounded border border-destructive/30 bg-destructive/10 p-2 text-[11px] text-destructive">{statusMsg}</div>
+      )}
+
+      {ai && (
+        <div className="space-y-3 rounded border border-border/40 bg-background/50 p-3">
+          <AiField label="Result Summary" value={ai.resultSummary} />
+          <AiField label="What Changed" value={ai.whatChanged} />
+          <AiField label="Verification Explanation" value={ai.verificationExplanation} />
+          <AiField label="Remaining Risk" value={ai.remainingRisk} />
+          <AiField label="Next Steps" value={ai.nextSteps} />
+          <details className="text-[11px]">
+            <summary className="cursor-pointer text-muted-foreground">Escalation Update Draft (not sent anywhere)</summary>
+            <pre className="mt-1 whitespace-pre-wrap rounded bg-muted/50 p-2 font-mono text-[11px]">{ai.escalationUpdateDraft}</pre>
+          </details>
+        </div>
+      )}
     </div>
   );
 }
