@@ -25,6 +25,7 @@ import { AuditTimeline } from "@/components/autopilot/AuditTimeline";
 import { ProofPanel } from "@/components/autopilot/ProofPanel";
 import { DeepEvidenceCard } from "@/components/autopilot/DeepEvidenceCard";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { AiCommanderTrigger } from "@/components/AiCommanderTrigger";
 
 export const Route = createFileRoute("/autopilot")({
   head: () => ({
@@ -402,6 +403,12 @@ function PlanPanel(props: {
             {evidenceSourceLabel.label}
           </span>
           <RiskPill risk={plan.riskLevel} />
+          <AiCommanderTrigger
+            source="autopilot"
+            mode="fix_plan_explainer"
+            context={{ plan, rootCause: { primaryCause: plan.rootCause, confidence: plan.confidence, affectedServices: [plan.serviceName] } }}
+            label="Explain in AI Commander"
+          />
         </div>
       </div>
 
