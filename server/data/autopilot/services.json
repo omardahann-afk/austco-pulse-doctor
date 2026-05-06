@@ -1,0 +1,20 @@
+[
+  {
+    "id": "svc_bfc6e08b9074",
+    "name": "IPC 203 Webmin",
+    "type": "ipc-webmin",
+    "role": "ipc-webmin",
+    "host": "192.168.10.203",
+    "sshUsername": "tech",
+    "sshPort": 22,
+    "serviceManager": "webmin",
+    "systemdUnit": "",
+    "dockerContainer": "",
+    "webminPort": 10000,
+    "enabled": true,
+    "riskLevel": "MEDIUM",
+    "notes": "",
+    "createdAt": "2026-05-06T23:29:19.194Z",
+    "updatedAt": "2026-05-06T23:29:19.194Z"
+  }
+]
