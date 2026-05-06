@@ -387,7 +387,10 @@ export type AutopilotActionResult = {
   durationMs?: number;
   stage?: string | null;
   error?: string | null;
+  before?: { ok: boolean; matched?: boolean; stdout?: string; stderr?: string } | null;
   verify?: { ok: boolean; matched?: boolean; stdout?: string; stderr?: string } | null;
+  verifyCommand?: string | null;
+  verifyExpect?: string | null;
 };
 
 export type AutopilotExecutionReport = {
@@ -397,6 +400,7 @@ export type AutopilotExecutionReport = {
   finishedAt: string;
   actionsRun: number;
   success: boolean;
+  fixVerified?: boolean;
   commandOutputs: AutopilotActionResult[];
   verificationResult: unknown[];
   nextSteps: string[];
@@ -432,9 +436,9 @@ export async function autopilotGetPlan(planId: string): Promise<{ ok: true; plan
   return await res.json();
 }
 
-export async function autopilotExecute(opts: { planId: string; actionIds?: string[]; password: string; acknowledged: boolean }): Promise<{ ok: true; report: AutopilotExecutionReport } | ApiError> {
+export async function autopilotExecute(opts: { planId: string; actionIds?: string[]; password: string; acknowledged: boolean; approvalConfirmed?: boolean }): Promise<{ ok: true; report: AutopilotExecutionReport } | ApiError> {
   const url = getBackendUrl().replace(/\/$/, "") + "/api/autopilot/execute";
-  const res = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(opts) });
+  const res = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ approvalConfirmed: opts.acknowledged, ...opts }) });
   return await res.json();
 }
 
