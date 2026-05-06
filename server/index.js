@@ -31,6 +31,8 @@ import {
   executeActions as autopilotExecute,
   runReadOnlyChecks as autopilotReadOnly,
 } from "./lib/autopilotEngine.js";
+import { collectDeepEvidence, getLatestEvidence } from "./lib/deepEvidenceEngine.js";
+import { startMqttTap, stopMqttTap, getMqttSession, listMqttSessions } from "./lib/evidenceCollectors/mqttTruth.js";
 
 const PORT = Number(process.env.PORT || 3001);
 const BIND = process.env.BIND_HOST || "0.0.0.0"; // change to 127.0.0.1 for localhost-only
@@ -258,6 +260,43 @@ app.post("/api/autopilot/explain-execution", async (req, res) => {
     const r = await aiExplainExecution({ report, plan, endpoint, model });
     res.json(r);
   } catch (err) { res.status(500).json({ ok: false, reason: "agent_error", message: err?.message || String(err) }); }
+});
+
+/* ===== Deep Evidence Layer ===== */
+
+app.post("/api/evidence/collect", async (req, res) => {
+  try {
+    const { siteConfig = {}, services = [], mqttSessionId = null, recentLogFindings = [] } = req.body || {};
+    const r = await collectDeepEvidence({ siteConfig, services, mqttSessionId, recentLogFindings });
+    res.json({ ok: true, evidence: r });
+  } catch (err) { res.status(500).json({ ok: false, reason: "agent_error", message: err?.message || String(err) }); }
+});
+
+app.get("/api/evidence/latest", (_req, res) => {
+  const r = getLatestEvidence();
+  if (!r) return res.json({ ok: false, reason: "no_evidence", message: "No evidence collected yet." });
+  res.json({ ok: true, evidence: r });
+});
+
+app.post("/api/evidence/mqtt/start", async (req, res) => {
+  try {
+    const r = await startMqttTap(req.body || {});
+    res.json(r);
+  } catch (err) { res.status(500).json({ ok: false, reason: "agent_error", message: err?.message || String(err) }); }
+});
+
+app.post("/api/evidence/mqtt/stop", (req, res) => {
+  const sessionId = String(req.body?.sessionId || "");
+  if (!sessionId) return res.status(400).json({ ok: false, reason: "invalid_request", message: "sessionId required" });
+  res.json(stopMqttTap(sessionId));
+});
+
+app.get("/api/evidence/mqtt/events", (req, res) => {
+  const sessionId = String(req.query?.sessionId || "");
+  if (!sessionId) return res.json({ ok: true, sessions: listMqttSessions() });
+  const s = getMqttSession(sessionId);
+  if (!s) return res.status(404).json({ ok: false, reason: "session_not_found" });
+  res.json({ ok: true, session: s });
 });
 
 app.listen(PORT, BIND, () => {

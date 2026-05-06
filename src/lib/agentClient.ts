@@ -484,3 +484,62 @@ export async function autopilotExplainExecution(opts: { planId: string; report: 
   const res = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(opts) });
   return await res.json();
 }
+
+/* ===== Deep Evidence ===== */
+
+export type EvidenceContradiction = {
+  kind: string;
+  sourceA: { layer: string; said: string };
+  sourceB: { layer: string; said: string };
+  why: string;
+  likelyLayer: string;
+  confidence: number;
+  target?: string;
+  nextCheck?: string;
+};
+
+export type DeepEvidence = {
+  collectedAt: string;
+  finishedAt: string;
+  targets: Array<{ id: string; name: string; role: string; host: string; hostname: string; kind: string }>;
+  networkTruth: { collectedAt: string; sourceVm: { interfaces: Array<{ iface: string; addr: string; mac: string }> }; targets: Array<Record<string, unknown>> };
+  processTruth: { collectedAt: string; services: Array<Record<string, unknown>> };
+  portTruth: { collectedAt: string; services: Array<Record<string, unknown>> };
+  mqttTruth: { available: boolean; reason?: string; message?: string; eventCount?: number; silence?: boolean; topicCounts?: Record<string, number>; observedCpIds?: string[]; missingAcks?: string[]; ackTopic?: string | null };
+  configTruth: { collectedAt: string; counts: Record<string, number>; issues: Array<{ kind: string; detail: string; target?: string }>; unknownCpIds: string[] };
+  stateTruth: { collectedAt: string; available: boolean; note: string };
+  contradictions: EvidenceContradiction[];
+  rootCauseSignals: Array<{ layer: string; signal: string; target: string | null; confidence: number; message: string }>;
+  traceSignals: Array<{ break: string; kind: string; target: string | null; evidence: string[] }>;
+  evidenceScore: number;
+};
+
+export async function evidenceCollect(opts: { siteConfig: unknown; services: ServiceEntry[]; mqttSessionId?: string | null; recentLogFindings?: unknown[] }): Promise<{ ok: true; evidence: DeepEvidence } | ApiError> {
+  const url = getBackendUrl().replace(/\/$/, "") + "/api/evidence/collect";
+  const res = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(opts) });
+  return await res.json();
+}
+
+export async function evidenceLatest(): Promise<{ ok: true; evidence: DeepEvidence } | ApiError> {
+  const url = getBackendUrl().replace(/\/$/, "") + "/api/evidence/latest";
+  const res = await fetch(url);
+  return await res.json();
+}
+
+export async function mqttTapStart(opts: { brokerHost: string; brokerPort?: number; tls?: boolean; username?: string; password?: string; topic: string; durationSeconds?: number; ackTopic?: string }): Promise<{ ok: true; sessionId: string; expiresAt: string; startedAt: string } | { ok: false; reason: string; message: string }> {
+  const url = getBackendUrl().replace(/\/$/, "") + "/api/evidence/mqtt/start";
+  const res = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(opts) });
+  return await res.json();
+}
+
+export async function mqttTapStop(sessionId: string): Promise<{ ok: boolean; sessionId?: string; stoppedReason?: string; eventCount?: number; reason?: string }> {
+  const url = getBackendUrl().replace(/\/$/, "") + "/api/evidence/mqtt/stop";
+  const res = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ sessionId }) });
+  return await res.json();
+}
+
+export async function mqttTapEvents(sessionId: string): Promise<{ ok: true; session: { sessionId: string; startedAt: string; expiresAt: string; connected: boolean; eventCount: number; events: Array<{ ts: string; topic: string; payloadSummary: string; correlations: Record<string, string> }> } } | { ok: false; reason: string }> {
+  const url = getBackendUrl().replace(/\/$/, "") + "/api/evidence/mqtt/events?sessionId=" + encodeURIComponent(sessionId);
+  const res = await fetch(url);
+  return await res.json();
+}
