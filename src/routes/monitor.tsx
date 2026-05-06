@@ -14,6 +14,8 @@ import { toast } from "sonner";
 import { AddDeviceDialog } from "@/components/monitor/AddDeviceDialog";
 import { useSiteConfigStore } from "@/stores/siteConfigStore";
 
+const MONITOR_REGISTRY_UPDATED_EVENT = "monitor-registry:updated";
+
 export const Route = createFileRoute("/monitor")({
   head: () => ({ meta: [
     { title: "Live Monitor — Tacera Doctor" },
@@ -28,6 +30,18 @@ function MonitorPage() {
   const { conn, scheduler, devices, lastEventAt, requestSnapshot } = useMonitorBus();
   const hydrateFromBackend = useSiteConfigStore((state) => state.hydrateFromBackend);
   const [dialogOpen, setDialogOpen] = useState(false);
+
+  useMemo(() => undefined, []);
+
+  useState(() => {
+    if (typeof window === "undefined") return undefined;
+    const handleRegistryUpdated = () => {
+      void hydrateFromBackend();
+      requestSnapshot();
+    };
+    window.addEventListener(MONITOR_REGISTRY_UPDATED_EVENT, handleRegistryUpdated);
+    return () => window.removeEventListener(MONITOR_REGISTRY_UPDATED_EVENT, handleRegistryUpdated);
+  });
 
   const grouped = useMemo(() => {
     const buckets = new Map<DeviceState, typeof devices>();
