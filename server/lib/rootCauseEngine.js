@@ -200,6 +200,7 @@ export function buildRootCauseAnalysis({ siteConfig = {}, deviceResults = [], se
       "log_event_missing_on_mqtt",
       "mqtt_publish_no_ack",
       "config_unknown_cp_in_event",
+      "cp_observed_not_configured",
       "service_running_no_port",
       "host_reachable_port_closed",
       "service_inactive_host_reachable",
@@ -231,6 +232,7 @@ export function buildRootCauseAnalysis({ siteConfig = {}, deviceResults = [], se
           confidence = Math.round(chosen.confidence * 100);
           break;
         case "config_unknown_cp_in_event":
+        case "cp_observed_not_configured":
           primary = {
             title: "Configuration mismatch — live event references CP not present in active config.",
             layer: "configuration",
