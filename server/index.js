@@ -507,6 +507,14 @@ app.post("/api/monitor/probe", async (req, res) => {
       case "http":
       case "https": evidence = await httpsProbe(device); break;
       case "mqtt": evidence = await mqttConnectProbe(device); break;
+      case "mqtt-fresh": {
+        const { mqttFreshnessProbe } = await import("./lib/probes/mqttFreshnessProbe.js");
+        evidence = await mqttFreshnessProbe(device); break;
+      }
+      case "webmin": {
+        const { webminProbe } = await import("./lib/probes/webminProbe.js");
+        evidence = await webminProbe(device); break;
+      }
       default: return res.status(400).json({ ok: false, reason: "unsupported_protocol" });
     }
     res.json({ ok: true, evidence });
