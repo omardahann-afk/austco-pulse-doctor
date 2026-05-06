@@ -55,8 +55,9 @@ function* walkAttrs(node, path = []) {
       yield { attr: k.slice(2), value: typeof v === "string" ? v : String(v ?? ""), path };
     } else if (typeof v === "object" && v !== null) {
       yield* walkAttrs(v, [...path, k]);
-    } else if (typeof v === "string" && v.length > 0) {
-      yield { attr: k, value: v, path };
+    } else if (v != null) {
+      const s = typeof v === "string" ? v : String(v);
+      if (s.length > 0) yield { attr: k, value: s, path };
     }
   }
 }
