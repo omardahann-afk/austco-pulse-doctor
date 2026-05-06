@@ -131,7 +131,7 @@ function AutopilotPage() {
   const issues: AutopilotIssue[] = status?.lastScan?.issues ?? [];
 
   // Mission Control derived metrics — all from real data only.
-  const monitored = monitoredDevices.length || status?.monitoredCount || enabledServices.length;
+  const monitored = monitoredDevices.length || status?.monitoredCount || 0;
   const needsAttention = status?.currentIssueCount ?? 0;
   const healthy = Math.max(0, monitored - needsAttention);
   const fixReady = (status?.recentPlans ?? []).filter((p) => p.riskLevel !== "HIGH").length;
@@ -150,7 +150,7 @@ function AutopilotPage() {
   const noEvidence = !latestEvidence;
 
   const nextStep: { tone: "info" | "warn" | "ok" | "danger"; title: string; body: string } = (() => {
-    if (noServices) return { tone: "warn", title: "Add services in Command Center first.", body: "Autopilot has nothing to monitor. Define at least one service on the Command Center." };
+    if (monitored === 0) return { tone: "warn", title: "Add a monitored device first.", body: "Autopilot has nothing to track until a device is saved into the monitor registry." };
     if (evidenceMock) return { tone: "danger", title: "DEV mock evidence is loaded.", body: "Autopilot execution is permanently blocked while a mock scenario is active. Clear the mock from the Deep Evidence page before running real remediation." };
     if (noEvidence) return { tone: "warn", title: "Collect Deep Evidence before trusting automation.", body: "Without Deep Evidence the engine works from logs alone — contradictions will not be detected." };
     if (evidenceStale) return { tone: "warn", title: "Deep Evidence is stale.", body: "Re-collect Deep Evidence before approving a remediation plan." };
