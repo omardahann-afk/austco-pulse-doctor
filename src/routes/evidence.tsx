@@ -4,7 +4,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, Microscope, AlertTriangle, ShieldCheck, Radio, Network, Activity, Cog, GitBranch, FlaskConical, X, ArrowRight } from "lucide-react";
+import { Loader2, Microscope, AlertTriangle, ShieldCheck, Radio, Network, Activity, Cog, GitBranch, FlaskConical, X, ArrowRight, History } from "lucide-react";
 import { Label } from "@/components/ui/label";
 import {
   evidenceCollect, evidenceLatest,
@@ -130,6 +130,7 @@ function EvidencePage() {
           <Button size="sm" variant="outline" asChild><Link to="/autopilot">Autopilot</Link></Button>
           <Button size="sm" variant="outline" asChild><Link to="/trace">Trace</Link></Button>
           <Button size="sm" variant="outline" asChild><Link to="/diagnosis">Root Cause</Link></Button>
+          <Button size="sm" variant="outline" asChild><Link to="/evidence/playback"><History className="h-4 w-4" /> Playback</Link></Button>
         </div>
       </header>
 
