@@ -10,6 +10,7 @@ import {
   type DeviceStateRow, type Evidence, type SchedulerStatus,
   getMonitorWsUrl, monitorApi,
 } from "@/lib/monitorClient";
+import { useSiteConfigStore } from "@/stores/siteConfigStore";
 
 export type MonitorConn = "connecting" | "open" | "closed" | "offline";
 
@@ -24,6 +25,7 @@ const RECONNECT_BASE_MS = 1000;
 const RECONNECT_MAX_MS = 15_000;
 
 export function useMonitorBus() {
+  const monitoredDevices = useSiteConfigStore((state) => state.monitoredDevices);
   const [conn, setConn] = useState<MonitorConn>("connecting");
   const [scheduler, setScheduler] = useState<SchedulerStatus | null>(null);
   const [devices, setDevices] = useState<Map<string, DeviceStateRow>>(new Map());
@@ -42,10 +44,37 @@ export function useMonitorBus() {
     // HTTP fallback — also used as the initial fetch before WS hello arrives.
     try {
       const [s, st] = await Promise.all([monitorApi.state(), monitorApi.status()]);
-      if (s.ok) applySnapshot(s.devices);
+      if (s.ok) {
+        const stateRows = new Map(s.devices.map((row) => [row.id, row]));
+        for (const device of monitoredDevices) {
+          if (!stateRows.has(device.id)) {
+            stateRows.set(device.id, {
+              id: device.id,
+              name: device.name,
+              kind: device.kind,
+              protocol: device.protocol,
+              host: device.host,
+              port: device.port,
+              url: device.url,
+              enabled: device.enabled ? 1 : 0,
+              interval_ms: device.intervalMs,
+              state: "unknown",
+              last_ok_ts: null,
+              last_check_ts: null,
+              consecutive_fail: 0,
+              consecutive_ok: 0,
+              backoff_ms: 0,
+              latency_ms_avg: null,
+              packet_loss_pct: null,
+              last_error: null,
+            });
+          }
+        }
+        applySnapshot(Array.from(stateRows.values()));
+      }
       if (st.ok) setScheduler({ running: st.running, startedAt: st.startedAt, scheduledDevices: st.scheduledDevices, inFlight: st.inFlight, options: st.options });
     } catch { /* offline — UI shows offline badge */ }
-  }, [applySnapshot]);
+  }, [applySnapshot, monitoredDevices]);
 
   const connect = useCallback(() => {
     if (stopped.current) return;
