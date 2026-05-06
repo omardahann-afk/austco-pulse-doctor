@@ -12,6 +12,7 @@ import { monitorApi, relativeTime, type DeviceState } from "@/lib/monitorClient"
 import { Play, Square, RefreshCw, Plus } from "lucide-react";
 import { toast } from "sonner";
 import { AddDeviceDialog } from "@/components/monitor/AddDeviceDialog";
+import { useSiteConfigStore } from "@/stores/siteConfigStore";
 
 export const Route = createFileRoute("/monitor")({
   head: () => ({ meta: [
@@ -25,6 +26,7 @@ const STATE_ORDER: DeviceState[] = ["down", "degraded", "stale", "unknown", "up"
 
 function MonitorPage() {
   const { conn, scheduler, devices, lastEventAt, requestSnapshot } = useMonitorBus();
+  const hydrateFromBackend = useSiteConfigStore((state) => state.hydrateFromBackend);
   const [dialogOpen, setDialogOpen] = useState(false);
 
   const grouped = useMemo(() => {
@@ -43,6 +45,11 @@ function MonitorPage() {
     for (const d of devices) c[(d.state ?? "unknown") as DeviceState]++;
     return c;
   }, [devices]);
+
+  async function handleDeviceSaved() {
+    await hydrateFromBackend();
+    requestSnapshot();
+  }
 
   async function toggleScheduler() {
     try {
@@ -173,7 +180,7 @@ function MonitorPage() {
         </CardContent>
       </Card>
 
-      <AddDeviceDialog open={dialogOpen} onOpenChange={setDialogOpen} onSaved={() => requestSnapshot()} />
+      <AddDeviceDialog open={dialogOpen} onOpenChange={setDialogOpen} onSaved={() => { void handleDeviceSaved(); }} />
     </div>
   );
 }
