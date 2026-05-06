@@ -10,6 +10,7 @@ import { cn } from "@/lib/utils";
 import { loadSiteConfig, loadServicesDiagnosis } from "@/lib/siteConfig";
 import { runTrace, type TraceResult, type TraceTargetKind, type ServicesDiagnosis } from "@/lib/agentClient";
 import { TraceSignalPathPanel } from "@/components/TraceSignalPathPanel";
+import { AiCommanderTrigger } from "@/components/AiCommanderTrigger";
 
 export const Route = createFileRoute("/trace")({
   head: () => ({
@@ -127,7 +128,15 @@ function Page() {
         </Card>
       )}
 
-      {result && "ok" in result && result.ok && <TraceSignalPathPanel trace={result} />}
+      {result && "ok" in result && result.ok && (
+        <>
+          <TraceSignalPathPanel trace={result} />
+          <div className="flex flex-wrap gap-2">
+            <AiCommanderTrigger source="trace" mode="explain_on_site" context={{ trace: result }} label="Explain trace" />
+            <AiCommanderTrigger source="trace" mode="evidence_challenge" context={{ trace: result }} label="Challenge this trace" />
+          </div>
+        </>
+      )}
     </div>
   );
 }

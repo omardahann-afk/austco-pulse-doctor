@@ -21,6 +21,7 @@ import { testSshAuth, pullLogs } from "./lib/ssh.js";
 import { diagnoseService, runServiceDiagnosis } from "./lib/services.js";
 import { explainWithOllama } from "./lib/ollamaExplain.js";
 import { explainPlan as aiExplainPlan, explainExecution as aiExplainExecution } from "./lib/autopilotAi.js";
+import { runCommander, COMMANDER_MODES, buildFallbackResponse } from "./lib/aiCommander.js";
 import { buildTraceResult } from "./lib/traceEngine.js";
 import {
   runScan as autopilotScan,
@@ -275,6 +276,53 @@ app.post("/api/autopilot/explain-execution", async (req, res) => {
     const r = await aiExplainExecution({ report, plan, endpoint, model });
     res.json(r);
   } catch (err) { res.status(500).json({ ok: false, reason: "agent_error", message: err?.message || String(err) }); }
+});
+
+/* ===== AI Evidence Commander =====
+ * One endpoint, six modes. Sanitized snapshot in, structured JSON out.
+ * Failure is non-blocking: the route ALWAYS returns a usable response object.
+ */
+app.get("/api/ai/commander/health", async (_req, res) => {
+  // Lightweight ping: is the local AI reachable? Times out at 1.5s.
+  const endpoint = "http://localhost:11434/api/tags";
+  const ctrl = new AbortController();
+  const t = setTimeout(() => ctrl.abort(), 1500);
+  try {
+    const r = await fetch(endpoint, { signal: ctrl.signal });
+    clearTimeout(t);
+    if (!r.ok) return res.json({ ok: true, available: false, reason: `http_${r.status}` });
+    return res.json({ ok: true, available: true });
+  } catch (err) {
+    clearTimeout(t);
+    return res.json({ ok: true, available: false, reason: err?.name === "AbortError" ? "timeout" : "unreachable" });
+  }
+});
+
+app.post("/api/ai/commander", async (req, res) => {
+  try {
+    const mode = String(req.body?.mode || "explain_on_site");
+    const context = req.body?.context || {};
+    const endpoint = req.body?.endpoint;
+    const model = req.body?.model;
+    if (!COMMANDER_MODES.includes(mode)) {
+      return res.status(400).json({
+        ok: false,
+        reason: "invalid_mode",
+        message: `mode must be one of: ${COMMANDER_MODES.join(", ")}`,
+        response: buildFallbackResponse(mode, {}, { confidenceWarning: "", safetyWarning: "Deterministic engine remains active." }, "invalid_mode"),
+      });
+    }
+    const r = await runCommander({ mode, context, endpoint, model });
+    // Always 200 — caller renders deterministic fallback if ok=false.
+    res.json(r);
+  } catch (err) {
+    res.status(200).json({
+      ok: false,
+      reason: "agent_error",
+      message: err?.message || String(err),
+      response: buildFallbackResponse(req.body?.mode, {}, { confidenceWarning: "", safetyWarning: "Deterministic engine remains active." }, "agent_error"),
+    });
+  }
 });
 
 /* ===== Deep Evidence Layer ===== */

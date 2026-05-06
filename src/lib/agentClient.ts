@@ -583,3 +583,105 @@ export async function mqttTapEvents(sessionId: string): Promise<{ ok: true; sess
   const res = await fetch(url);
   return await res.json();
 }
+
+/* ===== AI Evidence Commander ===== */
+
+export type CommanderMode =
+  | "explain_on_site"
+  | "evidence_challenge"
+  | "escalation_writer"
+  | "root_cause_defender"
+  | "fix_plan_explainer"
+  | "post_fix_analyst";
+
+export type CommanderFlags = {
+  lowConfidence?: boolean;
+  confidenceValue?: number | null;
+  staleEvidence?: boolean;
+  mockEvidence?: boolean;
+};
+
+export type CommanderResponse = {
+  mode: CommanderMode | string;
+  executiveSummary: string;
+  technicianExplanation: string;
+  evidenceThatMatters: string[];
+  contradictions: string[];
+  ruledOutCauses: string[];
+  riskExplanation: string;
+  recommendedNextStep: string;
+  customerSafeSummary: string;
+  internalTechnicalSummary: string;
+  developerDebugSummary: string;
+  confidenceWarning: string;
+  safetyWarning: string;
+  flags?: CommanderFlags;
+  fallbackReason?: string;
+};
+
+export type CommanderContext = {
+  rootCause?: unknown;
+  trace?: unknown;
+  deepEvidence?: unknown;
+  plan?: unknown;
+  execution?: unknown;
+  contradictions?: unknown[];
+  affectedServices?: string[];
+  affectedHosts?: string[];
+  affectedCpIds?: string[];
+};
+
+export type CommanderResult =
+  | { ok: true; mode: CommanderMode; endpoint: string; model: string; response: CommanderResponse; notice: string }
+  | { ok: false; reason: string; message: string; response: CommanderResponse };
+
+export async function aiCommanderHealth(timeoutMs = 2500): Promise<{ ok: true; available: boolean; reason?: string } | { ok: false; error: string }> {
+  const url = getBackendUrl().replace(/\/$/, "") + "/api/ai/commander/health";
+  const ctrl = new AbortController();
+  const t = setTimeout(() => ctrl.abort(), timeoutMs);
+  try {
+    const res = await fetch(url, { signal: ctrl.signal });
+    if (!res.ok) return { ok: false, error: `HTTP ${res.status}` };
+    return await res.json();
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : String(err) };
+  } finally { clearTimeout(t); }
+}
+
+export async function aiCommanderRun(opts: { mode: CommanderMode; context: CommanderContext; endpoint?: string; model?: string }, timeoutMs = 35_000): Promise<CommanderResult> {
+  const url = getBackendUrl().replace(/\/$/, "") + "/api/ai/commander";
+  const ctrl = new AbortController();
+  const t = setTimeout(() => ctrl.abort(), timeoutMs);
+  try {
+    const res = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(opts),
+      signal: ctrl.signal,
+    });
+    const data = (await res.json()) as CommanderResult;
+    return data;
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    return {
+      ok: false,
+      reason: "client_network_error",
+      message: `AI Commander unreachable. Deterministic engine still active. (${msg})`,
+      response: {
+        mode: opts.mode,
+        executiveSummary: "AI Commander unavailable.",
+        technicianExplanation: "",
+        evidenceThatMatters: [],
+        contradictions: [],
+        ruledOutCauses: [],
+        riskExplanation: "",
+        recommendedNextStep: "Retry AI analysis.",
+        customerSafeSummary: "",
+        internalTechnicalSummary: "",
+        developerDebugSummary: "",
+        confidenceWarning: "AI request failed.",
+        safetyWarning: "Deterministic engine remains active.",
+      },
+    };
+  } finally { clearTimeout(t); }
+}
