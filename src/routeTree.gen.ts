@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as TraceRouteImport } from './routes/trace'
 import { Route as LogsRouteImport } from './routes/logs'
+import { Route as EvidenceRouteImport } from './routes/evidence'
 import { Route as EscalationRouteImport } from './routes/escalation'
 import { Route as DiagnosisRouteImport } from './routes/diagnosis'
 import { Route as AutopilotRouteImport } from './routes/autopilot'
@@ -24,6 +25,11 @@ const TraceRoute = TraceRouteImport.update({
 const LogsRoute = LogsRouteImport.update({
   id: '/logs',
   path: '/logs',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const EvidenceRoute = EvidenceRouteImport.update({
+  id: '/evidence',
+  path: '/evidence',
   getParentRoute: () => rootRouteImport,
 } as any)
 const EscalationRoute = EscalationRouteImport.update({
@@ -52,6 +58,7 @@ export interface FileRoutesByFullPath {
   '/autopilot': typeof AutopilotRoute
   '/diagnosis': typeof DiagnosisRoute
   '/escalation': typeof EscalationRoute
+  '/evidence': typeof EvidenceRoute
   '/logs': typeof LogsRoute
   '/trace': typeof TraceRoute
 }
@@ -60,6 +67,7 @@ export interface FileRoutesByTo {
   '/autopilot': typeof AutopilotRoute
   '/diagnosis': typeof DiagnosisRoute
   '/escalation': typeof EscalationRoute
+  '/evidence': typeof EvidenceRoute
   '/logs': typeof LogsRoute
   '/trace': typeof TraceRoute
 }
@@ -69,6 +77,7 @@ export interface FileRoutesById {
   '/autopilot': typeof AutopilotRoute
   '/diagnosis': typeof DiagnosisRoute
   '/escalation': typeof EscalationRoute
+  '/evidence': typeof EvidenceRoute
   '/logs': typeof LogsRoute
   '/trace': typeof TraceRoute
 }
@@ -79,16 +88,25 @@ export interface FileRouteTypes {
     | '/autopilot'
     | '/diagnosis'
     | '/escalation'
+    | '/evidence'
     | '/logs'
     | '/trace'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/autopilot' | '/diagnosis' | '/escalation' | '/logs' | '/trace'
+  to:
+    | '/'
+    | '/autopilot'
+    | '/diagnosis'
+    | '/escalation'
+    | '/evidence'
+    | '/logs'
+    | '/trace'
   id:
     | '__root__'
     | '/'
     | '/autopilot'
     | '/diagnosis'
     | '/escalation'
+    | '/evidence'
     | '/logs'
     | '/trace'
   fileRoutesById: FileRoutesById
@@ -98,6 +116,7 @@ export interface RootRouteChildren {
   AutopilotRoute: typeof AutopilotRoute
   DiagnosisRoute: typeof DiagnosisRoute
   EscalationRoute: typeof EscalationRoute
+  EvidenceRoute: typeof EvidenceRoute
   LogsRoute: typeof LogsRoute
   TraceRoute: typeof TraceRoute
 }
@@ -116,6 +135,13 @@ declare module '@tanstack/react-router' {
       path: '/logs'
       fullPath: '/logs'
       preLoaderRoute: typeof LogsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/evidence': {
+      id: '/evidence'
+      path: '/evidence'
+      fullPath: '/evidence'
+      preLoaderRoute: typeof EvidenceRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/escalation': {
@@ -154,6 +180,7 @@ const rootRouteChildren: RootRouteChildren = {
   AutopilotRoute: AutopilotRoute,
   DiagnosisRoute: DiagnosisRoute,
   EscalationRoute: EscalationRoute,
+  EvidenceRoute: EvidenceRoute,
   LogsRoute: LogsRoute,
   TraceRoute: TraceRoute,
 }
