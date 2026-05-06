@@ -15,6 +15,7 @@
 import express from "express";
 import cors from "cors";
 import os from "node:os";
+import http from "node:http";
 import { runDiagnosis } from "./lib/diagnose.js";
 import { analyzeLogs } from "./lib/logs.js";
 import { testSshAuth, pullLogs } from "./lib/ssh.js";
@@ -48,6 +49,7 @@ import { icmpProbe } from "./lib/probes/icmpProbe.js";
 import { tcpProbe as tcpProbeFn } from "./lib/probes/tcpProbe.js";
 import { httpsProbe } from "./lib/probes/httpsProbe.js";
 import { mqttConnectProbe } from "./lib/probes/mqttConnectProbe.js";
+import { attachWsBus, wsClientCount } from "./lib/wsBus.js";
 
 const PORT = Number(process.env.PORT || 3001);
 const BIND = process.env.BIND_HOST || "0.0.0.0"; // change to 127.0.0.1 for localhost-only
@@ -522,8 +524,15 @@ app.get("/api/monitor/status", (_req, res) => {
   res.json({ ok: true, ...schedulerStatus() });
 });
 
-app.listen(PORT, BIND, () => {
+app.get("/api/monitor/ws-info", (_req, res) => {
+  res.json({ ok: true, path: "/ws/monitor", clients: wsClientCount() });
+});
+
+const httpServer = http.createServer(app);
+attachWsBus(httpServer, { path: "/ws/monitor" });
+httpServer.listen(PORT, BIND, () => {
   const v = vmInfo();
   console.log(`[tacera-agent] listening on http://${BIND}:${PORT}`);
+  console.log(`[tacera-agent] ws bus on    ws://${BIND}:${PORT}/ws/monitor`);
   console.log(`[tacera-agent] VM: ${v.hostname}  IPs: ${v.addrs.join(", ") || "(none)"}`);
 });

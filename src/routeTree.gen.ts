@@ -10,6 +10,7 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as TraceRouteImport } from './routes/trace'
+import { Route as MonitorRouteImport } from './routes/monitor'
 import { Route as LogsRouteImport } from './routes/logs'
 import { Route as ImportHistoryRouteImport } from './routes/import-history'
 import { Route as EvidenceRouteImport } from './routes/evidence'
@@ -18,11 +19,18 @@ import { Route as DiagnosisRouteImport } from './routes/diagnosis'
 import { Route as AutopilotRouteImport } from './routes/autopilot'
 import { Route as AiCommanderRouteImport } from './routes/ai-commander'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as MonitorDevicesRouteImport } from './routes/monitor.devices'
+import { Route as MonitorIdRouteImport } from './routes/monitor.$id'
 import { Route as EvidencePlaybackRouteImport } from './routes/evidence.playback'
 
 const TraceRoute = TraceRouteImport.update({
   id: '/trace',
   path: '/trace',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const MonitorRoute = MonitorRouteImport.update({
+  id: '/monitor',
+  path: '/monitor',
   getParentRoute: () => rootRouteImport,
 } as any)
 const LogsRoute = LogsRouteImport.update({
@@ -65,6 +73,16 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const MonitorDevicesRoute = MonitorDevicesRouteImport.update({
+  id: '/devices',
+  path: '/devices',
+  getParentRoute: () => MonitorRoute,
+} as any)
+const MonitorIdRoute = MonitorIdRouteImport.update({
+  id: '/$id',
+  path: '/$id',
+  getParentRoute: () => MonitorRoute,
+} as any)
 const EvidencePlaybackRoute = EvidencePlaybackRouteImport.update({
   id: '/playback',
   path: '/playback',
@@ -80,8 +98,11 @@ export interface FileRoutesByFullPath {
   '/evidence': typeof EvidenceRouteWithChildren
   '/import-history': typeof ImportHistoryRoute
   '/logs': typeof LogsRoute
+  '/monitor': typeof MonitorRouteWithChildren
   '/trace': typeof TraceRoute
   '/evidence/playback': typeof EvidencePlaybackRoute
+  '/monitor/$id': typeof MonitorIdRoute
+  '/monitor/devices': typeof MonitorDevicesRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -92,8 +113,11 @@ export interface FileRoutesByTo {
   '/evidence': typeof EvidenceRouteWithChildren
   '/import-history': typeof ImportHistoryRoute
   '/logs': typeof LogsRoute
+  '/monitor': typeof MonitorRouteWithChildren
   '/trace': typeof TraceRoute
   '/evidence/playback': typeof EvidencePlaybackRoute
+  '/monitor/$id': typeof MonitorIdRoute
+  '/monitor/devices': typeof MonitorDevicesRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -105,8 +129,11 @@ export interface FileRoutesById {
   '/evidence': typeof EvidenceRouteWithChildren
   '/import-history': typeof ImportHistoryRoute
   '/logs': typeof LogsRoute
+  '/monitor': typeof MonitorRouteWithChildren
   '/trace': typeof TraceRoute
   '/evidence/playback': typeof EvidencePlaybackRoute
+  '/monitor/$id': typeof MonitorIdRoute
+  '/monitor/devices': typeof MonitorDevicesRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -119,8 +146,11 @@ export interface FileRouteTypes {
     | '/evidence'
     | '/import-history'
     | '/logs'
+    | '/monitor'
     | '/trace'
     | '/evidence/playback'
+    | '/monitor/$id'
+    | '/monitor/devices'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -131,8 +161,11 @@ export interface FileRouteTypes {
     | '/evidence'
     | '/import-history'
     | '/logs'
+    | '/monitor'
     | '/trace'
     | '/evidence/playback'
+    | '/monitor/$id'
+    | '/monitor/devices'
   id:
     | '__root__'
     | '/'
@@ -143,8 +176,11 @@ export interface FileRouteTypes {
     | '/evidence'
     | '/import-history'
     | '/logs'
+    | '/monitor'
     | '/trace'
     | '/evidence/playback'
+    | '/monitor/$id'
+    | '/monitor/devices'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -156,6 +192,7 @@ export interface RootRouteChildren {
   EvidenceRoute: typeof EvidenceRouteWithChildren
   ImportHistoryRoute: typeof ImportHistoryRoute
   LogsRoute: typeof LogsRoute
+  MonitorRoute: typeof MonitorRouteWithChildren
   TraceRoute: typeof TraceRoute
 }
 
@@ -166,6 +203,13 @@ declare module '@tanstack/react-router' {
       path: '/trace'
       fullPath: '/trace'
       preLoaderRoute: typeof TraceRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/monitor': {
+      id: '/monitor'
+      path: '/monitor'
+      fullPath: '/monitor'
+      preLoaderRoute: typeof MonitorRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/logs': {
@@ -224,6 +268,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/monitor/devices': {
+      id: '/monitor/devices'
+      path: '/devices'
+      fullPath: '/monitor/devices'
+      preLoaderRoute: typeof MonitorDevicesRouteImport
+      parentRoute: typeof MonitorRoute
+    }
+    '/monitor/$id': {
+      id: '/monitor/$id'
+      path: '/$id'
+      fullPath: '/monitor/$id'
+      preLoaderRoute: typeof MonitorIdRouteImport
+      parentRoute: typeof MonitorRoute
+    }
     '/evidence/playback': {
       id: '/evidence/playback'
       path: '/playback'
@@ -246,6 +304,19 @@ const EvidenceRouteWithChildren = EvidenceRoute._addFileChildren(
   EvidenceRouteChildren,
 )
 
+interface MonitorRouteChildren {
+  MonitorIdRoute: typeof MonitorIdRoute
+  MonitorDevicesRoute: typeof MonitorDevicesRoute
+}
+
+const MonitorRouteChildren: MonitorRouteChildren = {
+  MonitorIdRoute: MonitorIdRoute,
+  MonitorDevicesRoute: MonitorDevicesRoute,
+}
+
+const MonitorRouteWithChildren =
+  MonitorRoute._addFileChildren(MonitorRouteChildren)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AiCommanderRoute: AiCommanderRoute,
@@ -255,6 +326,7 @@ const rootRouteChildren: RootRouteChildren = {
   EvidenceRoute: EvidenceRouteWithChildren,
   ImportHistoryRoute: ImportHistoryRoute,
   LogsRoute: LogsRoute,
+  MonitorRoute: MonitorRouteWithChildren,
   TraceRoute: TraceRoute,
 }
 export const routeTree = rootRouteImport
