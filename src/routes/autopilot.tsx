@@ -407,6 +407,13 @@ function AutopilotPage() {
           ))}
         </section>
       ) : null}
+
+      <AddAutopilotServiceDialog
+        open={serviceDialogOpen}
+        onOpenChange={setServiceDialogOpen}
+        initial={editingService}
+        onSaved={() => setEditingService(null)}
+      />
     </div>
   );
 }
