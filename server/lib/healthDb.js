@@ -78,9 +78,30 @@ export function openDb(filePath = DEFAULT_PATH) {
       FOREIGN KEY (device_id) REFERENCES devices(id) ON DELETE CASCADE
     );
   `);
+  // Additive Phase 7 columns. Idempotent — only adds if missing.
+  migrateDevicesAddTaceraColumns(db);
   dbPath = filePath;
   openedAt = new Date().toISOString();
   return db;
+}
+
+function migrateDevicesAddTaceraColumns(d) {
+  const cols = d.prepare("PRAGMA table_info(devices)").all().map((c) => c.name);
+  const additions = [
+    ["device_type",      "TEXT"],
+    ["critical",         "INTEGER DEFAULT 0"],
+    ["parent_device_id", "TEXT"],
+    ["mqtt_topics",      "TEXT"],   // JSON
+    ["expected_services","TEXT"],   // JSON
+    ["site_zone",        "TEXT"],
+    ["dependencies",     "TEXT"],   // JSON
+  ];
+  for (const [col, type] of additions) {
+    if (!cols.includes(col)) {
+      try { d.exec(`ALTER TABLE devices ADD COLUMN ${col} ${type}`); }
+      catch (err) { console.warn(`[healthDb] could not add column ${col}:`, err?.message || err); }
+    }
+  }
 }
 
 export function closeDb() {
@@ -107,6 +128,15 @@ export function upsertDevice(d) {
     throw new Error("upsertDevice requires { id, kind, protocol }");
   }
   const now = new Date().toISOString();
+  const meta = stripSecrets(d.meta) || {};
+  // Tacera-aware fields can be passed at the top level OR inside meta.
+  const deviceType = d.deviceType ?? meta.taceraType ?? null;
+  const critical = d.critical === true || meta.critical === true ? 1 : 0;
+  const parentDeviceId = d.parentDeviceId ?? meta.parentDeviceId ?? null;
+  const mqttTopics = JSON.stringify(d.mqttTopics ?? meta.mqttTopics ?? []);
+  const expectedServices = JSON.stringify(d.expectedServices ?? meta.expectedServices ?? []);
+  const siteZone = d.siteZone ?? meta.siteZone ?? null;
+  const dependencies = JSON.stringify(d.dependencies ?? meta.dependencies ?? []);
   const row = {
     id: String(d.id),
     name: d.name ?? null,
@@ -118,15 +148,30 @@ export function upsertDevice(d) {
     tls: d.tls ? 1 : 0,
     interval_ms: Number(d.intervalMs) || 30000,
     enabled: d.enabled === false ? 0 : 1,
-    meta: JSON.stringify(stripSecrets(d.meta) || {}),
+    meta: JSON.stringify(meta),
+    device_type: deviceType,
+    critical,
+    parent_device_id: parentDeviceId,
+    mqtt_topics: mqttTopics,
+    expected_services: expectedServices,
+    site_zone: siteZone,
+    dependencies,
   };
   getDb().prepare(`
-    INSERT INTO devices (id, name, kind, protocol, host, port, url, tls, interval_ms, enabled, meta, created_at, updated_at)
-    VALUES (@id, @name, @kind, @protocol, @host, @port, @url, @tls, @interval_ms, @enabled, @meta, @now, @now)
+    INSERT INTO devices (id, name, kind, protocol, host, port, url, tls, interval_ms, enabled, meta,
+                         device_type, critical, parent_device_id, mqtt_topics, expected_services, site_zone, dependencies,
+                         created_at, updated_at)
+    VALUES (@id, @name, @kind, @protocol, @host, @port, @url, @tls, @interval_ms, @enabled, @meta,
+            @device_type, @critical, @parent_device_id, @mqtt_topics, @expected_services, @site_zone, @dependencies,
+            @now, @now)
     ON CONFLICT(id) DO UPDATE SET
       name=excluded.name, kind=excluded.kind, protocol=excluded.protocol,
       host=excluded.host, port=excluded.port, url=excluded.url, tls=excluded.tls,
       interval_ms=excluded.interval_ms, enabled=excluded.enabled, meta=excluded.meta,
+      device_type=excluded.device_type, critical=excluded.critical,
+      parent_device_id=excluded.parent_device_id, mqtt_topics=excluded.mqtt_topics,
+      expected_services=excluded.expected_services, site_zone=excluded.site_zone,
+      dependencies=excluded.dependencies,
       updated_at=excluded.updated_at
   `).run({ ...row, now });
   return getDevice(row.id);
@@ -155,6 +200,13 @@ function hydrateDevice(r) {
     host: r.host, port: r.port, url: r.url, tls: r.tls === 1,
     intervalMs: r.interval_ms, enabled: r.enabled === 1,
     meta: r.meta ? safeJson(r.meta) : {},
+    deviceType: r.device_type ?? null,
+    critical: r.critical === 1,
+    parentDeviceId: r.parent_device_id ?? null,
+    mqttTopics: r.mqtt_topics ? safeJson(r.mqtt_topics) : [],
+    expectedServices: r.expected_services ? safeJson(r.expected_services) : [],
+    siteZone: r.site_zone ?? null,
+    dependencies: r.dependencies ? safeJson(r.dependencies) : [],
     createdAt: r.created_at, updatedAt: r.updated_at,
   };
 }

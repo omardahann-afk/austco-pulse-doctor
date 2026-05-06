@@ -52,6 +52,7 @@ import { mqttConnectProbe } from "./lib/probes/mqttConnectProbe.js";
 import { attachWsBus, wsClientCount } from "./lib/wsBus.js";
 import multer from "multer";
 import { parseCcpZipBuffer, isZipBuffer } from "./lib/ccpZipParser.js";
+import { readSiteConfig, writeSiteConfig, siteConfigInfo } from "./lib/siteConfigStore.js";
 
 const PORT = Number(process.env.PORT || 3001);
 const BIND = process.env.BIND_HOST || "0.0.0.0"; // change to 127.0.0.1 for localhost-only
@@ -417,7 +418,7 @@ app.post("/api/evidence/mock/clear", (_req, res) => {
  * timestamp, protocol, device, and raw payload.
  */
 
-const ALLOWED_PROTOCOLS = new Set(["icmp", "tcp", "http", "https", "mqtt"]);
+const ALLOWED_PROTOCOLS = new Set(["icmp", "tcp", "http", "https", "mqtt", "mqtt-fresh", "webmin"]);
 
 function validateDeviceInput(body) {
   const errors = [];
@@ -434,11 +435,11 @@ function validateDeviceInput(body) {
   }
   if (protocol === "https" || protocol === "http") {
     if (!body.url || typeof body.url !== "string") errors.push("url required for http/https");
-  } else if (protocol === "mqtt" || protocol === "tcp") {
+  } else if (protocol === "mqtt" || protocol === "mqtt-fresh" || protocol === "tcp") {
     if (!body.host) errors.push("host required");
     if (protocol === "tcp" && !Number.isInteger(Number(body.port))) errors.push("port required for tcp");
-  } else if (protocol === "icmp") {
-    if (!body.host) errors.push("host required for icmp");
+  } else if (protocol === "icmp" || protocol === "webmin") {
+    if (!body.host) errors.push(`host required for ${protocol}`);
   }
   return { errors, id, protocol, kind, intervalMs };
 }
@@ -506,6 +507,14 @@ app.post("/api/monitor/probe", async (req, res) => {
       case "http":
       case "https": evidence = await httpsProbe(device); break;
       case "mqtt": evidence = await mqttConnectProbe(device); break;
+      case "mqtt-fresh": {
+        const { mqttFreshnessProbe } = await import("./lib/probes/mqttFreshnessProbe.js");
+        evidence = await mqttFreshnessProbe(device); break;
+      }
+      case "webmin": {
+        const { webminProbe } = await import("./lib/probes/webminProbe.js");
+        evidence = await webminProbe(device); break;
+      }
       default: return res.status(400).json({ ok: false, reason: "unsupported_protocol" });
     }
     res.json({ ok: true, evidence });
@@ -556,6 +565,44 @@ app.post("/api/ccp/parse", ccpUpload.single("file"), (req, res) => {
     }
     const result = parseCcpZipBuffer(buf, { filename });
     res.json({ ok: true, result });
+  } catch (err) {
+    res.status(500).json({ ok: false, reason: "agent_error", message: err?.message || String(err) });
+  }
+});
+
+/* ------------------------------------------------------------------ */
+/* Site Config — persistent JSON store backing the global Zustand     */
+/* store on the frontend. Phase 7A.                                   */
+/* ------------------------------------------------------------------ */
+app.get("/api/site-config", (_req, res) => {
+  try {
+    const config = readSiteConfig();
+    res.json({ ok: true, config: config || null, info: siteConfigInfo() });
+  } catch (err) {
+    res.status(500).json({ ok: false, reason: "agent_error", message: err?.message || String(err) });
+  }
+});
+
+app.put("/api/site-config", (req, res) => {
+  try {
+    if (!req.body || typeof req.body !== "object") {
+      return res.status(400).json({ ok: false, reason: "invalid_request", message: "JSON body required" });
+    }
+    const info = writeSiteConfig(req.body);
+    res.json({ ok: true, info });
+  } catch (err) {
+    res.status(500).json({ ok: false, reason: "agent_error", message: err?.message || String(err) });
+  }
+});
+
+// Convenience POST alias — same as PUT (replaces full config).
+app.post("/api/site-config", (req, res) => {
+  try {
+    if (!req.body || typeof req.body !== "object") {
+      return res.status(400).json({ ok: false, reason: "invalid_request", message: "JSON body required" });
+    }
+    const info = writeSiteConfig(req.body);
+    res.json({ ok: true, info });
   } catch (err) {
     res.status(500).json({ ok: false, reason: "agent_error", message: err?.message || String(err) });
   }
