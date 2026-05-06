@@ -449,6 +449,9 @@ function CommandCenter() {
             <Button type="button" variant="outline" size="sm" onClick={saveCfgNow}><Save className="mr-1.5 h-3.5 w-3.5" /> Save Config</Button>
             <Button type="button" variant="outline" size="sm" onClick={loadCfgNow}><FolderOpen className="mr-1.5 h-3.5 w-3.5" /> Load Saved Config</Button>
             <Button type="button" variant="outline" size="sm" onClick={clearAll}><Trash2 className="mr-1.5 h-3.5 w-3.5" /> Clear Config</Button>
+            <Button asChild type="button" variant="outline" size="sm">
+              <Link to="/import-history"><History className="mr-1.5 h-3.5 w-3.5" /> Import History</Link>
+            </Button>
           </CardContent>
         </Card>
 
@@ -470,6 +473,18 @@ function CommandCenter() {
           {info && !error && <div className="mx-4 mb-4 rounded border border-info/40 bg-info/10 px-3 py-2 text-xs text-info">{info}</div>}
         </Card>
       </form>
+
+      <CcpImportPreview
+        open={previewOpen}
+        onOpenChange={(v) => { if (!v) cancelCcpImport(); else setPreviewOpen(v); }}
+        filename={previewFile?.name || ""}
+        fileSizeBytes={previewFile?.size || 0}
+        parsed={previewParsed}
+        diff={previewDiff}
+        hasExistingConfig={(cfg.controllers.length + cfg.modules.length) > 0}
+        onConfirm={confirmCcpImport}
+        onCancel={cancelCcpImport}
+      />
     </div>
   );
 }
