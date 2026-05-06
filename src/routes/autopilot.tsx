@@ -67,7 +67,9 @@ function RiskPill({ risk }: { risk: AutopilotRisk }) {
 }
 
 function AutopilotPage() {
-  const [registryCount, setRegistryCount] = useState(0);
+  const [services, setServices] = useState<AutopilotService[]>([]);
+  const [serviceDialogOpen, setServiceDialogOpen] = useState(false);
+  const [editingService, setEditingService] = useState<AutopilotService | null>(null);
   const [status, setStatus] = useState<AutopilotStatus | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
@@ -88,24 +90,21 @@ function AutopilotPage() {
   };
 
   useEffect(() => {
-    const refreshRegistryCount = async () => {
+    const refreshServices = async () => {
       try {
-        const registry = await monitorApi.devices();
-        setRegistryCount(registry.ok ? registry.devices.length : 0);
+        const r = await autopilotServicesApi.list();
+        setServices(r.ok ? r.services : []);
       } catch {
-        setRegistryCount(0);
+        setServices([]);
       }
     };
 
     refresh();
-    void refreshRegistryCount();
+    void refreshServices();
 
-    const handleRegistryUpdated = () => {
-      void refreshRegistryCount();
-    };
-
+    const handleUpdated = () => { void refreshServices(); };
     if (typeof window !== "undefined") {
-      window.addEventListener(MONITOR_REGISTRY_UPDATED_EVENT, handleRegistryUpdated);
+      window.addEventListener(AUTOPILOT_SERVICES_UPDATED_EVENT, handleUpdated);
     }
 
     (async () => {
@@ -118,12 +117,43 @@ function AutopilotPage() {
     })();
     return () => {
       if (typeof window !== "undefined") {
-        window.removeEventListener(MONITOR_REGISTRY_UPDATED_EVENT, handleRegistryUpdated);
+        window.removeEventListener(AUTOPILOT_SERVICES_UPDATED_EVENT, handleUpdated);
       }
     };
   }, []);
 
-  const enabledServices = useMemo(() => loadSiteConfig().services.filter((s) => s.enabled !== false), []);
+  const enabledServices = useMemo(
+    () => services.filter((s) => s.enabled !== false).map((s) => ({
+      id: s.id,
+      role: s.role || s.type,
+      name: s.name,
+      host: s.host,
+      hostname: s.host,
+      port: s.sshPort || 22,
+      username: s.sshUsername || "tech",
+      password: "",
+      saveCredentials: false,
+      enabled: true,
+      required: false,
+      logPaths: [],
+      notes: s.notes || "",
+      serviceManager: s.serviceManager,
+      systemdUnit: s.systemdUnit,
+      dockerContainer: s.dockerContainer,
+      webminPort: s.webminPort,
+    })),
+    [services],
+  );
+
+  async function handleDeleteService(id: string) {
+    if (!confirm("Delete this Autopilot service?")) return;
+    try {
+      await autopilotServicesApi.remove(id);
+      toast.success("Service removed");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : String(err));
+    }
+  }
 
   const scanNow = async () => {
     setBusy("scan"); setError(null);
@@ -160,7 +190,7 @@ function AutopilotPage() {
   const issues: AutopilotIssue[] = status?.lastScan?.issues ?? [];
 
   // Mission Control derived metrics — all from real data only.
-  const monitored = registryCount;
+  const monitored = services.filter((s) => s.enabled !== false).length;
   const needsAttention = status?.currentIssueCount ?? 0;
   const healthy = Math.max(0, monitored - needsAttention);
   const fixReady = (status?.recentPlans ?? []).filter((p) => p.riskLevel !== "HIGH").length;
