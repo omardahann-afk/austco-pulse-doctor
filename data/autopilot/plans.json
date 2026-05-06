@@ -1,0 +1,381 @@
+[
+  {
+    "planId": "plan_test_raw",
+    "createdAt": "2026-05-06T01:49:19.234Z",
+    "serviceId": "x",
+    "serviceName": "x",
+    "role": "x",
+    "host": "127.0.0.1",
+    "issueType": "test",
+    "rootCause": "test",
+    "confidence": 0,
+    "riskLevel": "LOW",
+    "requiresApproval": true,
+    "summary": "",
+    "evidence": [],
+    "actions": [
+      {
+        "id": "a-only",
+        "label": "Only known action",
+        "templateId": "noop",
+        "params": {},
+        "risk": "LOW",
+        "requiresSudo": false,
+        "command": "echo allowed",
+        "blocked": false,
+        "explanation": "",
+        "timeoutSeconds": 5,
+        "verifyCommand": null,
+        "verifyExpect": null,
+        "rollbackCommand": null
+      }
+    ],
+    "verification": "manual",
+    "rollbackAvailable": false,
+    "manualNotes": [],
+    "serviceRef": {
+      "id": "x",
+      "host": "127.0.0.1",
+      "port": 22,
+      "username": "root"
+    }
+  },
+  {
+    "planId": "plan_test_med",
+    "createdAt": "2026-05-06T01:49:19.230Z",
+    "serviceId": "x",
+    "serviceName": "x",
+    "role": "x",
+    "host": "127.0.0.1",
+    "issueType": "test",
+    "rootCause": "test",
+    "confidence": 0,
+    "riskLevel": "MEDIUM",
+    "requiresApproval": true,
+    "summary": "",
+    "evidence": [],
+    "actions": [
+      {
+        "id": "a-med",
+        "label": "Medium risk",
+        "templateId": "noop",
+        "params": {},
+        "risk": "MEDIUM",
+        "requiresSudo": false,
+        "command": "echo nope",
+        "blocked": false,
+        "explanation": "",
+        "timeoutSeconds": 5,
+        "verifyCommand": null,
+        "verifyExpect": null,
+        "rollbackCommand": null
+      }
+    ],
+    "verification": "manual",
+    "rollbackAvailable": false,
+    "manualNotes": [],
+    "serviceRef": {
+      "id": "x",
+      "host": "127.0.0.1",
+      "port": 22,
+      "username": "root"
+    }
+  },
+  {
+    "planId": "plan_test_high",
+    "createdAt": "2026-05-06T01:49:19.226Z",
+    "serviceId": "x",
+    "serviceName": "x",
+    "role": "x",
+    "host": "127.0.0.1",
+    "issueType": "test",
+    "rootCause": "test",
+    "confidence": 0,
+    "riskLevel": "HIGH",
+    "requiresApproval": true,
+    "summary": "",
+    "evidence": [],
+    "actions": [
+      {
+        "id": "a-high",
+        "label": "High risk",
+        "templateId": "noop",
+        "params": {},
+        "risk": "HIGH",
+        "requiresSudo": false,
+        "command": "echo nope",
+        "blocked": false,
+        "explanation": "",
+        "timeoutSeconds": 5,
+        "verifyCommand": null,
+        "verifyExpect": null,
+        "rollbackCommand": null
+      }
+    ],
+    "verification": "manual",
+    "rollbackAvailable": false,
+    "manualNotes": [],
+    "serviceRef": {
+      "id": "x",
+      "host": "127.0.0.1",
+      "port": 22,
+      "username": "root"
+    }
+  },
+  {
+    "planId": "plan_motefugn_lyxak8",
+    "createdAt": "2026-05-06T01:49:19.223Z",
+    "serviceId": "svc-pulse",
+    "serviceName": "Pulse Manage",
+    "role": "Pulse Manage",
+    "host": "127.0.0.1",
+    "issueType": "WEBMIN_DOWN",
+    "rootCause": "Webmin down",
+    "confidence": 0.85,
+    "riskLevel": "MEDIUM",
+    "requiresApproval": true,
+    "summary": "Webmin port 10000 closed while host reachable.",
+    "evidence": [
+      "[FAIL] tcp:22: Port 22 closed/blocked: ECONNREFUSED"
+    ],
+    "actions": [
+      {
+        "id": "act_dgto4kbd",
+        "label": "Test port 10000",
+        "templateId": "test_port",
+        "params": {
+          "port": 10000
+        },
+        "risk": "LOW",
+        "requiresSudo": false,
+        "command": "bash -lc 'exec 3<>/dev/tcp/127.0.0.1/10000 && echo open && exec 3<&- || echo closed'",
+        "explanation": "Read-only check (Test port 10000). No state change.",
+        "timeoutSeconds": 30,
+        "verifyCommand": null,
+        "verifyExpect": null,
+        "rollbackCommand": null,
+        "blocked": true,
+        "blockReason": "Plan built from DEV MOCK evidence — execution blocked."
+      },
+      {
+        "id": "act_ptni86dh",
+        "label": "systemctl status webmin",
+        "templateId": "systemctl_status",
+        "params": {
+          "unit": "webmin"
+        },
+        "risk": "LOW",
+        "requiresSudo": false,
+        "command": "systemctl status webmin --no-pager -n 30",
+        "explanation": "Read-only check (systemctl status webmin). No state change.",
+        "timeoutSeconds": 30,
+        "verifyCommand": null,
+        "verifyExpect": null,
+        "rollbackCommand": null,
+        "blocked": true,
+        "blockReason": "Plan built from DEV MOCK evidence — execution blocked."
+      },
+      {
+        "id": "act_2ngvy1q6",
+        "label": "Restart webmin",
+        "templateId": "systemctl_restart",
+        "params": {
+          "unit": "webmin"
+        },
+        "risk": "MEDIUM",
+        "requiresSudo": true,
+        "command": "sudo -n systemctl restart webmin",
+        "explanation": "Restart action (Restart webmin). Requires technician approval.",
+        "timeoutSeconds": 30,
+        "verifyCommand": "bash -lc 'exec 3<>/dev/tcp/127.0.0.1/10000 && echo open && exec 3<&- || echo closed'",
+        "verifyExpect": "open",
+        "rollbackCommand": null,
+        "blocked": true,
+        "blockReason": "Plan built from DEV MOCK evidence — execution blocked."
+      }
+    ],
+    "verification": "automatic",
+    "rollbackAvailable": false,
+    "manualNotes": [],
+    "serviceRef": {
+      "id": "svc-pulse",
+      "host": "127.0.0.1",
+      "port": 22,
+      "username": "root"
+    },
+    "deepEvidenceUsed": true,
+    "deepEvidenceSummary": {
+      "collectedAt": "2026-05-06T01:49:17.202Z",
+      "evidenceScore": 75,
+      "network": null,
+      "process": null,
+      "port": null,
+      "contradictions": [
+        {
+          "kind": "host_reachable_port_closed",
+          "why": "VM is alive but Webmin is not accepting connections on the expected port.",
+          "likelyLayer": "service",
+          "confidence": 0.9,
+          "sourceA": {
+            "layer": "network",
+            "said": "Ping 10.0.0.21 succeeded (1.2ms avg)"
+          },
+          "sourceB": {
+            "layer": "network",
+            "said": "TCP 10.0.0.21:10000 closed (ECONNREFUSED)"
+          },
+          "target": "Pulse Manage"
+        }
+      ]
+    },
+    "contradictions": [
+      {
+        "kind": "host_reachable_port_closed",
+        "why": "VM is alive but Webmin is not accepting connections on the expected port.",
+        "likelyLayer": "service",
+        "confidence": 0.9,
+        "sourceA": {
+          "layer": "network",
+          "said": "Ping 10.0.0.21 succeeded (1.2ms avg)"
+        },
+        "sourceB": {
+          "layer": "network",
+          "said": "TCP 10.0.0.21:10000 closed (ECONNREFUSED)"
+        },
+        "target": "Pulse Manage"
+      }
+    ],
+    "evidenceScore": 75,
+    "deepEvidenceCollectedAt": "2026-05-06T01:49:17.202Z",
+    "mockEvidence": true,
+    "mockTag": "host_reachable_port_closed"
+  },
+  {
+    "planId": "plan_motefswe_6o78fh",
+    "createdAt": "2026-05-06T01:49:17.198Z",
+    "serviceId": "svc-pulse",
+    "serviceName": "Pulse Manage",
+    "role": "Pulse Manage",
+    "host": "127.0.0.1",
+    "issueType": "WEBMIN_DOWN",
+    "rootCause": "Webmin down",
+    "confidence": 0.85,
+    "riskLevel": "MEDIUM",
+    "requiresApproval": true,
+    "summary": "Webmin port 10000 closed while host reachable.",
+    "evidence": [
+      "[FAIL] tcp:22: Port 22 closed/blocked: ECONNREFUSED"
+    ],
+    "actions": [
+      {
+        "id": "act_8ppcf85v",
+        "label": "Test port 10000",
+        "templateId": "test_port",
+        "params": {
+          "port": 10000
+        },
+        "risk": "LOW",
+        "requiresSudo": false,
+        "command": "bash -lc 'exec 3<>/dev/tcp/127.0.0.1/10000 && echo open && exec 3<&- || echo closed'",
+        "explanation": "Read-only check (Test port 10000). No state change.",
+        "timeoutSeconds": 30,
+        "verifyCommand": null,
+        "verifyExpect": null,
+        "rollbackCommand": null,
+        "blocked": true,
+        "blockReason": "Plan built from DEV MOCK evidence — execution blocked."
+      },
+      {
+        "id": "act_wysane7j",
+        "label": "systemctl status webmin",
+        "templateId": "systemctl_status",
+        "params": {
+          "unit": "webmin"
+        },
+        "risk": "LOW",
+        "requiresSudo": false,
+        "command": "systemctl status webmin --no-pager -n 30",
+        "explanation": "Read-only check (systemctl status webmin). No state change.",
+        "timeoutSeconds": 30,
+        "verifyCommand": null,
+        "verifyExpect": null,
+        "rollbackCommand": null,
+        "blocked": true,
+        "blockReason": "Plan built from DEV MOCK evidence — execution blocked."
+      },
+      {
+        "id": "act_db0p3ptt",
+        "label": "Restart webmin",
+        "templateId": "systemctl_restart",
+        "params": {
+          "unit": "webmin"
+        },
+        "risk": "MEDIUM",
+        "requiresSudo": true,
+        "command": "sudo -n systemctl restart webmin",
+        "explanation": "Restart action (Restart webmin). Requires technician approval.",
+        "timeoutSeconds": 30,
+        "verifyCommand": "bash -lc 'exec 3<>/dev/tcp/127.0.0.1/10000 && echo open && exec 3<&- || echo closed'",
+        "verifyExpect": "open",
+        "rollbackCommand": null,
+        "blocked": true,
+        "blockReason": "Plan built from DEV MOCK evidence — execution blocked."
+      }
+    ],
+    "verification": "automatic",
+    "rollbackAvailable": false,
+    "manualNotes": [],
+    "serviceRef": {
+      "id": "svc-pulse",
+      "host": "127.0.0.1",
+      "port": 22,
+      "username": "root"
+    },
+    "deepEvidenceUsed": true,
+    "deepEvidenceSummary": {
+      "collectedAt": "2026-05-06T01:49:15.153Z",
+      "evidenceScore": 75,
+      "network": null,
+      "process": null,
+      "port": null,
+      "contradictions": [
+        {
+          "kind": "host_reachable_port_closed",
+          "why": "VM is alive but Webmin is not accepting connections on the expected port.",
+          "likelyLayer": "service",
+          "confidence": 0.9,
+          "sourceA": {
+            "layer": "network",
+            "said": "Ping 10.0.0.21 succeeded (1.2ms avg)"
+          },
+          "sourceB": {
+            "layer": "network",
+            "said": "TCP 10.0.0.21:10000 closed (ECONNREFUSED)"
+          },
+          "target": "Pulse Manage"
+        }
+      ]
+    },
+    "contradictions": [
+      {
+        "kind": "host_reachable_port_closed",
+        "why": "VM is alive but Webmin is not accepting connections on the expected port.",
+        "likelyLayer": "service",
+        "confidence": 0.9,
+        "sourceA": {
+          "layer": "network",
+          "said": "Ping 10.0.0.21 succeeded (1.2ms avg)"
+        },
+        "sourceB": {
+          "layer": "network",
+          "said": "TCP 10.0.0.21:10000 closed (ECONNREFUSED)"
+        },
+        "target": "Pulse Manage"
+      }
+    ],
+    "evidenceScore": 75,
+    "deepEvidenceCollectedAt": "2026-05-06T01:49:15.153Z",
+    "mockEvidence": true,
+    "mockTag": "host_reachable_port_closed"
+  }
+]
