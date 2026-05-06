@@ -495,6 +495,12 @@ function PlanPanel(props: {
 
       {report && <ProofPanel plan={plan} report={report} />}
       {report && <ReportPanel report={report} />}
+      {report && (
+        <div className="flex flex-wrap gap-2">
+          <AiCommanderTrigger source="execution" mode="post_fix_analyst" context={{ plan, execution: report }} label="Analyze post-fix in AI Commander" />
+          <AiCommanderTrigger source="execution" mode="escalation_writer" context={{ plan, execution: report, rootCause: { primaryCause: plan.rootCause, confidence: plan.confidence } }} label="Draft escalation" />
+        </div>
+      )}
 
       {/* Audit trail — always visible alongside the plan */}
       <AuditTimeline plan={plan} report={report} approved={acknowledged} aiExplained={aiExplainedAt} lastScanAt={lastScanAt} />
