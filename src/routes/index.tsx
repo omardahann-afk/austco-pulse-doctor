@@ -17,7 +17,12 @@ import {
 } from "@/lib/siteConfig";
 import { checkHealth, runDiagnosis } from "@/lib/agentClient";
 import { ServicesPanel } from "@/components/ServicesPanel";
-import { parseCcp } from "@/lib/ccpParser";
+import { parseCcpSafe, type CcpParseResult } from "@/lib/ccpParser";
+import { CcpImportPreview } from "@/components/CcpImportPreview";
+import { diffCcpAgainstConfig, type CcpDiff } from "@/lib/ccpDiff";
+import { buildAuditFromParse, saveAuditEntry } from "@/lib/ccpAudit";
+import { Link } from "@tanstack/react-router";
+import { History } from "lucide-react";
 
 export const Route = createFileRoute("/")({
   head: () => ({ meta: [
@@ -51,6 +56,12 @@ function CommandCenter() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [info, setInfo] = useState<string | null>(null);
+
+  // CCP preview state
+  const [previewOpen, setPreviewOpen] = useState(false);
+  const [previewParsed, setPreviewParsed] = useState<CcpParseResult | null>(null);
+  const [previewFile, setPreviewFile] = useState<{ name: string; size: number; text: string; type: "ccp" | "json" | "unknown"; durationMs: number } | null>(null);
+  const [previewDiff, setPreviewDiff] = useState<CcpDiff | null>(null);
 
   useEffect(() => { setCfg(loadSiteConfig()); setBackend(getBackendUrl()); }, []);
 
@@ -121,76 +132,107 @@ function CommandCenter() {
     r.readAsText(file);
   }
 
+  function buildSiteConfigFromParsed(parsed: CcpParseResult, file: { name: string }): SiteConfig {
+    const ipOf = (v: string) => (v && v !== "unknown" ? v : "");
+    const controllerModules: ModuleEntry[] = parsed.controllers.map((c) => ({
+      id: newId(),
+      role: "Controller" as ModuleRole,
+      name: c.name && c.name !== "unknown" ? c.name : (c.controllerId !== "unknown" ? `Controller ${c.controllerId}` : "Controller"),
+      ip: ipOf(c.ip), hostname: "", vlan: "", expectedPorts: [],
+      notes: [
+        c.controllerId !== "unknown" ? `ControllerID: ${c.controllerId}` : "",
+        c.location !== "unknown" ? `Location: ${c.location}` : "",
+        `Imported from CCP (confidence: ${c.confidence})`,
+      ].filter(Boolean).join(" · "),
+    }));
+    const cpModules: ModuleEntry[] = parsed.devices
+      .filter((d) => d.address !== "unknown" || d.name !== "unknown")
+      .map((d) => ({
+        id: newId(), role: "Other" as ModuleRole,
+        name: d.name && d.name !== "unknown" ? d.name : `CP ${d.address}`,
+        ip: /^[0-9.]+$/.test(d.address) ? d.address : "",
+        hostname: "", vlan: "", expectedPorts: [],
+        notes: [
+          d.type !== "unknown" ? `Type: ${d.type}` : "",
+          d.controllerId !== "unknown" ? `Controller: ${d.controllerId}` : "",
+          d.room !== "unknown" ? `Room: ${d.room}` : "",
+          d.address && d.address !== "unknown" && !/^[0-9.]+$/.test(d.address) ? `Addr: ${d.address}` : "",
+          `Imported from CCP (confidence: ${d.confidence})`,
+        ].filter(Boolean).join(" · "),
+      }));
+    return {
+      ...EMPTY_SITE_CONFIG,
+      siteName: file.name.replace(/\.(ccp|json)$/i, ""),
+      siteNotes: `Imported from ${file.name} · CCP parser confidence: ${parsed.confidence}` +
+        (parsed.warnings.length ? ` · Warnings: ${parsed.warnings.join("; ")}` : ""),
+      modules: [...controllerModules, ...cpModules],
+      controllers: parsed.controllers.map((c) => ({
+        id: newId(),
+        name: c.name && c.name !== "unknown" ? c.name : `Controller ${c.controllerId}`,
+        ip: ipOf(c.ip),
+        controllerId: c.controllerId !== "unknown" ? c.controllerId : "",
+        area: c.location !== "unknown" ? c.location : "",
+        expectedPorts: [],
+        notes: `Imported from CCP (confidence: ${c.confidence})`,
+      })),
+    };
+  }
+
   function importCcp(file: File) {
     const r = new FileReader();
     r.onload = () => {
-      try {
-        const text = String(r.result || "");
-        const parsed = parseCcp(text);
-        if (parsed.status === "parse_failed") {
-          setError("CCP import failed — file does not contain recognizable Tacera/IPConnect markers.");
-          return;
-        }
-        const ipOf = (v: string) => (v && v !== "unknown" ? v : "");
-        const controllerModules: ModuleEntry[] = parsed.controllers.map((c) => ({
-          id: newId(),
-          role: "Controller" as ModuleRole,
-          name: c.name && c.name !== "unknown" ? c.name : (c.controllerId !== "unknown" ? `Controller ${c.controllerId}` : "Controller"),
-          ip: ipOf(c.ip),
-          hostname: "",
-          vlan: "",
-          expectedPorts: [],
-          notes: [
-            c.controllerId !== "unknown" ? `ControllerID: ${c.controllerId}` : "",
-            c.location !== "unknown" ? `Location: ${c.location}` : "",
-            `Imported from CCP (confidence: ${c.confidence})`,
-          ].filter(Boolean).join(" · "),
+      const text = String(r.result || "");
+      const t0 = Date.now();
+      const parsed = parseCcpSafe(text);
+      const durationMs = Date.now() - t0;
+      if (parsed.status === "parse_failed") {
+        // Still record the attempt in audit + show preview so the user can see the warnings
+        saveAuditEntry(buildAuditFromParse({
+          filename: file.name, fileType: "ccp", parsed, status: "failed",
+          rawText: text, technician: cfg.technician, durationMs,
+          previousConfig: cfg, newConfig: null,
         }));
-
-        // CP / device rows (callpoints, pendants, IPnet devices)
-        const cpModules: ModuleEntry[] = parsed.devices
-          .filter((d) => d.address !== "unknown" || d.name !== "unknown")
-          .map((d) => ({
-            id: newId(),
-            role: "Other" as ModuleRole,
-            name: d.name && d.name !== "unknown" ? d.name : `CP ${d.address}`,
-            ip: /^[0-9.]+$/.test(d.address) ? d.address : "",
-            hostname: "",
-            vlan: "",
-            expectedPorts: [],
-            notes: [
-              d.type !== "unknown" ? `Type: ${d.type}` : "",
-              d.controllerId !== "unknown" ? `Controller: ${d.controllerId}` : "",
-              d.room !== "unknown" ? `Room: ${d.room}` : "",
-              d.address && d.address !== "unknown" && !/^[0-9.]+$/.test(d.address) ? `Addr: ${d.address}` : "",
-              `Imported from CCP (confidence: ${d.confidence})`,
-            ].filter(Boolean).join(" · "),
-          }));
-
-        const next: SiteConfig = {
-          ...EMPTY_SITE_CONFIG,
-          siteName: file.name.replace(/\.ccp$/i, ""),
-          siteNotes: `Imported from ${file.name} · CCP parser confidence: ${parsed.confidence}` +
-            (parsed.warnings.length ? ` · Warnings: ${parsed.warnings.join("; ")}` : ""),
-          modules: [...controllerModules, ...cpModules],
-          controllers: parsed.controllers.map((c) => ({
-            id: newId(),
-            name: c.name && c.name !== "unknown" ? c.name : `Controller ${c.controllerId}`,
-            ip: ipOf(c.ip),
-            controllerId: c.controllerId !== "unknown" ? c.controllerId : "",
-            area: c.location !== "unknown" ? c.location : "",
-            expectedPorts: [],
-            notes: `Imported from CCP (confidence: ${c.confidence})`,
-          })),
-        };
-        setCfg(next);
-        const status = parsed.status === "parsed_low_confidence" ? " (low confidence — please verify)" : "";
-        setInfo(`CCP imported: ${parsed.controllers.length} controllers, ${parsed.devices.length} devices, ${parsed.rooms.length} rooms${status}.`);
-      } catch (err) {
-        setError(`CCP import failed — ${err instanceof Error ? err.message : String(err)}`);
+        setError("CCP parse failed. Preview shows what the parser saw.");
       }
+      const hasExisting = (cfg.controllers.length + cfg.modules.length) > 0;
+      const diff = hasExisting ? diffCcpAgainstConfig(parsed, cfg) : null;
+      setPreviewParsed(parsed);
+      setPreviewDiff(diff);
+      setPreviewFile({ name: file.name, size: text.length, text, type: "ccp", durationMs });
+      setPreviewOpen(true);
     };
     r.readAsText(file);
+  }
+
+  function confirmCcpImport() {
+    if (!previewParsed || !previewFile) return;
+    if (previewParsed.status === "parse_failed") { setPreviewOpen(false); return; }
+    const previousConfig = structuredClone(cfg);
+    const next = buildSiteConfigFromParsed(previewParsed, { name: previewFile.name });
+    setCfg(next);
+    saveSiteConfig(next);
+    saveAuditEntry(buildAuditFromParse({
+      filename: previewFile.name, fileType: previewFile.type, parsed: previewParsed,
+      status: previewParsed.status === "parsed_low_confidence" ? "low_confidence" : "imported",
+      rawText: previewFile.text, technician: cfg.technician, durationMs: previewFile.durationMs,
+      previousConfig, newConfig: next,
+    }));
+    const status = previewParsed.status === "parsed_low_confidence" ? " (low confidence — please verify)" : "";
+    setInfo(`CCP imported: ${previewParsed.controllers.length} controllers, ${previewParsed.devices.length} devices, ${previewParsed.rooms.length} rooms${status}.`);
+    setError(null);
+    setPreviewOpen(false);
+  }
+
+  function cancelCcpImport() {
+    if (previewParsed && previewFile) {
+      saveAuditEntry(buildAuditFromParse({
+        filename: previewFile.name, fileType: previewFile.type, parsed: previewParsed,
+        status: "preview_cancelled",
+        rawText: previewFile.text, technician: cfg.technician, durationMs: previewFile.durationMs,
+        previousConfig: cfg, newConfig: null,
+      }));
+    }
+    setPreviewOpen(false);
   }
 
   function importSiteConfig(file: File) {
@@ -407,6 +449,9 @@ function CommandCenter() {
             <Button type="button" variant="outline" size="sm" onClick={saveCfgNow}><Save className="mr-1.5 h-3.5 w-3.5" /> Save Config</Button>
             <Button type="button" variant="outline" size="sm" onClick={loadCfgNow}><FolderOpen className="mr-1.5 h-3.5 w-3.5" /> Load Saved Config</Button>
             <Button type="button" variant="outline" size="sm" onClick={clearAll}><Trash2 className="mr-1.5 h-3.5 w-3.5" /> Clear Config</Button>
+            <Button asChild type="button" variant="outline" size="sm">
+              <Link to="/import-history"><History className="mr-1.5 h-3.5 w-3.5" /> Import History</Link>
+            </Button>
           </CardContent>
         </Card>
 
@@ -428,6 +473,18 @@ function CommandCenter() {
           {info && !error && <div className="mx-4 mb-4 rounded border border-info/40 bg-info/10 px-3 py-2 text-xs text-info">{info}</div>}
         </Card>
       </form>
+
+      <CcpImportPreview
+        open={previewOpen}
+        onOpenChange={(v) => { if (!v) cancelCcpImport(); else setPreviewOpen(v); }}
+        filename={previewFile?.name || ""}
+        fileSizeBytes={previewFile?.size || 0}
+        parsed={previewParsed}
+        diff={previewDiff}
+        hasExistingConfig={(cfg.controllers.length + cfg.modules.length) > 0}
+        onConfirm={confirmCcpImport}
+        onCancel={cancelCcpImport}
+      />
     </div>
   );
 }
