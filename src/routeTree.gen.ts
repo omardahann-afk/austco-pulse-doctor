@@ -15,6 +15,7 @@ import { Route as EvidenceRouteImport } from './routes/evidence'
 import { Route as EscalationRouteImport } from './routes/escalation'
 import { Route as DiagnosisRouteImport } from './routes/diagnosis'
 import { Route as AutopilotRouteImport } from './routes/autopilot'
+import { Route as AiCommanderRouteImport } from './routes/ai-commander'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as EvidencePlaybackRouteImport } from './routes/evidence.playback'
 
@@ -48,6 +49,11 @@ const AutopilotRoute = AutopilotRouteImport.update({
   path: '/autopilot',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AiCommanderRoute = AiCommanderRouteImport.update({
+  id: '/ai-commander',
+  path: '/ai-commander',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
@@ -61,6 +67,7 @@ const EvidencePlaybackRoute = EvidencePlaybackRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/ai-commander': typeof AiCommanderRoute
   '/autopilot': typeof AutopilotRoute
   '/diagnosis': typeof DiagnosisRoute
   '/escalation': typeof EscalationRoute
@@ -71,6 +78,7 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/ai-commander': typeof AiCommanderRoute
   '/autopilot': typeof AutopilotRoute
   '/diagnosis': typeof DiagnosisRoute
   '/escalation': typeof EscalationRoute
@@ -82,6 +90,7 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/ai-commander': typeof AiCommanderRoute
   '/autopilot': typeof AutopilotRoute
   '/diagnosis': typeof DiagnosisRoute
   '/escalation': typeof EscalationRoute
@@ -94,6 +103,7 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/ai-commander'
     | '/autopilot'
     | '/diagnosis'
     | '/escalation'
@@ -104,6 +114,7 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/ai-commander'
     | '/autopilot'
     | '/diagnosis'
     | '/escalation'
@@ -114,6 +125,7 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/'
+    | '/ai-commander'
     | '/autopilot'
     | '/diagnosis'
     | '/escalation'
@@ -125,6 +137,7 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  AiCommanderRoute: typeof AiCommanderRoute
   AutopilotRoute: typeof AutopilotRoute
   DiagnosisRoute: typeof DiagnosisRoute
   EscalationRoute: typeof EscalationRoute
@@ -177,6 +190,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AutopilotRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/ai-commander': {
+      id: '/ai-commander'
+      path: '/ai-commander'
+      fullPath: '/ai-commander'
+      preLoaderRoute: typeof AiCommanderRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/': {
       id: '/'
       path: '/'
@@ -208,6 +228,7 @@ const EvidenceRouteWithChildren = EvidenceRoute._addFileChildren(
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  AiCommanderRoute: AiCommanderRoute,
   AutopilotRoute: AutopilotRoute,
   DiagnosisRoute: DiagnosisRoute,
   EscalationRoute: EscalationRoute,
