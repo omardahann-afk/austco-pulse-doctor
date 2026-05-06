@@ -17,6 +17,7 @@ const STATUS_TONE: Record<TraceNodeStatus, { cls: string; icon: typeof CheckCirc
   TIMEOUT:            { cls: "border-critical/60 bg-critical/15 text-critical shadow-[0_0_24px_-6px_var(--critical)]", icon: XCircle, label: "TIMEOUT" },
   CONFIG_MISMATCH:    { cls: "border-warning/60 bg-warning/15 text-warning",        icon: AlertTriangle,  label: "CONFIG MISMATCH" },
   UNREACHABLE:        { cls: "border-critical/60 bg-critical/15 text-critical",     icon: XCircle,        label: "UNREACHABLE" },
+  HOST_REACHABLE_PORT_CLOSED: { cls: "border-warning/60 bg-warning/15 text-warning", icon: AlertTriangle, label: "HOST REACHABLE / PORT CLOSED" },
   NOT_CONFIGURED:     { cls: "border-border bg-muted/20 text-muted-foreground",     icon: MinusCircle,    label: "NOT CONFIGURED" },
   NO_EVIDENCE:        { cls: "border-border bg-muted/20 text-muted-foreground",     icon: Info,           label: "NO EVIDENCE" },
   UNKNOWN:            { cls: "border-border bg-muted/20 text-muted-foreground",     icon: Info,           label: "UNKNOWN" },
