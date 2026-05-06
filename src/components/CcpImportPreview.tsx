@@ -15,7 +15,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Brain, AlertTriangle, AlertOctagon, Info, CheckCircle2, FileWarning, ShieldAlert } from "lucide-react";
 import { Link } from "@tanstack/react-router";
 import { setHandoff } from "@/lib/aiCommanderHandoff";
-import type { CcpParseResult, CcpWarning } from "@/lib/ccpParser";
+import type { CcpParseResult, CcpWarning, CcpArchiveFile, CcpPlugin, CcpEndpoint } from "@/lib/ccpParser";
 import type { CcpDiff } from "@/lib/ccpDiff";
 
 type Props = {
@@ -53,6 +53,7 @@ export function CcpImportPreview(props: Props) {
 
   const lowConfidence = (parsed?.confidenceScore ?? 0) < 60;
   const canImport = !!parsed && parsed.status !== "parse_failed";
+  const isZip = parsed?.status === "ccp_zip_detected" || !!parsed?.archive?.isZip;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -91,6 +92,11 @@ export function CcpImportPreview(props: Props) {
                   <Badge variant="outline" className="bg-muted/30">
                     {parsed.controllers.length} controllers · {parsed.devices.length} devices · {parsed.rooms.length} rooms
                   </Badge>
+                  {isZip && (
+                    <Badge variant="outline" className="bg-info/15 text-info border-info/40">
+                      CCP ZIP detected · {parsed.archive?.internalFileCount ?? 0} files · {parsed.archive?.xmlFileCount ?? 0} XML · {parsed.plugins?.length ?? 0} plugins · {parsed.endpoints?.length ?? 0} endpoints
+                    </Badge>
+                  )}
                   {parsed.parserMetrics && (
                     <Badge variant="outline" className="bg-muted/30 font-mono">
                       lines:{parsed.parserMetrics.linesRead} · matched:{parsed.parserMetrics.matchedSections} · unknown:{parsed.parserMetrics.unknownSections} · {parsed.parserMetrics.parseDurationMs}ms
@@ -135,6 +141,9 @@ export function CcpImportPreview(props: Props) {
                   <TabsTrigger value="devices">Devices ({parsed.devices.length})</TabsTrigger>
                   <TabsTrigger value="rooms">Rooms ({parsed.rooms.length})</TabsTrigger>
                   <TabsTrigger value="zones">Zones ({parsed.zones.length + parsed.groupSignals.length})</TabsTrigger>
+                  {isZip && <TabsTrigger value="files">Files ({parsed.archive?.internalFileCount ?? 0})</TabsTrigger>}
+                  {isZip && <TabsTrigger value="plugins">Plugins ({parsed.plugins?.length ?? 0})</TabsTrigger>}
+                  {isZip && <TabsTrigger value="endpoints">Endpoints ({parsed.endpoints?.length ?? 0})</TabsTrigger>}
                   <TabsTrigger value="unknown">Unknown ({(parsed.rawUnparsed || []).length})</TabsTrigger>
                   {hasExistingConfig && <TabsTrigger value="diff">Diff{diff ? ` (${diff.totals.added}/${diff.totals.changed}/${diff.totals.removed})` : ""}</TabsTrigger>}
                 </TabsList>
@@ -166,6 +175,21 @@ export function CcpImportPreview(props: Props) {
                     ]}
                   />
                 </TabsContent>
+                {isZip && (
+                  <TabsContent value="files">
+                    <FilesTab files={parsed.archive?.files || []} />
+                  </TabsContent>
+                )}
+                {isZip && (
+                  <TabsContent value="plugins">
+                    <PluginsTab plugins={parsed.plugins || []} />
+                  </TabsContent>
+                )}
+                {isZip && (
+                  <TabsContent value="endpoints">
+                    <EndpointsTab endpoints={parsed.endpoints || []} />
+                  </TabsContent>
+                )}
                 <TabsContent value="unknown">
                   {(parsed.rawUnparsed && parsed.rawUnparsed.length > 0) ? (
                     <pre className="max-h-64 overflow-auto rounded bg-muted/30 p-2 font-mono text-[11px] leading-relaxed">
