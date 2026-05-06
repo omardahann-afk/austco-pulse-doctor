@@ -255,6 +255,25 @@ function DevicesPage() {
               </div>
             </div>
 
+            <div>
+              <Label className="text-xs">Tacera device profile</Label>
+              <Select value={form.taceraType || "__none"}
+                onValueChange={(v) => v === "__none" ? update("taceraType", "") : applyTaceraProfile(v as TaceraDeviceType)}>
+                <SelectTrigger className="h-9"><SelectValue placeholder="None — generic device" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__none">None — generic device</SelectItem>
+                  {TACERA_DEVICE_PROFILES.map((p) => (
+                    <SelectItem key={p.type} value={p.type}>
+                      {p.category === "tacera" ? "🩺" : "🖥️"} {p.label}{p.critical ? " · CRITICAL" : ""}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {form.taceraType && (
+                <p className="mt-1 text-[11px] text-muted-foreground">{findProfile(form.taceraType as TaceraDeviceType)?.notes}</p>
+              )}
+            </div>
+
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <Label className="text-xs">ID (stable, no spaces)</Label>
@@ -310,6 +329,14 @@ function DevicesPage() {
               </div>
             )}
 
+            {showMqttTopics && (
+              <div>
+                <Label className="text-xs">MQTT topics (comma-separated)</Label>
+                <Input value={form.mqttTopicsCsv} onChange={(e) => update("mqttTopicsCsv", e.target.value)} placeholder="xcare/#, xcare/heartbeat/#" className="font-mono text-xs h-9" />
+                <p className="mt-1 text-[11px] text-muted-foreground">Probe subscribes briefly and reports the age of the most recent message.</p>
+              </div>
+            )}
+
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <Label className="text-xs">Interval (seconds)</Label>
@@ -319,6 +346,19 @@ function DevicesPage() {
                 <div className="flex h-9 w-full items-center justify-between rounded-md border border-border/40 bg-muted/20 px-3">
                   <Label className="text-xs">Enabled</Label>
                   <Switch checked={form.enabled} onCheckedChange={(v) => update("enabled", v)} />
+                </div>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label className="text-xs">Parent device ID (optional)</Label>
+                <Input value={form.parentDeviceId} onChange={(e) => update("parentDeviceId", e.target.value)} placeholder="ipc-primary-01" className="font-mono text-xs h-9" />
+              </div>
+              <div className="flex items-end">
+                <div className="flex h-9 w-full items-center justify-between rounded-md border border-border/40 bg-muted/20 px-3">
+                  <Label className="text-xs">Critical infra</Label>
+                  <Switch checked={form.critical} onCheckedChange={(v) => update("critical", v)} />
                 </div>
               </div>
             </div>
