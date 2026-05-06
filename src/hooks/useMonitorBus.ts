@@ -36,45 +36,49 @@ export function useMonitorBus() {
   const reconnectTimer = useRef<number | null>(null);
   const stopped = useRef(false);
 
+  const mergeRegistryRows = useCallback((rows: DeviceStateRow[]) => {
+    const stateRows = new Map(rows.map((row) => [row.id, row]));
+    for (const device of monitoredDevices) {
+      if (!stateRows.has(device.id)) {
+        stateRows.set(device.id, {
+          id: device.id,
+          name: device.name,
+          kind: device.kind,
+          protocol: device.protocol,
+          host: device.host,
+          port: device.port,
+          url: device.url,
+          enabled: device.enabled ? 1 : 0,
+          interval_ms: device.intervalMs,
+          state: "unknown",
+          last_ok_ts: null,
+          last_check_ts: null,
+          consecutive_fail: 0,
+          consecutive_ok: 0,
+          backoff_ms: 0,
+          latency_ms_avg: null,
+          packet_loss_pct: null,
+          last_error: null,
+        });
+      }
+    }
+    return Array.from(stateRows.values());
+  }, [monitoredDevices]);
+
   const applySnapshot = useCallback((rows: DeviceStateRow[]) => {
-    setDevices(new Map(rows.map((r) => [r.id, r])));
-  }, []);
+    setDevices(new Map(mergeRegistryRows(rows).map((r) => [r.id, r])));
+  }, [mergeRegistryRows]);
 
   const refreshHttp = useCallback(async () => {
     // HTTP fallback — also used as the initial fetch before WS hello arrives.
     try {
       const [s, st] = await Promise.all([monitorApi.state(), monitorApi.status()]);
       if (s.ok) {
-        const stateRows = new Map(s.devices.map((row) => [row.id, row]));
-        for (const device of monitoredDevices) {
-          if (!stateRows.has(device.id)) {
-            stateRows.set(device.id, {
-              id: device.id,
-              name: device.name,
-              kind: device.kind,
-              protocol: device.protocol,
-              host: device.host,
-              port: device.port,
-              url: device.url,
-              enabled: device.enabled ? 1 : 0,
-              interval_ms: device.intervalMs,
-              state: "unknown",
-              last_ok_ts: null,
-              last_check_ts: null,
-              consecutive_fail: 0,
-              consecutive_ok: 0,
-              backoff_ms: 0,
-              latency_ms_avg: null,
-              packet_loss_pct: null,
-              last_error: null,
-            });
-          }
-        }
-        applySnapshot(Array.from(stateRows.values()));
+        applySnapshot(s.devices);
       }
       if (st.ok) setScheduler({ running: st.running, startedAt: st.startedAt, scheduledDevices: st.scheduledDevices, inFlight: st.inFlight, options: st.options });
     } catch { /* offline — UI shows offline badge */ }
-  }, [applySnapshot, monitoredDevices]);
+  }, [applySnapshot]);
 
   const connect = useCallback(() => {
     if (stopped.current) return;
@@ -156,6 +160,10 @@ export function useMonitorBus() {
       try { wsRef.current?.close(); } catch { /* ignore */ }
     };
   }, [connect, refreshHttp]);
+
+  useEffect(() => {
+    setDevices((prev) => new Map(mergeRegistryRows(Array.from(prev.values())).map((row) => [row.id, row])));
+  }, [mergeRegistryRows]);
 
   const requestSnapshot = useCallback(() => {
     const ws = wsRef.current;
