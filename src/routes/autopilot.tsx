@@ -328,6 +328,7 @@ function ReportPanel({ report }: { report: AutopilotExecutionReport }) {
       <div className="flex items-center gap-2">
         {report.success ? <ShieldCheck className="h-4 w-4 text-success" /> : <ShieldAlert className="h-4 w-4 text-destructive" />}
         <span className="font-semibold">Execution {report.success ? "succeeded" : "failed"}</span>
+        {report.fixVerified && <span className="rounded bg-success/10 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-success">Fix verified</span>}
         <span className="text-muted-foreground">· {new Date(report.startedAt).toLocaleTimeString()} → {new Date(report.finishedAt).toLocaleTimeString()}</span>
       </div>
       {report.commandOutputs.map((r) => (
@@ -339,14 +340,38 @@ function ReportPanel({ report }: { report: AutopilotExecutionReport }) {
           {r.command && <pre className="mt-1 whitespace-pre-wrap font-mono text-[10px] text-muted-foreground">{r.command}</pre>}
           {r.stdout && <pre className="mt-1 max-h-40 overflow-auto whitespace-pre-wrap rounded bg-background/60 p-2 font-mono text-[10px]">{r.stdout}</pre>}
           {r.stderr && <pre className="mt-1 max-h-40 overflow-auto whitespace-pre-wrap rounded bg-destructive/10 p-2 font-mono text-[10px] text-destructive">{r.stderr}</pre>}
-          {r.verify && (
-            <div className="mt-1 text-[11px]">Verify: {r.verify.matched === false ? <span className="text-destructive">did not match</span> : r.verify.matched ? <span className="text-success">matched</span> : "ran"}</div>
+          {(r.before || r.verify) && (
+            <div className="mt-2 grid gap-2 sm:grid-cols-2">
+              <BeforeAfterBox label="Before" data={r.before} />
+              <BeforeAfterBox label="After" data={r.verify} />
+            </div>
           )}
+          {r.verifyCommand && <div className="mt-1 text-[10px] text-muted-foreground">Verify cmd: <span className="font-mono">{r.verifyCommand}</span>{r.verifyExpect ? ` (expect /${r.verifyExpect}/)` : ""}</div>}
         </details>
       ))}
       {report.nextSteps?.length > 0 && (
         <div className="text-muted-foreground">Next: {report.nextSteps.join(" · ")}</div>
       )}
+    </div>
+  );
+}
+
+function BeforeAfterBox({ label, data }: { label: string; data?: { ok: boolean; matched?: boolean; stdout?: string; stderr?: string } | null }) {
+  if (!data) return (
+    <div className="rounded border border-border/40 bg-background/40 p-2">
+      <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">{label}</div>
+      <div className="mt-1 text-[11px] text-muted-foreground">not captured</div>
+    </div>
+  );
+  const tone = data.matched === true ? "text-success" : data.matched === false ? "text-destructive" : "text-muted-foreground";
+  return (
+    <div className="rounded border border-border/40 bg-background/40 p-2">
+      <div className="flex items-center justify-between">
+        <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">{label}</div>
+        <div className={cn("text-[10px] font-semibold", tone)}>{data.matched === true ? "matched" : data.matched === false ? "did not match" : "ran"}</div>
+      </div>
+      {data.stdout && <pre className="mt-1 max-h-32 overflow-auto whitespace-pre-wrap font-mono text-[10px]">{data.stdout}</pre>}
+      {data.stderr && <pre className="mt-1 max-h-24 overflow-auto whitespace-pre-wrap font-mono text-[10px] text-destructive">{data.stderr}</pre>}
     </div>
   );
 }

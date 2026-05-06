@@ -13,6 +13,7 @@ import { runServiceDiagnosis } from "./services.js";
 import { matchPlaybook } from "./remediationPlaybooks.js";
 import { buildAllowlist, resolveCommand, execOverSsh } from "./sshExecutor.js";
 import { savePlan, loadPlan, saveExecution, saveScan, saveApproval, listRecentScans, listRecentPlans, listRecentExecutions } from "./autopilotStore.js";
+import { recordAutopilotResult } from "./serviceNow.js";
 
 const state = {
   loopRunning: false,
@@ -260,6 +261,15 @@ export async function executeActions({ planId, actionIds, password, acknowledged
     if (action.risk === "MEDIUM" && !acknowledged) { results.push({ actionId: id, label: action.label, ok: false, reason: "approval_required" }); continue; }
 
     const ssh = { host: plan.serviceRef.host, port: plan.serviceRef.port || 22, username: plan.serviceRef.username, password };
+    // Capture BEFORE state for actions that have a verify command (so the
+    // technician sees a real before/after comparison, not just an "after").
+    let beforeRes = null;
+    if (action.verifyCommand && action.risk !== "LOW") {
+      beforeRes = await execOverSsh(ssh, action.verifyCommand, 15_000);
+      if (action.verifyExpect) {
+        try { beforeRes.matched = new RegExp(action.verifyExpect, "m").test(beforeRes.stdout || ""); } catch {}
+      }
+    }
     const cmdRes = await execOverSsh(ssh, action.command, (action.timeoutSeconds || 30) * 1000);
     let verifyRes = null;
     if (action.verifyCommand && cmdRes.ok) {
@@ -276,23 +286,35 @@ export async function executeActions({ planId, actionIds, password, acknowledged
       command: action.command, ok: cmdRes.ok, exitCode: cmdRes.exitCode,
       stdout: cmdRes.stdout, stderr: cmdRes.stderr, durationMs: cmdRes.durationMs,
       stage: cmdRes.stage || null, error: cmdRes.error || null,
+      before: beforeRes,
       verify: verifyRes,
+      verifyCommand: action.verifyCommand || null,
+      verifyExpect: action.verifyExpect || null,
     });
   }
 
   const success = results.every((r) => r.ok);
+  // Determine "fix verified" only when at least one MEDIUM action's verify
+  // command transitioned from not-matching (or unknown) to matching.
+  const fixVerified = results.some((r) =>
+    r.risk === "MEDIUM" && r.verify && r.verify.matched === true &&
+    (!r.before || r.before.matched !== true)
+  );
   const report = {
     executionId: uid("exec"),
     planId,
     startedAt, finishedAt: nowIso(),
     actionsRun: results.length,
     success,
+    fixVerified,
     commandOutputs: results,
     verificationResult: results.map((r) => r.verify).filter(Boolean),
     nextSteps: success ? ["Re-run a scan to confirm health is restored."] : ["Review failed action output. Escalate if unclear."],
   };
   saveExecution(report);
   saveApproval({ at: startedAt, planId, actionIds: ids, acknowledged: !!acknowledged });
+  // Best-effort ServiceNow update; never blocks/affects the execution result.
+  try { await recordAutopilotResult({ plan, report }); } catch {}
   return { ok: true, report };
 }
 
