@@ -95,7 +95,22 @@ export type SchedulerStatus = {
   options: Record<string, unknown>;
 };
 
-function base(): string { return getBackendUrl().replace(/\/$/, ""); }
+function isAbsoluteUrl(value: string): boolean {
+  return /^https?:\/\//i.test(value);
+}
+
+function base(): string {
+  const backendUrl = getBackendUrl().trim();
+  if (!backendUrl) return "";
+
+  if (typeof window !== "undefined") {
+    const sameOrigin = window.location.origin.replace(/\/$/, "");
+    if (backendUrl.replace(/\/$/, "") === sameOrigin) return "";
+    if (!isAbsoluteUrl(backendUrl)) return backendUrl.replace(/\/$/, "");
+  }
+
+  return backendUrl.replace(/\/$/, "");
+}
 
 async function get<T>(path: string, init?: RequestInit, timeoutMs = 6000): Promise<T> {
   const ctrl = new AbortController();
