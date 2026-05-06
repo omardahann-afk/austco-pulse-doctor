@@ -161,11 +161,16 @@ if (typeof window !== "undefined") {
   } catch {}
 }
 
-export const DEFAULT_BACKEND_URL = "http://localhost:3001";
+export const DEFAULT_BACKEND_URL = "http://127.0.0.1:3001";
+
+function getBrowserDefaultBackendUrl(): string {
+  if (typeof window === "undefined") return DEFAULT_BACKEND_URL;
+  return window.location.origin;
+}
 
 export function getBackendUrl(): string {
   if (typeof window === "undefined") return DEFAULT_BACKEND_URL;
-  return localStorage.getItem(BACKEND_KEY) || DEFAULT_BACKEND_URL;
+  return localStorage.getItem(BACKEND_KEY) || getBrowserDefaultBackendUrl();
 }
 export function setBackendUrl(u: string) {
   if (typeof window === "undefined") return;
