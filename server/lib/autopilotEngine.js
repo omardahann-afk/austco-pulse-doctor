@@ -249,6 +249,7 @@ export async function runScan({ services = [], vmInfo, siteOverrides = {} }) {
       riskLevel: plan.riskLevel,
       deepEvidenceUsed: plan.deepEvidenceUsed,
       contradictionsCount: (plan.contradictions || []).length,
+      mockEvidence: !!plan.mockEvidence,
     });
   }
 
@@ -263,6 +264,7 @@ export async function runScan({ services = [], vmInfo, siteOverrides = {} }) {
     deepEvidenceUsed: !!deepEvidence,
     deepEvidenceCollectedAt: deepEvidence?.collectedAt || null,
     deepEvidenceScore: deepEvidence?.evidenceScore ?? 0,
+    deepEvidenceMock: !!deepEvidence?.mock,
   };
   state.lastScan = scan;
   state.lastScanAt = scan.finishedAt;
