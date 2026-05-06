@@ -6,7 +6,7 @@
  */
 import { getBackendUrl } from "./siteConfig";
 
-export type ProbeProtocol = "icmp" | "tcp" | "http" | "https" | "mqtt";
+export type ProbeProtocol = "icmp" | "tcp" | "http" | "https" | "mqtt" | "mqtt-fresh" | "webmin";
 export type DeviceState = "up" | "degraded" | "down" | "stale" | "unknown";
 
 export type MonitorDevice = {
@@ -21,6 +21,14 @@ export type MonitorDevice = {
   intervalMs: number;
   enabled: boolean;
   meta: Record<string, unknown>;
+  /** Tacera-aware fields (Phase 7C). Optional — may be null for legacy rows. */
+  deviceType?: string | null;
+  critical?: boolean;
+  parentDeviceId?: string | null;
+  mqttTopics?: string[];
+  expectedServices?: string[];
+  siteZone?: string | null;
+  dependencies?: string[];
   createdAt: string;
   updatedAt: string;
 };

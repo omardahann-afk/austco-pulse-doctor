@@ -1,9 +1,11 @@
 import { Outlet, Link, createRootRoute, HeadContent, Scripts } from "@tanstack/react-router";
+import { useEffect } from "react";
 
 import appCss from "../styles.css?url";
 import { SidebarProvider, SidebarTrigger, SidebarInset } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/AppSidebar";
 import { Stethoscope } from "lucide-react";
+import { hydrateSiteConfigFromBackend } from "@/stores/siteConfigStore";
 
 function NotFoundComponent() {
   return (
@@ -72,6 +74,10 @@ function RootShell({ children }: { children: React.ReactNode }) {
 }
 
 function RootComponent() {
+  // Phase 7A — pull persistent site config from the local agent on first mount.
+  // Failure is silent: store falls back to localStorage / defaults.
+  useEffect(() => { void hydrateSiteConfigFromBackend(); }, []);
+
   return (
     <SidebarProvider>
       <div className="flex min-h-screen w-full bg-background text-foreground">
