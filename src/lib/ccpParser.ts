@@ -215,6 +215,26 @@ function splitBlocks(text: string): Block[] {
   return blocks;
 }
 
+/** Find the 1-based line number for a given character offset. */
+function lineOf(text: string, offset: number): number {
+  if (offset <= 0) return 1;
+  let n = 1;
+  for (let i = 0; i < offset && i < text.length; i++) {
+    if (text.charCodeAt(i) === 10) n++;
+  }
+  return n;
+}
+
+function isValidIp(ip: string): boolean {
+  if (!ip || ip === "unknown") return false;
+  const m = ip.match(/^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/);
+  if (!m) return false;
+  return m.slice(1).every((p) => {
+    const n = Number(p);
+    return n >= 0 && n <= 255;
+  });
+}
+
 /* -------------------------------------------------------------- */
 /* Per-entity extractors                                          */
 /* -------------------------------------------------------------- */
