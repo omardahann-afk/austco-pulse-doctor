@@ -306,8 +306,10 @@ function PlanPanel(props: {
   onRefresh: () => void;
   lastScanAt: string | null;
   onAiAvailability: (s: "available" | "unavailable" | "unknown") => void;
+  evidenceMock?: boolean;
+  evidenceStale?: boolean;
 }) {
-  const { plan, loading, error, password, setPassword, acknowledged, setAcknowledged, report, setReport, setError, onRefresh, lastScanAt, onAiAvailability } = props;
+  const { plan, loading, error, password, setPassword, acknowledged, setAcknowledged, report, setReport, setError, onRefresh, lastScanAt, onAiAvailability, evidenceMock, evidenceStale } = props;
   const [running, setRunning] = useState(false);
   const [aiLoading, setAiLoading] = useState(false);
   const [aiStatus, setAiStatus] = useState<"idle" | "ok" | "off" | "error" | "stale">("idle");
@@ -342,8 +344,22 @@ function PlanPanel(props: {
   if (error) return <div className="rounded-md border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive">{error}</div>;
   if (!plan) return null;
 
-  const hasMedium = plan.actions.some((a) => a.risk === "MEDIUM" && !a.blocked);
-  const allBlocked = plan.actions.every((a) => a.blocked || a.risk === "HIGH");
+  const actions = plan.actions ?? [];
+  const hasMedium = actions.some((a) => a.risk === "MEDIUM" && !a.blocked);
+  const allBlocked = actions.length === 0 || actions.every((a) => a.blocked || a.risk === "HIGH");
+  const planIsMock = !!plan.mockEvidence || !!evidenceMock;
+  const executeBlocked = allBlocked || planIsMock;
+  const executeBlockReason =
+    planIsMock ? "Mock evidence — execution permanently blocked."
+    : allBlocked ? "All actions blocked (HIGH risk or not allowlisted)."
+    : evidenceStale ? "Deep Evidence is stale. Re-collect before executing."
+    : "";
+
+  // Evidence source label (logs / deep evidence / both / mock).
+  const evidenceSourceLabel: { label: string; cls: string } =
+    planIsMock ? { label: "MOCK EVIDENCE", cls: "bg-warning/15 text-warning border-warning/40" }
+    : plan.deepEvidenceUsed ? { label: "logs + deep evidence", cls: "bg-info/15 text-info border-info/40" }
+    : { label: "logs only", cls: "bg-muted/40 text-muted-foreground border-border" };
 
   const exec = async (mode: "all" | "readonly") => {
     if (!plan.serviceRef) { setError("Plan has no service credentials reference."); return; }
@@ -364,19 +380,36 @@ function PlanPanel(props: {
 
   return (
     <div className="space-y-3 rounded-md border border-border/60 bg-muted/20 p-4">
+      {planIsMock && (
+        <div className="flex flex-wrap items-center gap-2 rounded border border-warning/50 bg-warning/10 p-2 text-xs text-warning">
+          <FlaskConical className="h-4 w-4" />
+          <strong>Mock evidence plan.</strong>
+          <span>This plan was built from a DEV mock scenario. Execute is permanently blocked.</span>
+        </div>
+      )}
+      {!planIsMock && evidenceStale && (
+        <div className="flex items-center gap-2 rounded border border-warning/40 bg-warning/5 p-2 text-xs text-warning">
+          <AlertTriangle className="h-4 w-4" /> Deep Evidence is stale (&gt;15 min). Re-collect before approving.
+        </div>
+      )}
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="text-sm">
           <div className="font-medium">{plan.summary}</div>
           <div className="text-xs text-muted-foreground">plan {plan.planId} · verify: {plan.verification}{plan.rollbackAvailable ? " · rollback available" : ""}</div>
         </div>
-        <div className="flex items-center gap-2"><RiskPill risk={plan.riskLevel} /></div>
+        <div className="flex flex-wrap items-center gap-2">
+          <span className={cn("rounded-md border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider", evidenceSourceLabel.cls)} title="Where the diagnosis came from">
+            {evidenceSourceLabel.label}
+          </span>
+          <RiskPill risk={plan.riskLevel} />
+        </div>
       </div>
 
-      {plan.evidence.length > 0 && (
+      {(plan.evidence ?? []).length > 0 && (
         <details className="text-xs">
-          <summary className="cursor-pointer text-muted-foreground">Evidence ({plan.evidence.length})</summary>
+          <summary className="cursor-pointer text-muted-foreground">Evidence ({plan.evidence?.length ?? 0})</summary>
           <ul className="mt-2 space-y-1 font-mono text-[11px]">
-            {plan.evidence.map((e, i) => <li key={i} className="rounded bg-background/50 px-2 py-1">{e}</li>)}
+            {(plan.evidence ?? []).map((e, i) => <li key={i} className="rounded bg-background/50 px-2 py-1 break-all">{e}</li>)}
           </ul>
         </details>
       )}
@@ -386,16 +419,23 @@ function PlanPanel(props: {
 
       <div className="space-y-2">
         <div className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Planned actions</div>
-        {plan.actions.map((a) => (
+        {actions.length === 0 && (
+          <div className="rounded border border-border/40 bg-background/40 p-3 text-xs text-muted-foreground">
+            No actions in this plan — engine refused to suggest a remediation. Manual triage required.
+          </div>
+        )}
+        {actions.map((a) => (
           <div key={a.id} className="rounded border border-border/40 bg-background/40 p-2 text-xs">
             <div className="flex items-center justify-between gap-2">
               <span className="font-medium">{a.label}</span>
               <RiskPill risk={a.risk} />
             </div>
             {a.blocked ? (
-              <div className="mt-1 text-destructive">Blocked: {a.blockReason}</div>
+              <div className="mt-1 rounded border border-destructive/30 bg-destructive/10 p-1.5 text-destructive">
+                <strong>Blocked:</strong> {a.blockReason || "Action not allowlisted."}
+              </div>
             ) : (
-              <pre className="mt-1 overflow-x-auto whitespace-pre-wrap rounded bg-muted/60 p-2 font-mono text-[11px]">{a.command}</pre>
+              <pre className="mt-1 max-h-40 overflow-auto whitespace-pre-wrap break-all rounded bg-muted/60 p-2 font-mono text-[11px]">{a.command}</pre>
             )}
             {a.verifyCommand && <div className="mt-1 text-[11px] text-muted-foreground">Verify: <span className="font-mono">{a.verifyCommand}</span>{a.verifyExpect ? ` (expect /${a.verifyExpect}/)` : ""}</div>}
             <div className="mt-1 text-[11px] text-muted-foreground">{a.explanation}</div>
@@ -403,9 +443,9 @@ function PlanPanel(props: {
         ))}
       </div>
 
-      {plan.manualNotes.length > 0 && (
+      {(plan.manualNotes ?? []).length > 0 && (
         <div className="rounded border border-warning/40 bg-warning/5 p-2 text-xs text-warning">
-          {plan.manualNotes.map((n, i) => <div key={i}>⚠ {n}</div>)}
+          {(plan.manualNotes ?? []).map((n, i) => <div key={i}>⚠ {n}</div>)}
         </div>
       )}
 
@@ -429,7 +469,7 @@ function PlanPanel(props: {
             )}
           </div>
           <div className="flex flex-wrap gap-2">
-            <Button size="sm" onClick={() => exec("all")} disabled={running || allBlocked}>
+            <Button size="sm" onClick={() => exec("all")} disabled={running || executeBlocked}>
               {running ? <Loader2 className="h-4 w-4 animate-spin" /> : <ShieldCheck className="h-4 w-4" />} Approve and Execute
             </Button>
             <Button size="sm" variant="outline" onClick={() => exec("readonly")} disabled={running}>
@@ -438,6 +478,11 @@ function PlanPanel(props: {
             <Button size="sm" variant="ghost" onClick={() => { setReport(null); }}>Reject</Button>
             <Button size="sm" variant="ghost" onClick={copyPlan}><Copy className="h-4 w-4" />Copy Plan</Button>
           </div>
+          {executeBlocked && executeBlockReason && (
+            <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
+              <Info className="h-3 w-3" /> {executeBlockReason}
+            </div>
+          )}
         </div>
       )}
 
