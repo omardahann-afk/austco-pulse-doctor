@@ -22,7 +22,6 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as MonitorDevicesRouteImport } from './routes/monitor.devices'
 import { Route as MonitorIdRouteImport } from './routes/monitor.$id'
 import { Route as EvidencePlaybackRouteImport } from './routes/evidence.playback'
-import { Route as ApiMonitorDevicesRouteImport } from './routes/api.monitor.devices'
 
 const TraceRoute = TraceRouteImport.update({
   id: '/trace',
@@ -89,11 +88,6 @@ const EvidencePlaybackRoute = EvidencePlaybackRouteImport.update({
   path: '/playback',
   getParentRoute: () => EvidenceRoute,
 } as any)
-const ApiMonitorDevicesRoute = ApiMonitorDevicesRouteImport.update({
-  id: '/api/monitor/devices',
-  path: '/api/monitor/devices',
-  getParentRoute: () => rootRouteImport,
-} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -109,7 +103,6 @@ export interface FileRoutesByFullPath {
   '/evidence/playback': typeof EvidencePlaybackRoute
   '/monitor/$id': typeof MonitorIdRoute
   '/monitor/devices': typeof MonitorDevicesRoute
-  '/api/monitor/devices': typeof ApiMonitorDevicesRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -125,7 +118,6 @@ export interface FileRoutesByTo {
   '/evidence/playback': typeof EvidencePlaybackRoute
   '/monitor/$id': typeof MonitorIdRoute
   '/monitor/devices': typeof MonitorDevicesRoute
-  '/api/monitor/devices': typeof ApiMonitorDevicesRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -142,7 +134,6 @@ export interface FileRoutesById {
   '/evidence/playback': typeof EvidencePlaybackRoute
   '/monitor/$id': typeof MonitorIdRoute
   '/monitor/devices': typeof MonitorDevicesRoute
-  '/api/monitor/devices': typeof ApiMonitorDevicesRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -160,7 +151,6 @@ export interface FileRouteTypes {
     | '/evidence/playback'
     | '/monitor/$id'
     | '/monitor/devices'
-    | '/api/monitor/devices'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -176,7 +166,6 @@ export interface FileRouteTypes {
     | '/evidence/playback'
     | '/monitor/$id'
     | '/monitor/devices'
-    | '/api/monitor/devices'
   id:
     | '__root__'
     | '/'
@@ -192,7 +181,6 @@ export interface FileRouteTypes {
     | '/evidence/playback'
     | '/monitor/$id'
     | '/monitor/devices'
-    | '/api/monitor/devices'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -206,7 +194,6 @@ export interface RootRouteChildren {
   LogsRoute: typeof LogsRoute
   MonitorRoute: typeof MonitorRouteWithChildren
   TraceRoute: typeof TraceRoute
-  ApiMonitorDevicesRoute: typeof ApiMonitorDevicesRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -302,13 +289,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof EvidencePlaybackRouteImport
       parentRoute: typeof EvidenceRoute
     }
-    '/api/monitor/devices': {
-      id: '/api/monitor/devices'
-      path: '/api/monitor/devices'
-      fullPath: '/api/monitor/devices'
-      preLoaderRoute: typeof ApiMonitorDevicesRouteImport
-      parentRoute: typeof rootRouteImport
-    }
   }
 }
 
@@ -348,7 +328,6 @@ const rootRouteChildren: RootRouteChildren = {
   LogsRoute: LogsRoute,
   MonitorRoute: MonitorRouteWithChildren,
   TraceRoute: TraceRoute,
-  ApiMonitorDevicesRoute: ApiMonitorDevicesRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
