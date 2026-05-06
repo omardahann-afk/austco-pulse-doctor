@@ -88,9 +88,9 @@ describe("Root Cause — expected outcomes from Deep Evidence", () => {
   test("host reachable + port closed must NOT return 'host offline'", () => {
     const rc = rcFor("host_reachable_port_closed");
     assert.equal(rc.deepEvidenceUsed, true);
-    const text = `${rc.primaryRootCause?.title} ${rc.primaryRootCause?.explanation}`.toLowerCase();
-    assert.ok(!/host\s+offline/.test(text), `must not say 'host offline': ${text}`);
-    assert.ok(!/unreachable/.test(text), `must not say 'unreachable': ${text}`);
+    // The conclusion (title + breakFoundAt + layer) must NOT classify the host as offline.
+    const concl = `${rc.primaryRootCause?.title} ${rc.primaryRootCause?.breakFoundAt}`.toLowerCase();
+    assert.ok(!/offline|unreachable/.test(concl), `conclusion must not say offline/unreachable: ${concl}`);
     assert.match(rc.primaryRootCause.title, /service|port/i);
     assert.equal(rc.primaryRootCause.layer, "service");
     assert.deepEqual(rc.contradictionsUsed.map((c) => c.kind), ["host_reachable_port_closed"]);
@@ -277,10 +277,11 @@ describe("Autopilot — safety rules", () => {
     const { default: _ } = await import("../lib/autopilotStore.js")
       .then((m) => { m.savePlan(fakePlan); return { default: true }; });
     const r = await autopilotExecute({ planId, actionIds: ["a-high"], password: "x", acknowledged: true });
-    assert.equal(r.ok, false);
-    // Either the per-action result blocks or the whole call refuses; both are acceptable proofs of safety.
-    const aRes = (r.results || [])[0];
-    if (aRes) assert.equal(aRes.reason, "high_risk_blocked");
+    assert.equal(r.ok, true, "execute call returns wrapper ok:true");
+    assert.equal(r.report.success, false, "report.success must be false for blocked HIGH action");
+    const aRes = r.report.commandOutputs[0];
+    assert.equal(aRes.ok, false);
+    assert.equal(aRes.reason, "high_risk_blocked");
   });
 
   test("MEDIUM risk requires acknowledged=true (synthetic plan)", async () => {
@@ -300,8 +301,10 @@ describe("Autopilot — safety rules", () => {
     };
     await import("../lib/autopilotStore.js").then((m) => m.savePlan(fakePlan));
     const r = await autopilotExecute({ planId, actionIds: ["a-med"], password: "x", acknowledged: false });
-    const aRes = (r.results || [])[0];
+    assert.equal(r.ok, true);
+    const aRes = r.report.commandOutputs[0];
     assert.ok(aRes, "result returned");
+    assert.equal(aRes.ok, false);
     assert.equal(aRes.reason, "approval_required", "MEDIUM without acknowledged must be refused");
   });
 
@@ -329,8 +332,10 @@ describe("Autopilot — safety rules", () => {
       password: "x",
       acknowledged: true,
     });
-    const aRes = (r.results || [])[0];
+    assert.equal(r.ok, true);
+    const aRes = r.report.commandOutputs[0];
     assert.ok(aRes, "result returned");
+    assert.equal(aRes.ok, false);
     assert.equal(aRes.reason, "action_not_found", "fabricated action ids must be rejected");
   });
 });
