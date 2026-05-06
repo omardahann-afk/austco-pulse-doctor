@@ -409,3 +409,164 @@ function BeforeAfterBox({ label, data }: { label: string; data?: { ok: boolean; 
     </div>
   );
 }
+/* ===== AI Copilot panels ===== */
+
+const AI_DISCLAIMER = "AI explanation only. Fix decision and safety are controlled by the deterministic engine.";
+
+function AiStatusBadge({ status, msg }: { status: "idle" | "ok" | "off" | "error" | "stale"; msg: string }) {
+  const map: Record<typeof status, { label: string; cls: string }> = {
+    idle: { label: "AI: Off", cls: "bg-muted text-muted-foreground border-border" },
+    ok: { label: "AI: Local Ollama", cls: "bg-success/10 text-success border-success/30" },
+    off: { label: "AI unavailable", cls: "bg-muted text-muted-foreground border-border" },
+    error: { label: "AI failed", cls: "bg-destructive/10 text-destructive border-destructive/30" },
+    stale: { label: "AI explanation stale", cls: "bg-warning/10 text-warning border-warning/30" },
+  };
+  const s = map[status];
+  return (
+    <span className={cn("inline-flex items-center gap-1 rounded-md border px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wider", s.cls)} title={msg}>
+      <Bot className="h-3 w-3" /> {s.label}
+    </span>
+  );
+}
+
+function AiField({ label, value }: { label: string; value: string }) {
+  if (!value) return null;
+  return (
+    <div>
+      <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">{label}</div>
+      <div className="mt-0.5 whitespace-pre-wrap text-[12px] leading-snug">{value}</div>
+    </div>
+  );
+}
+
+function copyText(text: string) {
+  navigator.clipboard?.writeText(text).catch(() => {});
+}
+
+function AiCopilotPlanPanel(props: {
+  plan: AutopilotPlan;
+  aiLoading: boolean;
+  aiStatus: "idle" | "ok" | "off" | "error" | "stale";
+  aiStatusMsg: string;
+  aiExplain: AutopilotPlanExplanation | null;
+  onRun: () => void;
+}) {
+  const { aiLoading, aiStatus, aiStatusMsg, aiExplain, onRun } = props;
+  return (
+    <div className="space-y-3 rounded-md border border-primary/30 bg-primary/5 p-3">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="flex items-center gap-2 text-sm font-semibold">
+          <Sparkles className="h-4 w-4 text-primary" /> AI Copilot
+        </div>
+        <AiStatusBadge status={aiStatus} msg={aiStatusMsg} />
+      </div>
+      <div className="text-[11px] italic text-muted-foreground">{AI_DISCLAIMER}</div>
+
+      <div className="flex flex-wrap gap-2">
+        <Button size="sm" variant="default" onClick={onRun} disabled={aiLoading}>
+          {aiLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+          {aiExplain ? "Re-run AI Explanation" : "Explain Plan with AI"}
+        </Button>
+        {aiExplain && (
+          <>
+            <Button size="sm" variant="outline" onClick={() => copyText(aiExplain.escalationDraft)}>
+              <Copy className="h-4 w-4" /> Copy Escalation Draft
+            </Button>
+          </>
+        )}
+      </div>
+
+      {aiStatus === "off" && (
+        <div className="rounded border border-border/40 bg-background/40 p-2 text-[11px] text-muted-foreground">
+          AI unavailable — deterministic Autopilot still works. {aiStatusMsg}
+        </div>
+      )}
+      {aiStatus === "error" && (
+        <div className="rounded border border-destructive/30 bg-destructive/10 p-2 text-[11px] text-destructive">{aiStatusMsg}</div>
+      )}
+
+      {aiExplain && (
+        <div className="space-y-3 rounded border border-border/40 bg-background/50 p-3">
+          <AiField label="Plain English Summary" value={aiExplain.plainEnglishSummary} />
+          <AiField label="Why This Matched" value={aiExplain.whyThisMatched} />
+          <AiField label="Risk Explanation" value={aiExplain.riskExplanation} />
+          <AiField label="What Will Happen" value={aiExplain.whatWillHappen} />
+          <AiField label="What Could Go Wrong" value={aiExplain.whatCouldGoWrong} />
+          <AiField label="Approval Guidance" value={aiExplain.approvalGuidance} />
+          <details className="text-[11px]">
+            <summary className="cursor-pointer text-muted-foreground">Escalation Draft (not sent anywhere)</summary>
+            <pre className="mt-1 whitespace-pre-wrap rounded bg-muted/50 p-2 font-mono text-[11px]">{aiExplain.escalationDraft}</pre>
+          </details>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function AiCopilotExecutionPanel({ planId, report }: { planId: string; report: AutopilotExecutionReport }) {
+  const [loading, setLoading] = useState(false);
+  const [status, setStatus] = useState<"idle" | "ok" | "off" | "error">("idle");
+  const [statusMsg, setStatusMsg] = useState("");
+  const [ai, setAi] = useState<AutopilotExecExplanation | null>(null);
+
+  useEffect(() => { setAi(null); setStatus("idle"); setStatusMsg(""); }, [report.executionId]);
+
+  const run = async () => {
+    setLoading(true); setStatus("idle"); setStatusMsg("");
+    const r = await autopilotExplainExecution({ planId, report });
+    setLoading(false);
+    if ("ok" in r && r.ok) { setAi(r.ai); setStatus("ok"); setStatusMsg(`Local Ollama · ${r.model}`); }
+    else {
+      setAi(null);
+      const reason = ("reason" in r && r.reason) || "";
+      setStatus(reason === "ollama_unavailable" || reason === "ollama_timeout" ? "off" : "error");
+      setStatusMsg(("message" in r && r.message) || "AI unavailable");
+    }
+  };
+
+  return (
+    <div className="space-y-3 rounded-md border border-primary/30 bg-primary/5 p-3">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="flex items-center gap-2 text-sm font-semibold">
+          <Sparkles className="h-4 w-4 text-primary" /> AI Copilot — Result
+        </div>
+        <AiStatusBadge status={status === "idle" ? "idle" : status === "ok" ? "ok" : status === "off" ? "off" : "error"} msg={statusMsg} />
+      </div>
+      <div className="text-[11px] italic text-muted-foreground">{AI_DISCLAIMER}</div>
+      <div className="flex flex-wrap gap-2">
+        <Button size="sm" onClick={run} disabled={loading}>
+          {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+          {ai ? "Re-run AI Explanation" : "Explain Result with AI"}
+        </Button>
+        {ai && (
+          <Button size="sm" variant="outline" onClick={() => copyText(ai.escalationUpdateDraft)}>
+            <Copy className="h-4 w-4" /> Copy Escalation Update
+          </Button>
+        )}
+      </div>
+
+      {status === "off" && (
+        <div className="rounded border border-border/40 bg-background/40 p-2 text-[11px] text-muted-foreground">
+          AI unavailable — deterministic Autopilot still works. {statusMsg}
+        </div>
+      )}
+      {status === "error" && (
+        <div className="rounded border border-destructive/30 bg-destructive/10 p-2 text-[11px] text-destructive">{statusMsg}</div>
+      )}
+
+      {ai && (
+        <div className="space-y-3 rounded border border-border/40 bg-background/50 p-3">
+          <AiField label="Result Summary" value={ai.resultSummary} />
+          <AiField label="What Changed" value={ai.whatChanged} />
+          <AiField label="Verification Explanation" value={ai.verificationExplanation} />
+          <AiField label="Remaining Risk" value={ai.remainingRisk} />
+          <AiField label="Next Steps" value={ai.nextSteps} />
+          <details className="text-[11px]">
+            <summary className="cursor-pointer text-muted-foreground">Escalation Update Draft (not sent anywhere)</summary>
+            <pre className="mt-1 whitespace-pre-wrap rounded bg-muted/50 p-2 font-mono text-[11px]">{ai.escalationUpdateDraft}</pre>
+          </details>
+        </div>
+      )}
+    </div>
+  );
+}
