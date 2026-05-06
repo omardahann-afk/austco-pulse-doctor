@@ -210,7 +210,7 @@ function AutopilotPage() {
   const noEvidence = !latestEvidence;
 
   const nextStep: { tone: "info" | "warn" | "ok" | "danger"; title: string; body: string } = (() => {
-    if (monitored === 0) return { tone: "warn", title: "Add a monitored device first.", body: "Autopilot has nothing to track until a device is saved into the monitor registry." };
+    if (monitored === 0) return { tone: "warn", title: "No Autopilot services configured yet.", body: "Add IPC, Pulse Gateway, Pulse Manage, INGA, MQTT, HL7, or IPConnect services here." };
     if (evidenceMock) return { tone: "danger", title: "DEV mock evidence is loaded.", body: "Autopilot execution is permanently blocked while a mock scenario is active. Clear the mock from the Deep Evidence page before running real remediation." };
     if (noEvidence) return { tone: "warn", title: "Collect Deep Evidence before trusting automation.", body: "Without Deep Evidence the engine works from logs alone — contradictions will not be detected." };
     if (evidenceStale) return { tone: "warn", title: "Deep Evidence is stale.", body: "Re-collect Deep Evidence before approving a remediation plan." };
@@ -228,6 +228,9 @@ function AutopilotPage() {
         actions={
           <div className="flex flex-wrap items-center gap-2">
             <Button size="sm" variant="outline" onClick={refresh} disabled={!!busy}><RefreshCw className="h-4 w-4" />Refresh</Button>
+            <Button size="sm" variant="secondary" onClick={() => { setEditingService(null); setServiceDialogOpen(true); }}>
+              <Plus className="h-4 w-4" />Add Autopilot Service
+            </Button>
             <Button size="sm" onClick={scanNow} disabled={!!busy}>{busy === "scan" ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}Scan Now</Button>
             {status?.loopRunning ? (
               <Button size="sm" variant="destructive" onClick={stopLoop} disabled={!!busy}><Square className="h-4 w-4" />Stop Autopilot</Button>
@@ -282,6 +285,59 @@ function AutopilotPage() {
 
       {/* 3b. Deep Evidence summary */}
       <DeepEvidenceCard />
+
+      {/* Autopilot Services registry */}
+      <section className="space-y-3">
+        <div className="flex items-center justify-between">
+          <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Autopilot services ({services.length})</h2>
+          <Button size="sm" variant="outline" onClick={() => { setEditingService(null); setServiceDialogOpen(true); }}>
+            <Plus className="h-4 w-4" /> Add Autopilot Service
+          </Button>
+        </div>
+        {services.length === 0 ? (
+          <Card>
+            <CardContent className="space-y-3 p-6 text-center text-sm">
+              <div className="font-medium">No Autopilot services configured yet.</div>
+              <div className="text-muted-foreground">
+                Add IPC, Pulse Gateway, Pulse Manage, INGA, MQTT, HL7, or IPConnect services here.
+              </div>
+              <div className="flex justify-center">
+                <Button size="sm" onClick={() => { setEditingService(null); setServiceDialogOpen(true); }}>
+                  <Plus className="h-4 w-4" /> Add Autopilot Service
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        ) : (
+          <div className="space-y-2">
+            {services.map((s) => (
+              <Card key={s.id}>
+                <CardContent className="flex flex-wrap items-center justify-between gap-3 p-3 text-sm">
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2">
+                      <span className="font-medium">{s.name}</span>
+                      <span className="rounded border border-border/60 bg-muted/30 px-1.5 py-0.5 text-[10px] font-mono uppercase">{s.type}</span>
+                      {!s.enabled && <span className="text-[10px] text-muted-foreground">disabled</span>}
+                    </div>
+                    <div className="mt-0.5 text-xs text-muted-foreground font-mono">
+                      {s.sshUsername}@{s.host}:{s.sshPort} · {s.serviceManager}
+                      {s.systemdUnit ? ` · unit=${s.systemdUnit}` : ""}
+                      {s.dockerContainer ? ` · container=${s.dockerContainer}` : ""}
+                      {s.webminPort ? ` · webmin=${s.webminPort}` : ""}
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Button size="sm" variant="ghost" className="h-7" onClick={() => { setEditingService(s); setServiceDialogOpen(true); }}>Edit</Button>
+                    <Button size="sm" variant="ghost" className="h-7 text-red-400 hover:text-red-300" onClick={() => handleDeleteService(s.id)}>
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        )}
+      </section>
 
       {/* 2. Issues + plans */}
       <section className="space-y-3">
