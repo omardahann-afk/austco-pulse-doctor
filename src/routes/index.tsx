@@ -1,5 +1,5 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { PageHeader } from "@/components/PageHeader";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -12,7 +12,7 @@ import {
 } from "lucide-react";
 import {
   type SiteConfig, type ModuleEntry, type ModuleRole,
-  EMPTY_SITE_CONFIG, loadSiteConfig, saveSiteConfig, clearSiteConfig,
+  EMPTY_SITE_CONFIG, loadSiteConfig, clearSiteConfig,
   newId, saveLastDiagnosis, getBackendUrl, setBackendUrl, DEFAULT_BACKEND_URL,
 } from "@/lib/siteConfig";
 import { checkHealth, runDiagnosis } from "@/lib/agentClient";
@@ -24,6 +24,8 @@ import { diffCcpAgainstConfig, type CcpDiff } from "@/lib/ccpDiff";
 import { buildAuditFromParse, saveAuditEntry } from "@/lib/ccpAudit";
 import { Link } from "@tanstack/react-router";
 import { History } from "lucide-react";
+import { AddDeviceDialog } from "@/components/monitor/AddDeviceDialog";
+import { selectHasConfiguredSite, useSiteConfigStore } from "@/stores/siteConfigStore";
 
 export const Route = createFileRoute("/")({
   head: () => ({ meta: [
@@ -51,20 +53,22 @@ type Health =
 
 function CommandCenter() {
   const navigate = useNavigate();
-  const [cfg, setCfg] = useState<SiteConfig>(() => structuredClone(EMPTY_SITE_CONFIG));
-  const [backend, setBackend] = useState(DEFAULT_BACKEND_URL);
+  const cfg = useSiteConfigStore((state) => state.legacyConfig);
+  const setCfg = useSiteConfigStore((state) => state.setLegacyConfig);
+  const monitoredDevices = useSiteConfigStore((state) => state.monitoredDevices);
+  const hasConfiguredSite = useSiteConfigStore(selectHasConfiguredSite);
+  const [backend, setBackend] = useState(() => getBackendUrl() || DEFAULT_BACKEND_URL);
   const [health, setHealth] = useState<Health>({ status: "idle" });
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [info, setInfo] = useState<string | null>(null);
+  const [deviceDialogOpen, setDeviceDialogOpen] = useState(false);
 
   // CCP preview state
   const [previewOpen, setPreviewOpen] = useState(false);
   const [previewParsed, setPreviewParsed] = useState<CcpParseResult | null>(null);
   const [previewFile, setPreviewFile] = useState<{ name: string; size: number; text: string; type: "ccp" | "json" | "unknown"; durationMs: number } | null>(null);
   const [previewDiff, setPreviewDiff] = useState<CcpDiff | null>(null);
-
-  useEffect(() => { setCfg(loadSiteConfig()); setBackend(getBackendUrl()); }, []);
 
   function persistBackend(url: string) {
     setBackend(url);
@@ -87,7 +91,6 @@ function CommandCenter() {
     if (!backend.trim()) { setError("Backend URL required."); return; }
     if (testable === 0) { setError("Insufficient data — enter at least one device IP or hostname."); return; }
     setBackendUrl(backend);
-    saveSiteConfig(cfg);
     setSubmitting(true);
     try {
       const res = await runDiagnosis(cfg);
@@ -219,7 +222,6 @@ function CommandCenter() {
     const previousConfig = structuredClone(cfg);
     const next = buildSiteConfigFromParsed(previewParsed, { name: previewFile.name });
     setCfg(next);
-    saveSiteConfig(next);
     saveAuditEntry(buildAuditFromParse({
       filename: previewFile.name, fileType: previewFile.type, parsed: previewParsed,
       status: previewParsed.status === "parsed_low_confidence" ? "low_confidence" : "imported",
@@ -279,8 +281,8 @@ function CommandCenter() {
     URL.revokeObjectURL(url);
   }
 
-  function saveCfgNow() { saveSiteConfig(cfg); setInfo("Config saved to this browser."); }
-  function loadCfgNow() { setCfg(loadSiteConfig()); setInfo("Config loaded from this browser."); }
+  function saveCfgNow() { setCfg(cfg); setInfo("Config saved to browser and backend."); }
+  function loadCfgNow() { setCfg(loadSiteConfig(), { skipBackendSync: true }); setInfo("Config loaded from this browser."); }
   function clearAll() {
     if (!confirm("Clear all site config?")) return;
     clearSiteConfig();
@@ -345,9 +347,9 @@ function CommandCenter() {
 
       <form onSubmit={onRun} className="space-y-5">
         {/* Empty-state banner */}
-        {!cfg.siteName.trim() && cfg.modules.length === 0 && cfg.services.filter((s) => s.host || s.hostname).length === 0 && (
+        {!hasConfiguredSite && (
           <div className="rounded border border-dashed border-border/60 bg-background/30 px-4 py-5 text-center text-sm text-muted-foreground">
-            No site configured — enter real site devices or import JSON.
+            No site configured — add a monitored device or import JSON.
           </div>
         )}
 
@@ -374,11 +376,28 @@ function CommandCenter() {
         <Card className="bg-card/70">
           <CardHeader className="pb-3 flex-row items-center justify-between">
             <CardTitle className="text-sm">3 · Devices / Modules</CardTitle>
-            <Button type="button" variant="outline" size="sm" onClick={() => addModule("Other")}>
+            <Button type="button" variant="outline" size="sm" onClick={() => setDeviceDialogOpen(true)}>
               <Plus className="mr-1 h-3.5 w-3.5" /> Add Device
             </Button>
           </CardHeader>
           <CardContent className="space-y-3">
+            {monitoredDevices.length > 0 && (
+              <div className="rounded border border-border/60 bg-background/40 p-3">
+                <div className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Shared monitored registry</div>
+                <div className="space-y-2">
+                  {monitoredDevices.map((device) => (
+                    <div key={device.id} className="flex flex-wrap items-center justify-between gap-2 rounded border border-border/50 bg-background/60 px-3 py-2 text-sm">
+                      <div>
+                        <div className="font-medium">{device.name || device.id}</div>
+                        <div className="text-[11px] text-muted-foreground">{device.protocol.toUpperCase()} · {device.host || device.url || "—"}{device.port ? `:${device.port}` : ""}</div>
+                      </div>
+                      <div className="text-[11px] text-muted-foreground">{device.enabled ? "Enabled" : "Disabled"}{device.critical ? " · Critical" : ""}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
             {cfg.modules.length === 0 && (
               <div className="rounded border border-dashed border-border/60 bg-background/30 px-4 py-6 text-center text-xs text-muted-foreground">
                 Enter site devices or import a JSON config to begin. Add at least one device with an IP address or hostname.
@@ -495,6 +514,13 @@ function CommandCenter() {
         hasExistingConfig={(cfg.controllers.length + cfg.modules.length) > 0}
         onConfirm={confirmCcpImport}
         onCancel={cancelCcpImport}
+      />
+
+      <AddDeviceDialog
+        open={deviceDialogOpen}
+        onOpenChange={setDeviceDialogOpen}
+        onSaved={(device) => setInfo(`Monitored device saved: ${device.name || device.id}`)}
+        title="Add monitored device"
       />
     </div>
   );

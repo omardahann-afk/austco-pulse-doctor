@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { PageHeader } from "@/components/PageHeader";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -11,6 +11,7 @@ import { ConnectionPill } from "@/components/monitor/ConnectionPill";
 import { monitorApi, relativeTime, type DeviceState } from "@/lib/monitorClient";
 import { Play, Square, RefreshCw, Plus } from "lucide-react";
 import { toast } from "sonner";
+import { AddDeviceDialog } from "@/components/monitor/AddDeviceDialog";
 
 export const Route = createFileRoute("/monitor")({
   head: () => ({ meta: [
@@ -24,6 +25,7 @@ const STATE_ORDER: DeviceState[] = ["down", "degraded", "stale", "unknown", "up"
 
 function MonitorPage() {
   const { conn, scheduler, devices, lastEventAt, requestSnapshot } = useMonitorBus();
+  const [dialogOpen, setDialogOpen] = useState(false);
 
   const grouped = useMemo(() => {
     const buckets = new Map<DeviceState, typeof devices>();
@@ -72,11 +74,9 @@ function MonitorPage() {
             <Button size="sm" onClick={toggleScheduler} className="h-8">
               {scheduler?.running ? (<><Square className="mr-1.5 h-3.5 w-3.5" /> Stop polling</>) : (<><Play className="mr-1.5 h-3.5 w-3.5" /> Start polling</>)}
             </Button>
-            <Link to="/monitor/devices">
-              <Button size="sm" variant="secondary" className="h-8">
-                <Plus className="mr-1.5 h-3.5 w-3.5" /> Add device
-              </Button>
-            </Link>
+            <Button size="sm" variant="secondary" className="h-8" onClick={() => setDialogOpen(true)}>
+              <Plus className="mr-1.5 h-3.5 w-3.5" /> Add device
+            </Button>
           </div>
         }
       />
@@ -105,7 +105,7 @@ function MonitorPage() {
             <p className="max-w-md text-sm text-muted-foreground">
               Register controllers, gateways, brokers and services on the Devices page. The agent will run real ICMP / TCP / HTTPS / MQTT probes and stream results here.
             </p>
-            <Link to="/monitor/devices"><Button size="sm"><Plus className="mr-1.5 h-3.5 w-3.5" /> Add devices</Button></Link>
+            <Button size="sm" onClick={() => setDialogOpen(true)}><Plus className="mr-1.5 h-3.5 w-3.5" /> Add devices</Button>
           </CardContent>
         </Card>
       ) : (
@@ -172,6 +172,8 @@ function MonitorPage() {
           )}
         </CardContent>
       </Card>
+
+      <AddDeviceDialog open={dialogOpen} onOpenChange={setDialogOpen} onSaved={() => requestSnapshot()} />
     </div>
   );
 }

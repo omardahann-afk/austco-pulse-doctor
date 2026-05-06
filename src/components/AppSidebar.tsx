@@ -1,8 +1,7 @@
 import { Link, useRouterState } from "@tanstack/react-router";
 import { Sidebar, SidebarContent, SidebarGroup, SidebarGroupContent, SidebarMenu, SidebarMenuButton, SidebarMenuItem, SidebarHeader, SidebarFooter } from "@/components/ui/sidebar";
 import { Activity, Workflow, FileText, Stethoscope, GitBranch, ShieldCheck, Microscope, History, Brain, Radio, Server } from "lucide-react";
-import { useEffect, useState } from "react";
-import { loadSiteConfig } from "@/lib/siteConfig";
+import { selectSiteLabel, useSiteConfigStore } from "@/stores/siteConfigStore";
 
 const NAV = [
   { to: "/",           label: "Command Center", icon: Activity },
@@ -19,8 +18,7 @@ const NAV = [
 
 export function AppSidebar() {
   const path = useRouterState({ select: (r) => r.location.pathname });
-  const [siteName, setSiteName] = useState("");
-  useEffect(() => { setSiteName(loadSiteConfig().siteName); }, [path]);
+  const siteName = useSiteConfigStore(selectSiteLabel);
   return (
     <Sidebar collapsible="icon">
       <SidebarHeader className="border-b border-sidebar-border/60">
@@ -48,7 +46,7 @@ export function AppSidebar() {
       </SidebarContent>
       <SidebarFooter className="border-t border-sidebar-border/60">
         <div className="space-y-0.5 px-2 py-1.5 text-[11px] leading-snug">
-          <div className="truncate font-medium">{siteName || "No site configured"}</div>
+          <div className="truncate font-medium">{siteName}</div>
         </div>
       </SidebarFooter>
     </Sidebar>

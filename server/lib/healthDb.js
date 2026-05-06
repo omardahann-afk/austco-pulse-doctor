@@ -14,7 +14,7 @@ import Database from "better-sqlite3";
 import fs from "node:fs";
 import path from "node:path";
 
-const DEFAULT_PATH = process.env.TACERA_DB_PATH || "/tmp/tacera-doctor-health.db";
+const DEFAULT_PATH = process.env.TACERA_DB_PATH || path.resolve(process.cwd(), "server", "data", "tacera-doctor-health.db");
 let db = null;
 let openedAt = null;
 let dbPath = null;
