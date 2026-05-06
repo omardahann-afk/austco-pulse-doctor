@@ -64,8 +64,8 @@ function* walkAttrs(node, path = []) {
 
 const IPV4_RE = /\b(?:25[0-5]|2[0-4]\d|[01]?\d?\d)(?:\.(?:25[0-5]|2[0-4]\d|[01]?\d?\d)){3}\b/g;
 const PORT_RE = /\b(\d{2,5})\b/;
-const HOST_KEYS = /^(host|hostname|server|address|ip|ipaddress|broker|target|targethost|destination|peer|remote|connect|connectto|url|uri|endpoint)$/i;
-const PORT_KEYS = /^(port|tcpport|udpport|listenport|brokerport|targetport|destinationport|remoteport)$/i;
+const HOST_KEYS = /(host|server|address|^ip$|ipaddress|broker|targethost|destination|peer|remote|connect|connectto|url|uri|endpoint)$/i;
+const PORT_KEYS = /port$/i;
 const PROTO_KEYS = /^(protocol|scheme|transport)$/i;
 
 function looksLikeHost(v) {
