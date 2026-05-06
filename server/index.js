@@ -36,9 +36,29 @@ import { listRecentPlans } from "./lib/autopilotStore.js";
 import { collectDeepEvidence, getLatestEvidence, setMockEvidence, clearMockEvidence } from "./lib/deepEvidenceEngine.js";
 import { listScenarios, buildScenario } from "./lib/mockEvidenceScenarios.js";
 import { startMqttTap, stopMqttTap, getMqttSession, listMqttSessions } from "./lib/evidenceCollectors/mqttTruth.js";
+import {
+  upsertDevice, listDevices, getDevice, deleteDevice,
+  listDeviceStates, getDeviceHistory, getDeviceTrend, openDb, dbInfo,
+} from "./lib/healthDb.js";
+import {
+  startScheduler, stopScheduler, schedulerStatus,
+  probeDeviceNow, sweepStale, refreshDevice,
+} from "./lib/pollingScheduler.js";
+import { icmpProbe } from "./lib/probes/icmpProbe.js";
+import { tcpProbe as tcpProbeFn } from "./lib/probes/tcpProbe.js";
+import { httpsProbe } from "./lib/probes/httpsProbe.js";
+import { mqttConnectProbe } from "./lib/probes/mqttConnectProbe.js";
 
 const PORT = Number(process.env.PORT || 3001);
 const BIND = process.env.BIND_HOST || "0.0.0.0"; // change to 127.0.0.1 for localhost-only
+
+// Open the SQLite health store eagerly so first request is fast.
+try { openDb(); } catch (err) { console.error("[tacera-agent] healthDb open failed:", err?.message || err); }
+
+// Periodic stale sweep — every 30s. Cheap pass over devices.
+const STALE_SWEEP_MS = 30_000;
+const _staleTimer = setInterval(() => { try { sweepStale(); } catch {} }, STALE_SWEEP_MS);
+if (typeof _staleTimer.unref === "function") _staleTimer.unref();
 
 const app = express();
 app.use(cors());
@@ -384,6 +404,122 @@ app.post("/api/evidence/mock/set", (req, res) => {
 
 app.post("/api/evidence/mock/clear", (_req, res) => {
   res.json(clearMockEvidence());
+});
+
+/* ===== Live Monitoring (real probes + polling) =====
+ * Foundation phase: real ICMP/TCP/HTTPS/MQTT-connect probes, persistent
+ * device registry in SQLite, polling scheduler with reconnect backoff and
+ * stale detection. Every result returns an evidence record with source,
+ * timestamp, protocol, device, and raw payload.
+ */
+
+const ALLOWED_PROTOCOLS = new Set(["icmp", "tcp", "http", "https", "mqtt"]);
+
+function validateDeviceInput(body) {
+  const errors = [];
+  if (!body || typeof body !== "object") { errors.push("body required"); return { errors }; }
+  const id = String(body.id || "").trim();
+  if (!id || id.length > 128 || !/^[A-Za-z0-9._:-]+$/.test(id)) errors.push("id required (alnum . _ : - up to 128 chars)");
+  const protocol = String(body.protocol || "").toLowerCase();
+  if (!ALLOWED_PROTOCOLS.has(protocol)) errors.push(`protocol must be one of ${[...ALLOWED_PROTOCOLS].join(", ")}`);
+  const kind = String(body.kind || "generic");
+  if (kind.length > 64) errors.push("kind too long");
+  const intervalMs = Number(body.intervalMs || 30000);
+  if (!Number.isFinite(intervalMs) || intervalMs < 2000 || intervalMs > 24 * 60 * 60_000) {
+    errors.push("intervalMs must be between 2000 and 86400000");
+  }
+  if (protocol === "https" || protocol === "http") {
+    if (!body.url || typeof body.url !== "string") errors.push("url required for http/https");
+  } else if (protocol === "mqtt" || protocol === "tcp") {
+    if (!body.host) errors.push("host required");
+    if (protocol === "tcp" && !Number.isInteger(Number(body.port))) errors.push("port required for tcp");
+  } else if (protocol === "icmp") {
+    if (!body.host) errors.push("host required for icmp");
+  }
+  return { errors, id, protocol, kind, intervalMs };
+}
+
+app.get("/api/monitor/info", (_req, res) => {
+  res.json({ ok: true, db: dbInfo(), scheduler: schedulerStatus(), supportedProtocols: [...ALLOWED_PROTOCOLS] });
+});
+
+app.get("/api/monitor/devices", (_req, res) => {
+  try { res.json({ ok: true, devices: listDevices() }); }
+  catch (err) { res.status(500).json({ ok: false, reason: "agent_error", message: err?.message || String(err) }); }
+});
+
+app.post("/api/monitor/devices", (req, res) => {
+  const v = validateDeviceInput(req.body);
+  if (v.errors.length) return res.status(400).json({ ok: false, reason: "invalid_request", errors: v.errors });
+  try {
+    const d = upsertDevice({ ...req.body, id: v.id, protocol: v.protocol, kind: v.kind, intervalMs: v.intervalMs });
+    refreshDevice(d.id);
+    res.json({ ok: true, device: d });
+  } catch (err) { res.status(500).json({ ok: false, reason: "agent_error", message: err?.message || String(err) }); }
+});
+
+app.delete("/api/monitor/devices/:id", (req, res) => {
+  try {
+    const r = deleteDevice(req.params.id);
+    refreshDevice(req.params.id);
+    res.json({ ok: true, ...r });
+  } catch (err) { res.status(500).json({ ok: false, reason: "agent_error", message: err?.message || String(err) }); }
+});
+
+app.get("/api/monitor/state", (_req, res) => {
+  try { res.json({ ok: true, devices: listDeviceStates() }); }
+  catch (err) { res.status(500).json({ ok: false, reason: "agent_error", message: err?.message || String(err) }); }
+});
+
+app.get("/api/monitor/history/:id", (req, res) => {
+  try {
+    const d = getDevice(req.params.id);
+    if (!d) return res.status(404).json({ ok: false, reason: "device_not_found" });
+    const limit = Math.min(2000, Math.max(1, Number(req.query?.limit) || 200));
+    res.json({ ok: true, device: d, history: getDeviceHistory(d.id, { limit }), trend: getDeviceTrend(d.id, { limit: Math.min(limit, 200) }) });
+  } catch (err) { res.status(500).json({ ok: false, reason: "agent_error", message: err?.message || String(err) }); }
+});
+
+app.post("/api/monitor/probe-now/:id", async (req, res) => {
+  try {
+    const r = await probeDeviceNow(req.params.id);
+    if (!r.ok) return res.status(400).json(r);
+    res.json(r);
+  } catch (err) { res.status(500).json({ ok: false, reason: "agent_error", message: err?.message || String(err) }); }
+});
+
+/** Ad-hoc probe — does NOT persist, does NOT register the device. Useful for
+ *  the UI's "test this host" affordance before the user commits to monitoring it. */
+app.post("/api/monitor/probe", async (req, res) => {
+  const v = validateDeviceInput({ ...req.body, id: req.body?.id || "adhoc" });
+  if (v.errors.length) return res.status(400).json({ ok: false, reason: "invalid_request", errors: v.errors });
+  try {
+    const device = { ...req.body, id: v.id, protocol: v.protocol };
+    let evidence;
+    switch (v.protocol) {
+      case "icmp": evidence = await icmpProbe(device); break;
+      case "tcp":  evidence = await tcpProbeFn(device); break;
+      case "http":
+      case "https": evidence = await httpsProbe(device); break;
+      case "mqtt": evidence = await mqttConnectProbe(device); break;
+      default: return res.status(400).json({ ok: false, reason: "unsupported_protocol" });
+    }
+    res.json({ ok: true, evidence });
+  } catch (err) { res.status(500).json({ ok: false, reason: "agent_error", message: err?.message || String(err) }); }
+});
+
+app.post("/api/monitor/start", (req, res) => {
+  try { res.json(startScheduler(req.body || {})); }
+  catch (err) { res.status(500).json({ ok: false, reason: "agent_error", message: err?.message || String(err) }); }
+});
+
+app.post("/api/monitor/stop", (_req, res) => {
+  try { res.json(stopScheduler()); }
+  catch (err) { res.status(500).json({ ok: false, reason: "agent_error", message: err?.message || String(err) }); }
+});
+
+app.get("/api/monitor/status", (_req, res) => {
+  res.json({ ok: true, ...schedulerStatus() });
 });
 
 app.listen(PORT, BIND, () => {

@@ -10,6 +10,7 @@
     "test": "node --test --test-reporter=spec test/"
   },
   "dependencies": {
+    "better-sqlite3": "^12.9.0",
     "cors": "^2.8.5",
     "express": "^4.21.2",
     "mqtt": "^5.15.1",
