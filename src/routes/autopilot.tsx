@@ -6,16 +6,16 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Loader2, Play, Square, RefreshCw, ShieldAlert, ShieldCheck, AlertTriangle, Copy, ChevronDown, Sparkles, Bot } from "lucide-react";
+import { Loader2, Play, Square, RefreshCw, ShieldAlert, ShieldCheck, AlertTriangle, Copy, ChevronDown, Sparkles, Bot, FlaskConical, Info, Lightbulb } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { loadSiteConfig } from "@/lib/siteConfig";
 import {
   autopilotGetStatus, autopilotScanNow, autopilotStart, autopilotStop,
   autopilotGetPlan, autopilotExecute, autopilotVerify,
   autopilotExplainPlan, autopilotExplainExecution,
-  checkHealth,
+  checkHealth, evidenceLatest,
   type AutopilotStatus, type AutopilotPlan, type AutopilotIssue, type AutopilotExecutionReport, type AutopilotRisk,
-  type AutopilotPlanExplanation, type AutopilotExecExplanation,
+  type AutopilotPlanExplanation, type AutopilotExecExplanation, type DeepEvidence,
 } from "@/lib/agentClient";
 import { MissionStatusBar } from "@/components/autopilot/MissionStatusBar";
 import { MissionKpiCards } from "@/components/autopilot/MissionKpiCards";
@@ -24,6 +24,7 @@ import { ConfidenceLadder } from "@/components/autopilot/ConfidenceLadder";
 import { AuditTimeline } from "@/components/autopilot/AuditTimeline";
 import { ProofPanel } from "@/components/autopilot/ProofPanel";
 import { DeepEvidenceCard } from "@/components/autopilot/DeepEvidenceCard";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 export const Route = createFileRoute("/autopilot")({
   head: () => ({
@@ -42,7 +43,20 @@ const RISK_STYLES: Record<AutopilotRisk, string> = {
 };
 
 function RiskPill({ risk }: { risk: AutopilotRisk }) {
-  return <span className={cn("inline-flex items-center rounded-md border px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wider", RISK_STYLES[risk])}>{risk}</span>;
+  const tip =
+    risk === "HIGH" ? "High risk — engine refuses to execute. Manual action required." :
+    risk === "MEDIUM" ? "Medium risk — restarts a service. Requires explicit acknowledgement." :
+    "Low risk — read-only or idempotent action. Still requires technician approval.";
+  return (
+    <TooltipProvider delayDuration={200}>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <span className={cn("inline-flex items-center rounded-md border px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wider cursor-help", RISK_STYLES[risk])}>{risk}</span>
+        </TooltipTrigger>
+        <TooltipContent className="max-w-xs">{tip}</TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
+  );
 }
 
 function AutopilotPage() {
@@ -57,6 +71,7 @@ function AutopilotPage() {
   const [report, setReport] = useState<AutopilotExecutionReport | null>(null);
   const [backendOk, setBackendOk] = useState<boolean>(true);
   const [aiAvailable, setAiAvailable] = useState<"available" | "unavailable" | "unknown">("unknown");
+  const [latestEvidence, setLatestEvidence] = useState<DeepEvidence | null>(null);
 
   const refresh = async () => {
     const r = await autopilotGetStatus();
@@ -69,6 +84,10 @@ function AutopilotPage() {
     (async () => {
       const h = await checkHealth();
       setBackendOk(h.ok);
+    })();
+    (async () => {
+      const r = await evidenceLatest();
+      if ("ok" in r && r.ok) setLatestEvidence(r.evidence);
     })();
   }, []);
 
@@ -120,6 +139,23 @@ function AutopilotPage() {
     !lastExec ? "none" : lastExec.fixVerified ? "verified" : lastExec.success ? "success" : "failed";
   const lastFixAt = lastExec?.finishedAt ?? null;
 
+  // Mock / freshness signals (used for the "What should I do next?" card and global banner).
+  const evidenceMock = !!latestEvidence?.mock;
+  const evidenceAgeMs = latestEvidence?.collectedAt ? Date.now() - new Date(latestEvidence.collectedAt).getTime() : null;
+  const evidenceStale = evidenceAgeMs !== null && evidenceAgeMs > 15 * 60 * 1000;
+  const noServices = enabledServices.length === 0;
+  const noEvidence = !latestEvidence;
+
+  const nextStep: { tone: "info" | "warn" | "ok" | "danger"; title: string; body: string } = (() => {
+    if (noServices) return { tone: "warn", title: "Add services in Command Center first.", body: "Autopilot has nothing to monitor. Define at least one service on the Command Center." };
+    if (evidenceMock) return { tone: "danger", title: "DEV mock evidence is loaded.", body: "Autopilot execution is permanently blocked while a mock scenario is active. Clear the mock from the Deep Evidence page before running real remediation." };
+    if (noEvidence) return { tone: "warn", title: "Collect Deep Evidence before trusting automation.", body: "Without Deep Evidence the engine works from logs alone — contradictions will not be detected." };
+    if (evidenceStale) return { tone: "warn", title: "Deep Evidence is stale.", body: "Re-collect Deep Evidence before approving a remediation plan." };
+    if (needsAttention > 0 && fixReady > 0) return { tone: "info", title: "Review the suggested fix plan.", body: "An issue is detected and a deterministic plan is ready. Approve only after confirming the risk and verification steps." };
+    if (needsAttention > 0) return { tone: "warn", title: "Issues detected — manual review required.", body: "Detected issues are HIGH risk or have no safe automated playbook. Open the issue to escalate." };
+    return { tone: "ok", title: "All monitored services look healthy.", body: "Last scan found no actionable issues. Re-run Scan Now to refresh." };
+  })();
+
   return (
     <div className="container mx-auto max-w-6xl space-y-6 px-4 py-6">
       <PageHeader
@@ -163,6 +199,20 @@ function AutopilotPage() {
         fixExecuted={fixExecuted}
         manualRequired={manualRequired}
       />
+
+      {/* Global mock banner — make it impossible to miss when running against synthetic evidence. */}
+      {evidenceMock && (
+        <Card className="border-warning/60 bg-warning/10">
+          <CardContent className="flex flex-wrap items-center gap-2 p-3 text-sm text-warning">
+            <FlaskConical className="h-4 w-4" />
+            <strong>DEV MOCK evidence active</strong>
+            <span className="text-xs">Autopilot execution against mock evidence is permanently blocked.</span>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* "What should I do next?" guidance card */}
+      <NextStepCard step={nextStep} />
 
       {/* 3. Security proof card */}
       <SecurityProofCard />
@@ -211,6 +261,8 @@ function AutopilotPage() {
                   onRefresh={refresh}
                   lastScanAt={status?.lastScanAt ?? null}
                   onAiAvailability={setAiAvailable}
+                  evidenceMock={evidenceMock}
+                  evidenceStale={evidenceStale}
                 />
               )}
             </CardContent>
