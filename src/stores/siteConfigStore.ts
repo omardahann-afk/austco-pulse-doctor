@@ -119,6 +119,14 @@ async function fetchSiteConfigSnapshot() {
   return json.config ?? null;
 }
 
+async function fetchMonitorDevicesSnapshot() {
+  const response = await monitorApi.devices();
+  if (!response.ok) {
+    throw new Error("Could not load monitored devices");
+  }
+  return sortDevices(response.devices);
+}
+
 async function pushSiteConfigSnapshot(config: SiteConfig) {
   const response = await fetch(`${backendBase()}/api/site-config`, {
     method: "PUT",
@@ -223,16 +231,11 @@ export const useSiteConfigStore = create<SiteConfigState>()(
           if (!response.ok || !response.device) {
             throw new Error(response.errors?.join("; ") || response.reason || "Could not save device");
           }
-          const savedDevice = response.device;
 
-          set((state) => ({
-            monitoredDevices: sortDevices([
-              ...state.monitoredDevices.filter((entry) => entry.id !== savedDevice.id),
-              savedDevice,
-            ]),
-          }));
+          const monitoredDevices = await fetchMonitorDevicesSnapshot();
+          set({ monitoredDevices });
 
-          return savedDevice;
+          return monitoredDevices.find((entry) => entry.id === response.device?.id) ?? response.device;
         },
 
         deleteMonitoredDevice: async (id) => {
@@ -241,9 +244,8 @@ export const useSiteConfigStore = create<SiteConfigState>()(
             throw new Error("Could not delete device");
           }
 
-          set((state) => ({
-            monitoredDevices: state.monitoredDevices.filter((device) => device.id !== id),
-          }));
+          const monitoredDevices = await fetchMonitorDevicesSnapshot();
+          set({ monitoredDevices });
         },
       };
     },

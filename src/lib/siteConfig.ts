@@ -161,11 +161,22 @@ if (typeof window !== "undefined") {
   } catch {}
 }
 
-export const DEFAULT_BACKEND_URL = "http://localhost:3001";
+export const DEFAULT_BACKEND_URL = "http://127.0.0.1:3001";
+
+function getBrowserDefaultBackendUrl(): string {
+  if (typeof window === "undefined") return DEFAULT_BACKEND_URL;
+  return window.location.origin;
+}
+
+function isLegacyLoopbackBackend(value: string | null): boolean {
+  if (!value) return false;
+  return value === "http://localhost:3001" || value === "http://127.0.0.1:3001";
+}
 
 export function getBackendUrl(): string {
   if (typeof window === "undefined") return DEFAULT_BACKEND_URL;
-  return localStorage.getItem(BACKEND_KEY) || DEFAULT_BACKEND_URL;
+  const stored = localStorage.getItem(BACKEND_KEY);
+  return !stored || isLegacyLoopbackBackend(stored) ? getBrowserDefaultBackendUrl() : stored;
 }
 export function setBackendUrl(u: string) {
   if (typeof window === "undefined") return;
