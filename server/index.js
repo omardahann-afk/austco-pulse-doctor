@@ -50,6 +50,8 @@ import { tcpProbe as tcpProbeFn } from "./lib/probes/tcpProbe.js";
 import { httpsProbe } from "./lib/probes/httpsProbe.js";
 import { mqttConnectProbe } from "./lib/probes/mqttConnectProbe.js";
 import { attachWsBus, wsClientCount } from "./lib/wsBus.js";
+import multer from "multer";
+import { parseCcpZipBuffer, isZipBuffer } from "./lib/ccpZipParser.js";
 
 const PORT = Number(process.env.PORT || 3001);
 const BIND = process.env.BIND_HOST || "0.0.0.0"; // change to 127.0.0.1 for localhost-only
