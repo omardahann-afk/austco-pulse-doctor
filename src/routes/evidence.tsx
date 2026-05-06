@@ -203,26 +203,34 @@ function EvidencePage() {
             <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Evidence matrix</h2>
             <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
               <LayerCard title="Network truth" icon={<Network className="h-4 w-4" />} items={(evidence.networkTruth.targets || []).map((t: any) => ({
-                label: t.host || t.id || "target",
+                label: t.name || t.host || "target",
                 badges: [
-                  t.ping?.ok ? { label: `ping ${t.ping?.avgMs ?? "?"}ms`, tone: "ok" as const } : { label: "ping fail", tone: "fail" as const },
-                  t.dns?.ok ? { label: "dns ok", tone: "ok" as const } : { label: "dns fail", tone: "fail" as const },
-                  t.arp?.found ? { label: "arp seen", tone: "ok" as const } : { label: "arp absent", tone: "warn" as const },
+                  t.ping?.reachable
+                    ? { label: `ping ${t.ping?.avgLatencyMs ?? "?"}ms`, tone: "ok" as const }
+                    : { label: "ping fail", tone: "fail" as const },
+                  t.arp?.entry?.mac
+                    ? { label: "arp seen", tone: "ok" as const }
+                    : { label: "arp absent", tone: "warn" as const },
                 ],
-                lines: (t.tcp || []).map((p: any) => `tcp/${p.port} ${p.open ? "open" : "closed"}`),
+                lines: (t.tcpChecks || []).map((p: any) => `tcp/${p.port} ${p.open ? "open" : `closed${p.error ? " (" + p.error + ")" : ""}`}`),
               }))} />
               <LayerCard title="Process truth" icon={<Activity className="h-4 w-4" />} items={(evidence.processTruth.services || []).map((s: any) => ({
-                label: s.name || s.id,
+                label: s.name || s.host || "service",
                 badges: [
-                  s.systemd?.active ? { label: "systemd active", tone: "ok" as const } : { label: "systemd inactive", tone: s.systemd ? "fail" as const : "muted" as const },
-                  s.docker?.running ? { label: "docker up", tone: "ok" as const } : null,
-                ].filter(Boolean) as any,
-                lines: [s.uptime, s.memory, s.disk].filter(Boolean) as string[],
+                  s.sshConnected === false
+                    ? { label: "ssh unreachable", tone: "warn" as const }
+                    : s.isActive === "active"
+                      ? { label: "systemd active", tone: "ok" as const }
+                      : s.isActive
+                        ? { label: `systemd ${s.isActive}`, tone: "fail" as const }
+                        : { label: "no systemd unit", tone: "muted" as const },
+                ],
+                lines: [s.unit ? `unit: ${s.unit}` : null, ...((s.issues || []).map((i: any) => `${i.kind}: ${i.detail}`))].filter(Boolean) as string[],
               }))} />
               <LayerCard title="Port truth" icon={<Network className="h-4 w-4" />} items={(evidence.portTruth.services || []).map((s: any) => ({
-                label: s.name || s.id,
-                badges: [],
-                lines: (s.ports || []).map((p: any) => `:${p.port} ${p.listening ? "listening" : "silent"}${p.process ? " — " + p.process : ""}${p.expectedMismatch ? " ⚠ wrong owner" : ""}`),
+                label: s.name || s.host || "service",
+                badges: s.sshConnected === false ? [{ label: "ssh unreachable", tone: "warn" as const }] : [],
+                lines: (s.portChecks || []).map((p: any) => `:${p.port} ${p.listening ? "listening" : "silent"}${(p.owners || []).length ? " — " + p.owners.map((o: any) => o.name).join(",") : ""}${p.expected && p.expectedProcOk === false && p.listening ? " ⚠ wrong owner" : ""}`),
               }))} />
               <LayerCard title="Config truth" icon={<Cog className="h-4 w-4" />} items={[{
                 label: "Site config",
