@@ -1,5 +1,26 @@
 [
   {
+    "executionId": "exec_motegl2g_uc8a8f",
+    "planId": "plan_x",
+    "startedAt": "2026-05-06T01:49:53.704Z",
+    "finishedAt": "2026-05-06T01:49:53.704Z",
+    "actionsRun": 1,
+    "success": false,
+    "fixVerified": false,
+    "commandOutputs": [
+      {
+        "actionId": "a1",
+        "label": "L",
+        "ok": false,
+        "reason": "high_risk_blocked"
+      }
+    ],
+    "verificationResult": [],
+    "nextSteps": [
+      "Review failed action output. Escalate if unclear."
+    ]
+  },
+  {
     "executionId": "exec_motefugz_ocodok",
     "planId": "plan_test_raw",
     "startedAt": "2026-05-06T01:49:19.234Z",

@@ -1,5 +1,46 @@
 [
   {
+    "planId": "plan_x",
+    "createdAt": "2026-05-06T01:49:53.700Z",
+    "serviceId": "x",
+    "serviceName": "x",
+    "role": "x",
+    "host": "127.0.0.1",
+    "issueType": "t",
+    "rootCause": "t",
+    "confidence": 0,
+    "riskLevel": "HIGH",
+    "requiresApproval": true,
+    "summary": "",
+    "evidence": [],
+    "actions": [
+      {
+        "id": "a1",
+        "label": "L",
+        "templateId": "t",
+        "params": {},
+        "risk": "HIGH",
+        "requiresSudo": false,
+        "command": "echo x",
+        "blocked": false,
+        "explanation": "",
+        "timeoutSeconds": 5,
+        "verifyCommand": null,
+        "verifyExpect": null,
+        "rollbackCommand": null
+      }
+    ],
+    "verification": "manual",
+    "rollbackAvailable": false,
+    "manualNotes": [],
+    "serviceRef": {
+      "id": "x",
+      "host": "127.0.0.1",
+      "port": 22,
+      "username": "root"
+    }
+  },
+  {
     "planId": "plan_test_raw",
     "createdAt": "2026-05-06T01:49:19.234Z",
     "serviceId": "x",
