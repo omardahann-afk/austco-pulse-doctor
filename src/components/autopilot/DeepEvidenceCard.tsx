@@ -36,6 +36,8 @@ export function DeepEvidenceCard() {
   const contradictions = evidence?.contradictions ?? [];
   const top = contradictions[0];
   const score = evidence?.evidenceScore ?? 0;
+  const ageMs = evidence?.collectedAt ? Date.now() - new Date(evidence.collectedAt).getTime() : null;
+  const stale = ageMs !== null && ageMs > 15 * 60 * 1000;
 
   return (
     <Card>
@@ -71,6 +73,12 @@ export function DeepEvidenceCard() {
         </div>
 
         {error && <div className="text-xs text-destructive">{error}</div>}
+
+        {stale && (
+          <div className="rounded-md border border-warning/40 bg-warning/5 p-2 text-xs text-warning">
+            ⚠ Deep Evidence stale — collect again before remediation.
+          </div>
+        )}
 
         {top ? (
           <div className="rounded-md border border-warning/40 bg-warning/5 p-3 text-xs">
