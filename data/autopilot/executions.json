@@ -1,5 +1,67 @@
 [
   {
+    "executionId": "exec_moteq7qz_p0jr0y",
+    "planId": "plan_test_raw",
+    "startedAt": "2026-05-06T01:57:23.003Z",
+    "finishedAt": "2026-05-06T01:57:23.003Z",
+    "actionsRun": 1,
+    "success": false,
+    "fixVerified": false,
+    "commandOutputs": [
+      {
+        "actionId": "a-injected-from-client",
+        "ok": false,
+        "reason": "action_not_found"
+      }
+    ],
+    "verificationResult": [],
+    "nextSteps": [
+      "Review failed action output. Escalate if unclear."
+    ]
+  },
+  {
+    "executionId": "exec_moteq7qw_7f0eej",
+    "planId": "plan_test_med",
+    "startedAt": "2026-05-06T01:57:23.000Z",
+    "finishedAt": "2026-05-06T01:57:23.000Z",
+    "actionsRun": 1,
+    "success": false,
+    "fixVerified": false,
+    "commandOutputs": [
+      {
+        "actionId": "a-med",
+        "label": "Medium risk",
+        "ok": false,
+        "reason": "approval_required"
+      }
+    ],
+    "verificationResult": [],
+    "nextSteps": [
+      "Review failed action output. Escalate if unclear."
+    ]
+  },
+  {
+    "executionId": "exec_moteq7qt_v3dz8r",
+    "planId": "plan_test_high",
+    "startedAt": "2026-05-06T01:57:22.997Z",
+    "finishedAt": "2026-05-06T01:57:22.997Z",
+    "actionsRun": 1,
+    "success": false,
+    "fixVerified": false,
+    "commandOutputs": [
+      {
+        "actionId": "a-high",
+        "label": "High risk",
+        "ok": false,
+        "reason": "high_risk_blocked"
+      }
+    ],
+    "verificationResult": [],
+    "nextSteps": [
+      "Review failed action output. Escalate if unclear."
+    ]
+  },
+  {
     "executionId": "exec_motehaeh_7qry42",
     "planId": "plan_test_raw",
     "startedAt": "2026-05-06T01:50:26.537Z",
