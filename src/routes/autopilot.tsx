@@ -1,14 +1,13 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { PageHeader } from "@/components/PageHeader";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Loader2, Play, Square, RefreshCw, ShieldAlert, ShieldCheck, AlertTriangle, Copy, ChevronDown, Sparkles, Bot, FlaskConical, Info, Lightbulb } from "lucide-react";
+import { Loader2, Play, Square, RefreshCw, ShieldAlert, ShieldCheck, AlertTriangle, Copy, ChevronDown, Sparkles, Bot, FlaskConical, Info, Lightbulb, Plus, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { loadSiteConfig } from "@/lib/siteConfig";
 import {
   autopilotGetStatus, autopilotScanNow, autopilotStart, autopilotStop,
   autopilotGetPlan, autopilotExecute, autopilotVerify,
@@ -26,10 +25,13 @@ import { ProofPanel } from "@/components/autopilot/ProofPanel";
 import { DeepEvidenceCard } from "@/components/autopilot/DeepEvidenceCard";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { AiCommanderTrigger } from "@/components/AiCommanderTrigger";
-import { useSiteConfigStore } from "@/stores/siteConfigStore";
-import { monitorApi } from "@/lib/monitorClient";
-
-const MONITOR_REGISTRY_UPDATED_EVENT = "monitor-registry:updated";
+import { AddAutopilotServiceDialog } from "@/components/autopilot/AddAutopilotServiceDialog";
+import {
+  AUTOPILOT_SERVICES_UPDATED_EVENT,
+  autopilotServicesApi,
+  type AutopilotService,
+} from "@/lib/autopilotServicesClient";
+import { toast } from "sonner";
 
 export const Route = createFileRoute("/autopilot")({
   head: () => ({
