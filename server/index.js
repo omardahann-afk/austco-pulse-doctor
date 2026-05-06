@@ -570,6 +570,44 @@ app.post("/api/ccp/parse", ccpUpload.single("file"), (req, res) => {
   }
 });
 
+/* ------------------------------------------------------------------ */
+/* Site Config — persistent JSON store backing the global Zustand     */
+/* store on the frontend. Phase 7A.                                   */
+/* ------------------------------------------------------------------ */
+app.get("/api/site-config", (_req, res) => {
+  try {
+    const config = readSiteConfig();
+    res.json({ ok: true, config: config || null, info: siteConfigInfo() });
+  } catch (err) {
+    res.status(500).json({ ok: false, reason: "agent_error", message: err?.message || String(err) });
+  }
+});
+
+app.put("/api/site-config", (req, res) => {
+  try {
+    if (!req.body || typeof req.body !== "object") {
+      return res.status(400).json({ ok: false, reason: "invalid_request", message: "JSON body required" });
+    }
+    const info = writeSiteConfig(req.body);
+    res.json({ ok: true, info });
+  } catch (err) {
+    res.status(500).json({ ok: false, reason: "agent_error", message: err?.message || String(err) });
+  }
+});
+
+// Convenience POST alias — same as PUT (replaces full config).
+app.post("/api/site-config", (req, res) => {
+  try {
+    if (!req.body || typeof req.body !== "object") {
+      return res.status(400).json({ ok: false, reason: "invalid_request", message: "JSON body required" });
+    }
+    const info = writeSiteConfig(req.body);
+    res.json({ ok: true, info });
+  } catch (err) {
+    res.status(500).json({ ok: false, reason: "agent_error", message: err?.message || String(err) });
+  }
+});
+
 const httpServer = http.createServer(app);
 attachWsBus(httpServer, { path: "/ws/monitor" });
 httpServer.listen(PORT, BIND, () => {
