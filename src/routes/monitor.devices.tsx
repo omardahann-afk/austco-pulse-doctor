@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { ArrowLeft, Plus, Trash2, Zap, Loader2 } from "lucide-react";
+import { ArrowLeft, Plus, Trash2, Zap, Loader2, Sparkles } from "lucide-react";
 import { monitorApi, type MonitorDevice, type ProbeProtocol, type Evidence } from "@/lib/monitorClient";
 import { toast } from "sonner";
 
@@ -37,6 +37,22 @@ type Form = {
 };
 const EMPTY: Form = { id: "", name: "", kind: "controller", protocol: "icmp", host: "", port: "", url: "", tls: false, intervalSec: "30", enabled: true };
 
+type QuickTemplate = { label: string; hint: string; patch: Partial<Form> };
+const TEMPLATES: QuickTemplate[] = [
+  { label: "Webmin HTTPS", hint: "https · port 10000",
+    patch: { kind: "service", protocol: "https", port: "10000", url: "https://HOST:10000", intervalSec: "30" } },
+  { label: "IPConnect VM", hint: "tcp · ssh 22",
+    patch: { kind: "vm", protocol: "tcp", port: "22", intervalSec: "30" } },
+  { label: "Pulse Gateway HTTPS", hint: "https · port 443",
+    patch: { kind: "gateway", protocol: "https", port: "443", url: "https://HOST/", intervalSec: "30" } },
+  { label: "MQTT Broker", hint: "mqtt · 1883/8883",
+    patch: { kind: "broker", protocol: "mqtt", port: "1883", tls: false, intervalSec: "30" } },
+  { label: "Controller Ping", hint: "icmp",
+    patch: { kind: "controller", protocol: "icmp", port: "", intervalSec: "20" } },
+  { label: "Custom TCP Port", hint: "tcp",
+    patch: { kind: "generic", protocol: "tcp", port: "", intervalSec: "30" } },
+];
+
 function DevicesPage() {
   const [devices, setDevices] = useState<MonitorDevice[]>([]);
   const [loading, setLoading] = useState(true);
@@ -57,6 +73,11 @@ function DevicesPage() {
   useEffect(() => { load(); }, []);
 
   function update<K extends keyof Form>(k: K, v: Form[K]) { setForm((f) => ({ ...f, [k]: v })); }
+
+  function applyTemplate(t: QuickTemplate) {
+    setForm((f) => ({ ...f, ...t.patch, name: f.name || t.label, id: f.id || slug(t.label) }));
+  }
+  function slug(s: string) { return s.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, ""); }
 
   function buildPayload(f: Form) {
     const port = f.port.trim() ? Number(f.port) : null;
@@ -183,6 +204,20 @@ function DevicesPage() {
             {form.id && <Button size="sm" variant="ghost" className="h-7" onClick={() => { setForm(EMPTY); setTestResult(null); }}>Clear</Button>}
           </CardHeader>
           <CardContent className="space-y-3">
+            <div>
+              <Label className="text-[10px] uppercase tracking-wider text-muted-foreground flex items-center gap-1">
+                <Sparkles className="h-3 w-3" /> Quick-add templates
+              </Label>
+              <div className="mt-1.5 flex flex-wrap gap-1.5">
+                {TEMPLATES.map((t) => (
+                  <Button key={t.label} type="button" size="sm" variant="outline" className="h-7 px-2 text-[11px]"
+                    onClick={() => applyTemplate(t)} title={t.hint}>
+                    {t.label}
+                  </Button>
+                ))}
+              </div>
+            </div>
+
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <Label className="text-xs">ID (stable, no spaces)</Label>
