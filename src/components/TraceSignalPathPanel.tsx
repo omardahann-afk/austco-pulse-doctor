@@ -55,6 +55,9 @@ function NodeCard({
             <span className="rounded bg-background/40 px-1.5 py-0.5 font-mono">{tone.label}</span>
             {node.confidence > 0 && <span className="rounded bg-background/40 px-1.5 py-0.5">{node.confidence}%</span>}
             {node.timestamp && <span className="font-mono">{node.timestamp}</span>}
+            {node.evidenceSource && (
+              <span className="rounded bg-info/20 px-1.5 py-0.5 text-info">src: {node.evidenceSource}</span>
+            )}
           </div>
         </div>
         {expanded ? <ChevronDown className="h-3.5 w-3.5 shrink-0 opacity-60" /> : <ChevronRight className="h-3.5 w-3.5 shrink-0 opacity-60" />}
