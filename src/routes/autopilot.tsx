@@ -23,6 +23,7 @@ import { SecurityProofCard } from "@/components/autopilot/SecurityProofCard";
 import { ConfidenceLadder } from "@/components/autopilot/ConfidenceLadder";
 import { AuditTimeline } from "@/components/autopilot/AuditTimeline";
 import { ProofPanel } from "@/components/autopilot/ProofPanel";
+import { DeepEvidenceCard } from "@/components/autopilot/DeepEvidenceCard";
 
 export const Route = createFileRoute("/autopilot")({
   head: () => ({
@@ -165,6 +166,9 @@ function AutopilotPage() {
 
       {/* 3. Security proof card */}
       <SecurityProofCard />
+
+      {/* 3b. Deep Evidence summary */}
+      <DeepEvidenceCard />
 
       {/* 2. Issues + plans */}
       <section className="space-y-3">
