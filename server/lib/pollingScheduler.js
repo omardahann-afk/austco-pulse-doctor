@@ -22,6 +22,8 @@ import { icmpProbe } from "./probes/icmpProbe.js";
 import { tcpProbe } from "./probes/tcpProbe.js";
 import { httpsProbe } from "./probes/httpsProbe.js";
 import { mqttConnectProbe } from "./probes/mqttConnectProbe.js";
+import { mqttFreshnessProbe } from "./probes/mqttFreshnessProbe.js";
+import { webminProbe } from "./probes/webminProbe.js";
 
 const PROBES = {
   icmp: icmpProbe,
@@ -29,6 +31,8 @@ const PROBES = {
   http: httpsProbe,
   https: httpsProbe,
   mqtt: mqttConnectProbe,
+  "mqtt-fresh": mqttFreshnessProbe,
+  webmin: webminProbe,
 };
 
 /** Tunables for state machine. */
