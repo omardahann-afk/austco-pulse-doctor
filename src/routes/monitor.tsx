@@ -9,7 +9,7 @@ import { useMonitorBus } from "@/hooks/useMonitorBus";
 import { StateBadge } from "@/components/monitor/StateBadge";
 import { ConnectionPill } from "@/components/monitor/ConnectionPill";
 import { monitorApi, relativeTime, type DeviceState } from "@/lib/monitorClient";
-import { Play, Square, RefreshCw, Plus, Settings2 } from "lucide-react";
+import { Play, Square, RefreshCw, Plus } from "lucide-react";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/monitor")({
