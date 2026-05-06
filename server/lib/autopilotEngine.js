@@ -312,8 +312,6 @@ export async function executeActions({ planId, actionIds, password, acknowledged
   };
   saveExecution(report);
   saveApproval({ at: startedAt, planId, actionIds: ids, acknowledged: !!acknowledged });
-  // Best-effort ServiceNow update; never blocks/affects the execution result.
-  try { await recordAutopilotResult({ plan, report }); } catch {}
   return { ok: true, report };
 }
 
