@@ -11,6 +11,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { ArrowLeft, Plus, Trash2, Zap, Loader2, Sparkles } from "lucide-react";
 import { monitorApi, type MonitorDevice, type ProbeProtocol, type Evidence } from "@/lib/monitorClient";
 import { toast } from "sonner";
+import { TACERA_DEVICE_PROFILES, deviceFromProfile, findProfile, type TaceraDeviceType } from "@/lib/taceraDeviceProfiles";
 
 export const Route = createFileRoute("/monitor/devices")({
   head: () => ({ meta: [
@@ -21,7 +22,7 @@ export const Route = createFileRoute("/monitor/devices")({
 });
 
 const KINDS = ["controller", "gateway", "broker", "service", "switch", "display", "annunciator", "vm", "generic"] as const;
-const PROTOS: ProbeProtocol[] = ["icmp", "tcp", "https", "http", "mqtt"];
+const PROTOS: ProbeProtocol[] = ["icmp", "tcp", "https", "http", "mqtt", "mqtt-fresh", "webmin"];
 
 type Form = {
   id: string;
@@ -34,8 +35,12 @@ type Form = {
   tls: boolean;
   intervalSec: string;
   enabled: boolean;
+  taceraType: TaceraDeviceType | "";
+  critical: boolean;
+  parentDeviceId: string;
+  mqttTopicsCsv: string;
 };
-const EMPTY: Form = { id: "", name: "", kind: "controller", protocol: "icmp", host: "", port: "", url: "", tls: false, intervalSec: "30", enabled: true };
+const EMPTY: Form = { id: "", name: "", kind: "controller", protocol: "icmp", host: "", port: "", url: "", tls: false, intervalSec: "30", enabled: true, taceraType: "", critical: false, parentDeviceId: "", mqttTopicsCsv: "" };
 
 type QuickTemplate = { label: string; hint: string; patch: Partial<Form> };
 const TEMPLATES: QuickTemplate[] = [
@@ -81,6 +86,8 @@ function DevicesPage() {
 
   function buildPayload(f: Form) {
     const port = f.port.trim() ? Number(f.port) : null;
+    const mqttTopics = f.mqttTopicsCsv.split(",").map((s) => s.trim()).filter(Boolean);
+    const profile = f.taceraType ? findProfile(f.taceraType as TaceraDeviceType) : undefined;
     return {
       id: f.id.trim(),
       name: f.name.trim() || f.id.trim(),
@@ -92,6 +99,13 @@ function DevicesPage() {
       tls: f.tls,
       intervalMs: Math.max(2, Number(f.intervalSec) || 30) * 1000,
       enabled: f.enabled,
+      deviceType: f.taceraType || null,
+      critical: f.critical || profile?.critical || false,
+      parentDeviceId: f.parentDeviceId.trim() || null,
+      mqttTopics,
+      meta: { taceraType: f.taceraType || null, critical: f.critical, mqttTopics, parentDeviceId: f.parentDeviceId.trim() || null,
+              staleThresholdMs: profile?.staleThresholdMs ?? null,
+              expectedPorts: profile?.expectedPorts ?? [] },
     };
   }
 
@@ -137,12 +151,35 @@ function DevicesPage() {
       host: d.host || "", port: d.port?.toString() || "",
       url: d.url || "", tls: d.tls, intervalSec: Math.round(d.intervalMs / 1000).toString(),
       enabled: d.enabled,
+      taceraType: ((d.deviceType ?? "") as TaceraDeviceType | ""),
+      critical: Boolean(d.critical),
+      parentDeviceId: d.parentDeviceId || "",
+      mqttTopicsCsv: (d.mqttTopics || []).join(", "),
     });
     setTestResult(null);
   }
 
-  const showHostPort = form.protocol === "icmp" || form.protocol === "tcp" || form.protocol === "mqtt";
+  const showHostPort = form.protocol === "icmp" || form.protocol === "tcp" || form.protocol === "mqtt" || form.protocol === "mqtt-fresh" || form.protocol === "webmin";
   const showUrl = form.protocol === "http" || form.protocol === "https";
+  const showMqttTopics = form.protocol === "mqtt-fresh";
+
+  function applyTaceraProfile(type: TaceraDeviceType) {
+    const p = findProfile(type);
+    if (!p) return;
+    const patch = deviceFromProfile(p, form.host);
+    setForm((f) => ({
+      ...f,
+      taceraType: type,
+      kind: patch.kind,
+      protocol: patch.protocol as ProbeProtocol,
+      port: patch.port != null ? String(patch.port) : "",
+      intervalSec: String(Math.round(patch.intervalMs / 1000)),
+      critical: p.critical,
+      mqttTopicsCsv: p.mqttTopics.join(", "),
+      name: f.name || p.label,
+      tls: patch.protocol === "webmin" ? true : f.tls,
+    }));
+  }
 
   return (
     <div className="space-y-6">
