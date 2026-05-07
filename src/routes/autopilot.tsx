@@ -28,8 +28,10 @@ import { AiCommanderTrigger } from "@/components/AiCommanderTrigger";
 import { AddAutopilotServiceDialog } from "@/components/autopilot/AddAutopilotServiceDialog";
 import {
   AUTOPILOT_SERVICES_UPDATED_EVENT,
+  AUTOPILOT_SERVICE_PROFILES,
   autopilotServicesApi,
   type AutopilotService,
+  type AutopilotServiceTypeKey,
 } from "@/lib/autopilotServicesClient";
 import type { ServiceRole } from "@/lib/siteConfig";
 import { toast } from "sonner";
@@ -71,6 +73,7 @@ function AutopilotPage() {
   const [services, setServices] = useState<AutopilotService[]>([]);
   const [serviceDialogOpen, setServiceDialogOpen] = useState(false);
   const [editingService, setEditingService] = useState<AutopilotService | null>(null);
+  const [presetType, setPresetType] = useState<AutopilotServiceTypeKey | null>(null);
   const [status, setStatus] = useState<AutopilotStatus | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
