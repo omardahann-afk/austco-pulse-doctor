@@ -29,6 +29,7 @@ import { Route as ApiMonitorStateRouteImport } from './routes/api/monitor.state'
 import { Route as ApiMonitorDevicesRouteImport } from './routes/api/monitor.devices'
 import { Route as ApiEvidenceSnapshotsRouteImport } from './routes/api/evidence.snapshots'
 import { Route as ApiAutopilotServicesRouteImport } from './routes/api/autopilot.services'
+import { Route as ApiAiRootCauseAssistRouteImport } from './routes/api/ai.root-cause-assist'
 import { Route as ApiAutopilotServicesIdRouteImport } from './routes/api/autopilot.services.$id'
 import { Route as ApiAlertsIdResolveRouteImport } from './routes/api/alerts.$id.resolve'
 import { Route as ApiAlertsIdAckRouteImport } from './routes/api/alerts.$id.ack'
@@ -136,6 +137,11 @@ const ApiAutopilotServicesRoute = ApiAutopilotServicesRouteImport.update({
   path: '/api/autopilot/services',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiAiRootCauseAssistRoute = ApiAiRootCauseAssistRouteImport.update({
+  id: '/api/ai/root-cause-assist',
+  path: '/api/ai/root-cause-assist',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiAutopilotServicesIdRoute = ApiAutopilotServicesIdRouteImport.update({
   id: '/$id',
   path: '/$id',
@@ -186,6 +192,7 @@ export interface FileRoutesByFullPath {
   '/evidence/playback': typeof EvidencePlaybackRoute
   '/monitor/$id': typeof MonitorIdRoute
   '/monitor/devices': typeof MonitorDevicesRoute
+  '/api/ai/root-cause-assist': typeof ApiAiRootCauseAssistRoute
   '/api/autopilot/services': typeof ApiAutopilotServicesRouteWithChildren
   '/api/evidence/snapshots': typeof ApiEvidenceSnapshotsRoute
   '/api/monitor/devices': typeof ApiMonitorDevicesRouteWithChildren
@@ -214,6 +221,7 @@ export interface FileRoutesByTo {
   '/evidence/playback': typeof EvidencePlaybackRoute
   '/monitor/$id': typeof MonitorIdRoute
   '/monitor/devices': typeof MonitorDevicesRoute
+  '/api/ai/root-cause-assist': typeof ApiAiRootCauseAssistRoute
   '/api/autopilot/services': typeof ApiAutopilotServicesRouteWithChildren
   '/api/evidence/snapshots': typeof ApiEvidenceSnapshotsRoute
   '/api/monitor/devices': typeof ApiMonitorDevicesRouteWithChildren
@@ -243,6 +251,7 @@ export interface FileRoutesById {
   '/evidence/playback': typeof EvidencePlaybackRoute
   '/monitor/$id': typeof MonitorIdRoute
   '/monitor/devices': typeof MonitorDevicesRoute
+  '/api/ai/root-cause-assist': typeof ApiAiRootCauseAssistRoute
   '/api/autopilot/services': typeof ApiAutopilotServicesRouteWithChildren
   '/api/evidence/snapshots': typeof ApiEvidenceSnapshotsRoute
   '/api/monitor/devices': typeof ApiMonitorDevicesRouteWithChildren
@@ -273,6 +282,7 @@ export interface FileRouteTypes {
     | '/evidence/playback'
     | '/monitor/$id'
     | '/monitor/devices'
+    | '/api/ai/root-cause-assist'
     | '/api/autopilot/services'
     | '/api/evidence/snapshots'
     | '/api/monitor/devices'
@@ -301,6 +311,7 @@ export interface FileRouteTypes {
     | '/evidence/playback'
     | '/monitor/$id'
     | '/monitor/devices'
+    | '/api/ai/root-cause-assist'
     | '/api/autopilot/services'
     | '/api/evidence/snapshots'
     | '/api/monitor/devices'
@@ -329,6 +340,7 @@ export interface FileRouteTypes {
     | '/evidence/playback'
     | '/monitor/$id'
     | '/monitor/devices'
+    | '/api/ai/root-cause-assist'
     | '/api/autopilot/services'
     | '/api/evidence/snapshots'
     | '/api/monitor/devices'
@@ -355,6 +367,7 @@ export interface RootRouteChildren {
   TraceRoute: typeof TraceRoute
   ApiAlertsRoute: typeof ApiAlertsRouteWithChildren
   ApiTimelineRoute: typeof ApiTimelineRoute
+  ApiAiRootCauseAssistRoute: typeof ApiAiRootCauseAssistRoute
   ApiAutopilotServicesRoute: typeof ApiAutopilotServicesRouteWithChildren
   ApiEvidenceSnapshotsRoute: typeof ApiEvidenceSnapshotsRoute
   ApiMonitorDevicesRoute: typeof ApiMonitorDevicesRouteWithChildren
@@ -504,6 +517,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiAutopilotServicesRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/ai/root-cause-assist': {
+      id: '/api/ai/root-cause-assist'
+      path: '/api/ai/root-cause-assist'
+      fullPath: '/api/ai/root-cause-assist'
+      preLoaderRoute: typeof ApiAiRootCauseAssistRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/autopilot/services/$id': {
       id: '/api/autopilot/services/$id'
       path: '/$id'
@@ -628,6 +648,7 @@ const rootRouteChildren: RootRouteChildren = {
   TraceRoute: TraceRoute,
   ApiAlertsRoute: ApiAlertsRouteWithChildren,
   ApiTimelineRoute: ApiTimelineRoute,
+  ApiAiRootCauseAssistRoute: ApiAiRootCauseAssistRoute,
   ApiAutopilotServicesRoute: ApiAutopilotServicesRouteWithChildren,
   ApiEvidenceSnapshotsRoute: ApiEvidenceSnapshotsRoute,
   ApiMonitorDevicesRoute: ApiMonitorDevicesRouteWithChildren,
