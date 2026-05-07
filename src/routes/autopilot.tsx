@@ -26,6 +26,7 @@ import { DeepEvidenceCard } from "@/components/autopilot/DeepEvidenceCard";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { AiCommanderTrigger } from "@/components/AiCommanderTrigger";
 import { AddAutopilotServiceDialog } from "@/components/autopilot/AddAutopilotServiceDialog";
+import { RecommendationsFromAlertsPanel } from "@/components/autopilot/RecommendationsFromAlertsPanel";
 import {
   AUTOPILOT_SERVICES_UPDATED_EVENT,
   AUTOPILOT_SERVICE_PROFILES,
@@ -247,6 +248,8 @@ function AutopilotPage() {
       {error && (
         <Card><CardContent className="flex items-center gap-2 p-4 text-sm text-destructive"><AlertTriangle className="h-4 w-4" />{error}</CardContent></Card>
       )}
+
+      <RecommendationsFromAlertsPanel />
 
       {/* 1. Mission Control top status bar */}
       <MissionStatusBar
