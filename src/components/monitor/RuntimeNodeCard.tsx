@@ -10,7 +10,7 @@ import {
 } from "@/lib/liveMonitorProfiles";
 import { relativeTime, type DeviceStateRow, type MonitorDevice } from "@/lib/monitorClient";
 
-function metricRowState(s: DeviceStateRow["state"]) {
+function metricRowState(s: DeviceStateRow["state"] | undefined) {
   switch (s) {
     case "up":       return "border-success/40 bg-success/5";
     case "degraded": return "border-warning/40 bg-warning/5";
