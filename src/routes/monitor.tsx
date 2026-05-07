@@ -174,9 +174,9 @@ function MonitorPage() {
             <div className="rounded-full bg-muted/50 p-3"><Plus className="h-5 w-5 text-muted-foreground" /></div>
             <div className="text-base font-medium">No monitored devices yet</div>
             <p className="max-w-md text-sm text-muted-foreground">
-              Register controllers, gateways, brokers and services on the Devices page. The agent will run real ICMP / TCP / HTTPS / MQTT probes and stream results here.
+              Add IPC, Pulse Gateway, INGA, controllers, switches, or brokers here using the quick-add buttons above.
             </p>
-            <Button size="sm" onClick={() => setDialogOpen(true)}><Plus className="mr-1.5 h-3.5 w-3.5" /> Add devices</Button>
+            <Button size="sm" onClick={() => addDraft("ipc-webmin")}><Plus className="mr-1.5 h-3.5 w-3.5" /> Add IPC Webmin</Button>
           </CardContent>
         </Card>
       ) : (
