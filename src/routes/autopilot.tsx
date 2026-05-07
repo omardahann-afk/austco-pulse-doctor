@@ -297,6 +297,19 @@ function AutopilotPage() {
             <Plus className="h-4 w-4" /> Add Autopilot Service
           </Button>
         </div>
+        <div className="flex flex-wrap gap-2">
+          {AUTOPILOT_SERVICE_PROFILES.filter((p) => p.type !== "custom").map((p) => (
+            <Button
+              key={p.type}
+              size="sm"
+              variant="outline"
+              className="h-7 text-xs"
+              onClick={() => { setEditingService(null); setPresetType(p.type); setServiceDialogOpen(true); }}
+            >
+              <Plus className="h-3.5 w-3.5" /> {p.label}
+            </Button>
+          ))}
+        </div>
         {services.length === 0 ? (
           <Card>
             <CardContent className="space-y-3 p-6 text-center text-sm">
