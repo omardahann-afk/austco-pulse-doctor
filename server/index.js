@@ -60,6 +60,17 @@ import { parseCcpZipBuffer, isZipBuffer } from "./lib/ccpZipParser.js";
 import { readSiteConfig, writeSiteConfig, siteConfigInfo } from "./lib/siteConfigStore.js";
 import { readRecentLogs, listDeviceLogPaths } from "./lib/logReader.js";
 import { listSnapshots, getSnapshot, createSnapshot } from "./lib/evidenceSnapshotStore.js";
+import {
+  listAlerts, getAlert, ackAlert, resolveAlert,
+  alertFromProbe, alertsFromCorrelation,
+} from "./lib/alertEngine.js";
+import { appendTimelineEvent, listTimelineEvents } from "./lib/failureTimelineStore.js";
+import { correlateLogLines } from "./lib/logCorrelationEngine.js";
+import {
+  buildRecommendation, saveRecommendation, listRecommendations,
+  getRecommendation, approveRecommendation, rejectRecommendation,
+  recommendFromAlertId,
+} from "./lib/autopilotRecommendationEngine.js";
 
 const PORT = Number(process.env.PORT || 3001);
 const BIND = process.env.BIND_HOST || "0.0.0.0"; // change to 127.0.0.1 for localhost-only
