@@ -27,6 +27,7 @@ import { Route as ApiMonitorStateRouteImport } from './routes/api/monitor.state'
 import { Route as ApiMonitorDevicesRouteImport } from './routes/api/monitor.devices'
 import { Route as ApiAutopilotServicesRouteImport } from './routes/api/autopilot.services'
 import { Route as ApiAutopilotServicesIdRouteImport } from './routes/api/autopilot.services.$id'
+import { Route as ApiMonitorDevicesIdLogPathsRouteImport } from './routes/api/monitor.devices.$id.log-paths'
 import { Route as ApiMonitorDevicesIdLogsRecentRouteImport } from './routes/api/monitor.devices.$id.logs.recent'
 
 const TraceRoute = TraceRouteImport.update({
@@ -119,6 +120,12 @@ const ApiAutopilotServicesIdRoute = ApiAutopilotServicesIdRouteImport.update({
   path: '/$id',
   getParentRoute: () => ApiAutopilotServicesRoute,
 } as any)
+const ApiMonitorDevicesIdLogPathsRoute =
+  ApiMonitorDevicesIdLogPathsRouteImport.update({
+    id: '/$id/log-paths',
+    path: '/$id/log-paths',
+    getParentRoute: () => ApiMonitorDevicesRoute,
+  } as any)
 const ApiMonitorDevicesIdLogsRecentRoute =
   ApiMonitorDevicesIdLogsRecentRouteImport.update({
     id: '/$id/logs/recent',
@@ -145,6 +152,7 @@ export interface FileRoutesByFullPath {
   '/api/monitor/state': typeof ApiMonitorStateRoute
   '/api/monitor/status': typeof ApiMonitorStatusRoute
   '/api/autopilot/services/$id': typeof ApiAutopilotServicesIdRoute
+  '/api/monitor/devices/$id/log-paths': typeof ApiMonitorDevicesIdLogPathsRoute
   '/api/monitor/devices/$id/logs/recent': typeof ApiMonitorDevicesIdLogsRecentRoute
 }
 export interface FileRoutesByTo {
@@ -166,6 +174,7 @@ export interface FileRoutesByTo {
   '/api/monitor/state': typeof ApiMonitorStateRoute
   '/api/monitor/status': typeof ApiMonitorStatusRoute
   '/api/autopilot/services/$id': typeof ApiAutopilotServicesIdRoute
+  '/api/monitor/devices/$id/log-paths': typeof ApiMonitorDevicesIdLogPathsRoute
   '/api/monitor/devices/$id/logs/recent': typeof ApiMonitorDevicesIdLogsRecentRoute
 }
 export interface FileRoutesById {
@@ -188,6 +197,7 @@ export interface FileRoutesById {
   '/api/monitor/state': typeof ApiMonitorStateRoute
   '/api/monitor/status': typeof ApiMonitorStatusRoute
   '/api/autopilot/services/$id': typeof ApiAutopilotServicesIdRoute
+  '/api/monitor/devices/$id/log-paths': typeof ApiMonitorDevicesIdLogPathsRoute
   '/api/monitor/devices/$id/logs/recent': typeof ApiMonitorDevicesIdLogsRecentRoute
 }
 export interface FileRouteTypes {
@@ -211,6 +221,7 @@ export interface FileRouteTypes {
     | '/api/monitor/state'
     | '/api/monitor/status'
     | '/api/autopilot/services/$id'
+    | '/api/monitor/devices/$id/log-paths'
     | '/api/monitor/devices/$id/logs/recent'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -232,6 +243,7 @@ export interface FileRouteTypes {
     | '/api/monitor/state'
     | '/api/monitor/status'
     | '/api/autopilot/services/$id'
+    | '/api/monitor/devices/$id/log-paths'
     | '/api/monitor/devices/$id/logs/recent'
   id:
     | '__root__'
@@ -253,6 +265,7 @@ export interface FileRouteTypes {
     | '/api/monitor/state'
     | '/api/monitor/status'
     | '/api/autopilot/services/$id'
+    | '/api/monitor/devices/$id/log-paths'
     | '/api/monitor/devices/$id/logs/recent'
   fileRoutesById: FileRoutesById
 }
@@ -401,6 +414,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiAutopilotServicesIdRouteImport
       parentRoute: typeof ApiAutopilotServicesRoute
     }
+    '/api/monitor/devices/$id/log-paths': {
+      id: '/api/monitor/devices/$id/log-paths'
+      path: '/$id/log-paths'
+      fullPath: '/api/monitor/devices/$id/log-paths'
+      preLoaderRoute: typeof ApiMonitorDevicesIdLogPathsRouteImport
+      parentRoute: typeof ApiMonitorDevicesRoute
+    }
     '/api/monitor/devices/$id/logs/recent': {
       id: '/api/monitor/devices/$id/logs/recent'
       path: '/$id/logs/recent'
@@ -448,10 +468,12 @@ const ApiAutopilotServicesRouteWithChildren =
   ApiAutopilotServicesRoute._addFileChildren(ApiAutopilotServicesRouteChildren)
 
 interface ApiMonitorDevicesRouteChildren {
+  ApiMonitorDevicesIdLogPathsRoute: typeof ApiMonitorDevicesIdLogPathsRoute
   ApiMonitorDevicesIdLogsRecentRoute: typeof ApiMonitorDevicesIdLogsRecentRoute
 }
 
 const ApiMonitorDevicesRouteChildren: ApiMonitorDevicesRouteChildren = {
+  ApiMonitorDevicesIdLogPathsRoute: ApiMonitorDevicesIdLogPathsRoute,
   ApiMonitorDevicesIdLogsRecentRoute: ApiMonitorDevicesIdLogsRecentRoute,
 }
 
