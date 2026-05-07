@@ -29,6 +29,7 @@ import { Route as ApiMonitorDevicesRouteImport } from './routes/api/monitor.devi
 import { Route as ApiEvidenceSnapshotsRouteImport } from './routes/api/evidence.snapshots'
 import { Route as ApiAutopilotServicesRouteImport } from './routes/api/autopilot.services'
 import { Route as ApiAutopilotServicesIdRouteImport } from './routes/api/autopilot.services.$id'
+import { Route as ApiAlertsIdAckRouteImport } from './routes/api/alerts.$id.ack'
 import { Route as ApiMonitorDevicesIdLogPathsRouteImport } from './routes/api/monitor.devices.$id.log-paths'
 import { Route as ApiMonitorDevicesIdLogsRecentRouteImport } from './routes/api/monitor.devices.$id.logs.recent'
 
@@ -132,6 +133,11 @@ const ApiAutopilotServicesIdRoute = ApiAutopilotServicesIdRouteImport.update({
   path: '/$id',
   getParentRoute: () => ApiAutopilotServicesRoute,
 } as any)
+const ApiAlertsIdAckRoute = ApiAlertsIdAckRouteImport.update({
+  id: '/$id/ack',
+  path: '/$id/ack',
+  getParentRoute: () => ApiAlertsRoute,
+} as any)
 const ApiMonitorDevicesIdLogPathsRoute =
   ApiMonitorDevicesIdLogPathsRouteImport.update({
     id: '/$id/log-paths',
@@ -156,7 +162,7 @@ export interface FileRoutesByFullPath {
   '/logs': typeof LogsRoute
   '/monitor': typeof MonitorRouteWithChildren
   '/trace': typeof TraceRoute
-  '/api/alerts': typeof ApiAlertsRoute
+  '/api/alerts': typeof ApiAlertsRouteWithChildren
   '/evidence/playback': typeof EvidencePlaybackRoute
   '/monitor/$id': typeof MonitorIdRoute
   '/monitor/devices': typeof MonitorDevicesRoute
@@ -165,6 +171,7 @@ export interface FileRoutesByFullPath {
   '/api/monitor/devices': typeof ApiMonitorDevicesRouteWithChildren
   '/api/monitor/state': typeof ApiMonitorStateRoute
   '/api/monitor/status': typeof ApiMonitorStatusRoute
+  '/api/alerts/$id/ack': typeof ApiAlertsIdAckRoute
   '/api/autopilot/services/$id': typeof ApiAutopilotServicesIdRoute
   '/api/monitor/devices/$id/log-paths': typeof ApiMonitorDevicesIdLogPathsRoute
   '/api/monitor/devices/$id/logs/recent': typeof ApiMonitorDevicesIdLogsRecentRoute
@@ -180,7 +187,7 @@ export interface FileRoutesByTo {
   '/logs': typeof LogsRoute
   '/monitor': typeof MonitorRouteWithChildren
   '/trace': typeof TraceRoute
-  '/api/alerts': typeof ApiAlertsRoute
+  '/api/alerts': typeof ApiAlertsRouteWithChildren
   '/evidence/playback': typeof EvidencePlaybackRoute
   '/monitor/$id': typeof MonitorIdRoute
   '/monitor/devices': typeof MonitorDevicesRoute
@@ -189,6 +196,7 @@ export interface FileRoutesByTo {
   '/api/monitor/devices': typeof ApiMonitorDevicesRouteWithChildren
   '/api/monitor/state': typeof ApiMonitorStateRoute
   '/api/monitor/status': typeof ApiMonitorStatusRoute
+  '/api/alerts/$id/ack': typeof ApiAlertsIdAckRoute
   '/api/autopilot/services/$id': typeof ApiAutopilotServicesIdRoute
   '/api/monitor/devices/$id/log-paths': typeof ApiMonitorDevicesIdLogPathsRoute
   '/api/monitor/devices/$id/logs/recent': typeof ApiMonitorDevicesIdLogsRecentRoute
@@ -205,7 +213,7 @@ export interface FileRoutesById {
   '/logs': typeof LogsRoute
   '/monitor': typeof MonitorRouteWithChildren
   '/trace': typeof TraceRoute
-  '/api/alerts': typeof ApiAlertsRoute
+  '/api/alerts': typeof ApiAlertsRouteWithChildren
   '/evidence/playback': typeof EvidencePlaybackRoute
   '/monitor/$id': typeof MonitorIdRoute
   '/monitor/devices': typeof MonitorDevicesRoute
@@ -214,6 +222,7 @@ export interface FileRoutesById {
   '/api/monitor/devices': typeof ApiMonitorDevicesRouteWithChildren
   '/api/monitor/state': typeof ApiMonitorStateRoute
   '/api/monitor/status': typeof ApiMonitorStatusRoute
+  '/api/alerts/$id/ack': typeof ApiAlertsIdAckRoute
   '/api/autopilot/services/$id': typeof ApiAutopilotServicesIdRoute
   '/api/monitor/devices/$id/log-paths': typeof ApiMonitorDevicesIdLogPathsRoute
   '/api/monitor/devices/$id/logs/recent': typeof ApiMonitorDevicesIdLogsRecentRoute
@@ -240,6 +249,7 @@ export interface FileRouteTypes {
     | '/api/monitor/devices'
     | '/api/monitor/state'
     | '/api/monitor/status'
+    | '/api/alerts/$id/ack'
     | '/api/autopilot/services/$id'
     | '/api/monitor/devices/$id/log-paths'
     | '/api/monitor/devices/$id/logs/recent'
@@ -264,6 +274,7 @@ export interface FileRouteTypes {
     | '/api/monitor/devices'
     | '/api/monitor/state'
     | '/api/monitor/status'
+    | '/api/alerts/$id/ack'
     | '/api/autopilot/services/$id'
     | '/api/monitor/devices/$id/log-paths'
     | '/api/monitor/devices/$id/logs/recent'
@@ -288,6 +299,7 @@ export interface FileRouteTypes {
     | '/api/monitor/devices'
     | '/api/monitor/state'
     | '/api/monitor/status'
+    | '/api/alerts/$id/ack'
     | '/api/autopilot/services/$id'
     | '/api/monitor/devices/$id/log-paths'
     | '/api/monitor/devices/$id/logs/recent'
@@ -304,7 +316,7 @@ export interface RootRouteChildren {
   LogsRoute: typeof LogsRoute
   MonitorRoute: typeof MonitorRouteWithChildren
   TraceRoute: typeof TraceRoute
-  ApiAlertsRoute: typeof ApiAlertsRoute
+  ApiAlertsRoute: typeof ApiAlertsRouteWithChildren
   ApiAutopilotServicesRoute: typeof ApiAutopilotServicesRouteWithChildren
   ApiEvidenceSnapshotsRoute: typeof ApiEvidenceSnapshotsRoute
   ApiMonitorDevicesRoute: typeof ApiMonitorDevicesRouteWithChildren
@@ -454,6 +466,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiAutopilotServicesIdRouteImport
       parentRoute: typeof ApiAutopilotServicesRoute
     }
+    '/api/alerts/$id/ack': {
+      id: '/api/alerts/$id/ack'
+      path: '/$id/ack'
+      fullPath: '/api/alerts/$id/ack'
+      preLoaderRoute: typeof ApiAlertsIdAckRouteImport
+      parentRoute: typeof ApiAlertsRoute
+    }
     '/api/monitor/devices/$id/log-paths': {
       id: '/api/monitor/devices/$id/log-paths'
       path: '/$id/log-paths'
@@ -496,6 +515,18 @@ const MonitorRouteChildren: MonitorRouteChildren = {
 const MonitorRouteWithChildren =
   MonitorRoute._addFileChildren(MonitorRouteChildren)
 
+interface ApiAlertsRouteChildren {
+  ApiAlertsIdAckRoute: typeof ApiAlertsIdAckRoute
+}
+
+const ApiAlertsRouteChildren: ApiAlertsRouteChildren = {
+  ApiAlertsIdAckRoute: ApiAlertsIdAckRoute,
+}
+
+const ApiAlertsRouteWithChildren = ApiAlertsRoute._addFileChildren(
+  ApiAlertsRouteChildren,
+)
+
 interface ApiAutopilotServicesRouteChildren {
   ApiAutopilotServicesIdRoute: typeof ApiAutopilotServicesIdRoute
 }
@@ -531,7 +562,7 @@ const rootRouteChildren: RootRouteChildren = {
   LogsRoute: LogsRoute,
   MonitorRoute: MonitorRouteWithChildren,
   TraceRoute: TraceRoute,
-  ApiAlertsRoute: ApiAlertsRoute,
+  ApiAlertsRoute: ApiAlertsRouteWithChildren,
   ApiAutopilotServicesRoute: ApiAutopilotServicesRouteWithChildren,
   ApiEvidenceSnapshotsRoute: ApiEvidenceSnapshotsRoute,
   ApiMonitorDevicesRoute: ApiMonitorDevicesRouteWithChildren,
