@@ -27,6 +27,7 @@ import { Route as ApiMonitorStateRouteImport } from './routes/api/monitor.state'
 import { Route as ApiMonitorDevicesRouteImport } from './routes/api/monitor.devices'
 import { Route as ApiAutopilotServicesRouteImport } from './routes/api/autopilot.services'
 import { Route as ApiAutopilotServicesIdRouteImport } from './routes/api/autopilot.services.$id'
+import { Route as ApiMonitorDevicesIdLogsRecentRouteImport } from './routes/api/monitor.devices.$id.logs.recent'
 
 const TraceRoute = TraceRouteImport.update({
   id: '/trace',
@@ -118,6 +119,12 @@ const ApiAutopilotServicesIdRoute = ApiAutopilotServicesIdRouteImport.update({
   path: '/$id',
   getParentRoute: () => ApiAutopilotServicesRoute,
 } as any)
+const ApiMonitorDevicesIdLogsRecentRoute =
+  ApiMonitorDevicesIdLogsRecentRouteImport.update({
+    id: '/$id/logs/recent',
+    path: '/$id/logs/recent',
+    getParentRoute: () => ApiMonitorDevicesRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -134,10 +141,11 @@ export interface FileRoutesByFullPath {
   '/monitor/$id': typeof MonitorIdRoute
   '/monitor/devices': typeof MonitorDevicesRoute
   '/api/autopilot/services': typeof ApiAutopilotServicesRouteWithChildren
-  '/api/monitor/devices': typeof ApiMonitorDevicesRoute
+  '/api/monitor/devices': typeof ApiMonitorDevicesRouteWithChildren
   '/api/monitor/state': typeof ApiMonitorStateRoute
   '/api/monitor/status': typeof ApiMonitorStatusRoute
   '/api/autopilot/services/$id': typeof ApiAutopilotServicesIdRoute
+  '/api/monitor/devices/$id/logs/recent': typeof ApiMonitorDevicesIdLogsRecentRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -154,10 +162,11 @@ export interface FileRoutesByTo {
   '/monitor/$id': typeof MonitorIdRoute
   '/monitor/devices': typeof MonitorDevicesRoute
   '/api/autopilot/services': typeof ApiAutopilotServicesRouteWithChildren
-  '/api/monitor/devices': typeof ApiMonitorDevicesRoute
+  '/api/monitor/devices': typeof ApiMonitorDevicesRouteWithChildren
   '/api/monitor/state': typeof ApiMonitorStateRoute
   '/api/monitor/status': typeof ApiMonitorStatusRoute
   '/api/autopilot/services/$id': typeof ApiAutopilotServicesIdRoute
+  '/api/monitor/devices/$id/logs/recent': typeof ApiMonitorDevicesIdLogsRecentRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -175,10 +184,11 @@ export interface FileRoutesById {
   '/monitor/$id': typeof MonitorIdRoute
   '/monitor/devices': typeof MonitorDevicesRoute
   '/api/autopilot/services': typeof ApiAutopilotServicesRouteWithChildren
-  '/api/monitor/devices': typeof ApiMonitorDevicesRoute
+  '/api/monitor/devices': typeof ApiMonitorDevicesRouteWithChildren
   '/api/monitor/state': typeof ApiMonitorStateRoute
   '/api/monitor/status': typeof ApiMonitorStatusRoute
   '/api/autopilot/services/$id': typeof ApiAutopilotServicesIdRoute
+  '/api/monitor/devices/$id/logs/recent': typeof ApiMonitorDevicesIdLogsRecentRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -201,6 +211,7 @@ export interface FileRouteTypes {
     | '/api/monitor/state'
     | '/api/monitor/status'
     | '/api/autopilot/services/$id'
+    | '/api/monitor/devices/$id/logs/recent'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -221,6 +232,7 @@ export interface FileRouteTypes {
     | '/api/monitor/state'
     | '/api/monitor/status'
     | '/api/autopilot/services/$id'
+    | '/api/monitor/devices/$id/logs/recent'
   id:
     | '__root__'
     | '/'
@@ -241,6 +253,7 @@ export interface FileRouteTypes {
     | '/api/monitor/state'
     | '/api/monitor/status'
     | '/api/autopilot/services/$id'
+    | '/api/monitor/devices/$id/logs/recent'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -255,7 +268,7 @@ export interface RootRouteChildren {
   MonitorRoute: typeof MonitorRouteWithChildren
   TraceRoute: typeof TraceRoute
   ApiAutopilotServicesRoute: typeof ApiAutopilotServicesRouteWithChildren
-  ApiMonitorDevicesRoute: typeof ApiMonitorDevicesRoute
+  ApiMonitorDevicesRoute: typeof ApiMonitorDevicesRouteWithChildren
   ApiMonitorStateRoute: typeof ApiMonitorStateRoute
   ApiMonitorStatusRoute: typeof ApiMonitorStatusRoute
 }
@@ -388,6 +401,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiAutopilotServicesIdRouteImport
       parentRoute: typeof ApiAutopilotServicesRoute
     }
+    '/api/monitor/devices/$id/logs/recent': {
+      id: '/api/monitor/devices/$id/logs/recent'
+      path: '/$id/logs/recent'
+      fullPath: '/api/monitor/devices/$id/logs/recent'
+      preLoaderRoute: typeof ApiMonitorDevicesIdLogsRecentRouteImport
+      parentRoute: typeof ApiMonitorDevicesRoute
+    }
   }
 }
 
@@ -427,6 +447,17 @@ const ApiAutopilotServicesRouteChildren: ApiAutopilotServicesRouteChildren = {
 const ApiAutopilotServicesRouteWithChildren =
   ApiAutopilotServicesRoute._addFileChildren(ApiAutopilotServicesRouteChildren)
 
+interface ApiMonitorDevicesRouteChildren {
+  ApiMonitorDevicesIdLogsRecentRoute: typeof ApiMonitorDevicesIdLogsRecentRoute
+}
+
+const ApiMonitorDevicesRouteChildren: ApiMonitorDevicesRouteChildren = {
+  ApiMonitorDevicesIdLogsRecentRoute: ApiMonitorDevicesIdLogsRecentRoute,
+}
+
+const ApiMonitorDevicesRouteWithChildren =
+  ApiMonitorDevicesRoute._addFileChildren(ApiMonitorDevicesRouteChildren)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AiCommanderRoute: AiCommanderRoute,
@@ -439,10 +470,19 @@ const rootRouteChildren: RootRouteChildren = {
   MonitorRoute: MonitorRouteWithChildren,
   TraceRoute: TraceRoute,
   ApiAutopilotServicesRoute: ApiAutopilotServicesRouteWithChildren,
-  ApiMonitorDevicesRoute: ApiMonitorDevicesRoute,
+  ApiMonitorDevicesRoute: ApiMonitorDevicesRouteWithChildren,
   ApiMonitorStateRoute: ApiMonitorStateRoute,
   ApiMonitorStatusRoute: ApiMonitorStatusRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { createStart } from '@tanstack/react-start'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+  }
+}
