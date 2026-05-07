@@ -1,13 +1,13 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { PageHeader } from "@/components/PageHeader";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useMonitorBus } from "@/hooks/useMonitorBus";
 import { ConnectionPill } from "@/components/monitor/ConnectionPill";
 import { monitorApi, relativeTime, type DeviceState } from "@/lib/monitorClient";
-import { Play, Square, RefreshCw, Plus } from "lucide-react";
+import { Play, Square, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
 import { useSiteConfigStore } from "@/stores/siteConfigStore";
 import { LIVE_MONITOR_PROFILES, LIVE_MONITOR_GROUPS, type LiveMonitorProfileKey } from "@/lib/liveMonitorProfiles";
@@ -28,8 +28,6 @@ export const Route = createFileRoute("/monitor")({
   ]}),
   component: MonitorPage,
 });
-
-const STATE_ORDER: DeviceState[] = ["down", "degraded", "stale", "unknown", "up"];
 
 function MonitorPage() {
   const { conn, scheduler, devices, lastEventAt, requestSnapshot } = useMonitorBus();
