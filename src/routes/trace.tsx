@@ -11,6 +11,7 @@ import { loadSiteConfig, loadServicesDiagnosis } from "@/lib/siteConfig";
 import { runTrace, type TraceResult, type TraceTargetKind, type ServicesDiagnosis } from "@/lib/agentClient";
 import { TraceSignalPathPanel } from "@/components/TraceSignalPathPanel";
 import { AiCommanderTrigger } from "@/components/AiCommanderTrigger";
+import { TraceContextCard } from "@/components/TraceContextCard";
 
 export const Route = createFileRoute("/trace")({
   head: () => ({
@@ -18,6 +19,11 @@ export const Route = createFileRoute("/trace")({
       { title: "Trace Signal Path — Tacera Doctor" },
       { name: "description", content: "Trace a real Austco/Tacera signal end-to-end across the stack and find exactly where it breaks." },
     ],
+  }),
+  validateSearch: (s: Record<string, unknown>) => ({
+    deviceId: typeof s.deviceId === "string" ? s.deviceId : undefined,
+    alertId: typeof s.alertId === "string" ? s.alertId : undefined,
+    snapshotId: typeof s.snapshotId === "string" ? s.snapshotId : undefined,
   }),
   component: Page,
 });
@@ -32,6 +38,7 @@ const KINDS: { value: TraceTargetKind; label: string; placeholder: string }[] = 
 ];
 
 function Page() {
+  const { deviceId, alertId } = Route.useSearch();
   const [kind, setKind] = useState<TraceTargetKind>("cpId");
   const [value, setValue] = useState("");
   const [callType, setCallType] = useState("");
@@ -71,6 +78,8 @@ function Page() {
         title="Trace Signal Path"
         description="Wireshark for Austco events — trace a real signal end-to-end and find exactly where it breaks."
       />
+
+      <TraceContextCard deviceId={deviceId} alertId={alertId} />
 
       <Card className="bg-card/70">
         <CardContent className="space-y-3 p-4">
