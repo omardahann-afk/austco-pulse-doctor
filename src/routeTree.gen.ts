@@ -22,6 +22,7 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as MonitorDevicesRouteImport } from './routes/monitor.devices'
 import { Route as MonitorIdRouteImport } from './routes/monitor.$id'
 import { Route as EvidencePlaybackRouteImport } from './routes/evidence.playback'
+import { Route as ApiAlertsRouteImport } from './routes/api/alerts'
 import { Route as ApiMonitorStatusRouteImport } from './routes/api/monitor.status'
 import { Route as ApiMonitorStateRouteImport } from './routes/api/monitor.state'
 import { Route as ApiMonitorDevicesRouteImport } from './routes/api/monitor.devices'
@@ -96,6 +97,11 @@ const EvidencePlaybackRoute = EvidencePlaybackRouteImport.update({
   path: '/playback',
   getParentRoute: () => EvidenceRoute,
 } as any)
+const ApiAlertsRoute = ApiAlertsRouteImport.update({
+  id: '/api/alerts',
+  path: '/api/alerts',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiMonitorStatusRoute = ApiMonitorStatusRouteImport.update({
   id: '/api/monitor/status',
   path: '/api/monitor/status',
@@ -150,6 +156,7 @@ export interface FileRoutesByFullPath {
   '/logs': typeof LogsRoute
   '/monitor': typeof MonitorRouteWithChildren
   '/trace': typeof TraceRoute
+  '/api/alerts': typeof ApiAlertsRoute
   '/evidence/playback': typeof EvidencePlaybackRoute
   '/monitor/$id': typeof MonitorIdRoute
   '/monitor/devices': typeof MonitorDevicesRoute
@@ -173,6 +180,7 @@ export interface FileRoutesByTo {
   '/logs': typeof LogsRoute
   '/monitor': typeof MonitorRouteWithChildren
   '/trace': typeof TraceRoute
+  '/api/alerts': typeof ApiAlertsRoute
   '/evidence/playback': typeof EvidencePlaybackRoute
   '/monitor/$id': typeof MonitorIdRoute
   '/monitor/devices': typeof MonitorDevicesRoute
@@ -197,6 +205,7 @@ export interface FileRoutesById {
   '/logs': typeof LogsRoute
   '/monitor': typeof MonitorRouteWithChildren
   '/trace': typeof TraceRoute
+  '/api/alerts': typeof ApiAlertsRoute
   '/evidence/playback': typeof EvidencePlaybackRoute
   '/monitor/$id': typeof MonitorIdRoute
   '/monitor/devices': typeof MonitorDevicesRoute
@@ -222,6 +231,7 @@ export interface FileRouteTypes {
     | '/logs'
     | '/monitor'
     | '/trace'
+    | '/api/alerts'
     | '/evidence/playback'
     | '/monitor/$id'
     | '/monitor/devices'
@@ -245,6 +255,7 @@ export interface FileRouteTypes {
     | '/logs'
     | '/monitor'
     | '/trace'
+    | '/api/alerts'
     | '/evidence/playback'
     | '/monitor/$id'
     | '/monitor/devices'
@@ -268,6 +279,7 @@ export interface FileRouteTypes {
     | '/logs'
     | '/monitor'
     | '/trace'
+    | '/api/alerts'
     | '/evidence/playback'
     | '/monitor/$id'
     | '/monitor/devices'
@@ -292,6 +304,7 @@ export interface RootRouteChildren {
   LogsRoute: typeof LogsRoute
   MonitorRoute: typeof MonitorRouteWithChildren
   TraceRoute: typeof TraceRoute
+  ApiAlertsRoute: typeof ApiAlertsRoute
   ApiAutopilotServicesRoute: typeof ApiAutopilotServicesRouteWithChildren
   ApiEvidenceSnapshotsRoute: typeof ApiEvidenceSnapshotsRoute
   ApiMonitorDevicesRoute: typeof ApiMonitorDevicesRouteWithChildren
@@ -391,6 +404,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/evidence/playback'
       preLoaderRoute: typeof EvidencePlaybackRouteImport
       parentRoute: typeof EvidenceRoute
+    }
+    '/api/alerts': {
+      id: '/api/alerts'
+      path: '/api/alerts'
+      fullPath: '/api/alerts'
+      preLoaderRoute: typeof ApiAlertsRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/api/monitor/status': {
       id: '/api/monitor/status'
@@ -511,6 +531,7 @@ const rootRouteChildren: RootRouteChildren = {
   LogsRoute: LogsRoute,
   MonitorRoute: MonitorRouteWithChildren,
   TraceRoute: TraceRoute,
+  ApiAlertsRoute: ApiAlertsRoute,
   ApiAutopilotServicesRoute: ApiAutopilotServicesRouteWithChildren,
   ApiEvidenceSnapshotsRoute: ApiEvidenceSnapshotsRoute,
   ApiMonitorDevicesRoute: ApiMonitorDevicesRouteWithChildren,
@@ -520,3 +541,12 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { createStart } from '@tanstack/react-start'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+  }
+}
