@@ -36,6 +36,7 @@ import { Route as ApiAlertsIdResolveRouteImport } from './routes/api/alerts.$id.
 import { Route as ApiAlertsIdAckRouteImport } from './routes/api/alerts.$id.ack'
 import { Route as ApiMonitorDevicesIdLogPathsRouteImport } from './routes/api/monitor.devices.$id.log-paths'
 import { Route as ApiMonitorDevicesIdCorrelateRecentRouteImport } from './routes/api/monitor.devices.$id.correlate-recent'
+import { Route as ApiAutopilotRecommendationsFromAlertAlertIdRouteImport } from './routes/api/autopilot.recommendations.from-alert.$alertId'
 import { Route as ApiMonitorDevicesIdLogsRecentRouteImport } from './routes/api/monitor.devices.$id.logs.recent'
 
 const TraceRoute = TraceRouteImport.update({
@@ -176,6 +177,12 @@ const ApiMonitorDevicesIdCorrelateRecentRoute =
     path: '/$id/correlate-recent',
     getParentRoute: () => ApiMonitorDevicesRoute,
   } as any)
+const ApiAutopilotRecommendationsFromAlertAlertIdRoute =
+  ApiAutopilotRecommendationsFromAlertAlertIdRouteImport.update({
+    id: '/from-alert/$alertId',
+    path: '/from-alert/$alertId',
+    getParentRoute: () => ApiAutopilotRecommendationsRoute,
+  } as any)
 const ApiMonitorDevicesIdLogsRecentRoute =
   ApiMonitorDevicesIdLogsRecentRouteImport.update({
     id: '/$id/logs/recent',
@@ -200,7 +207,7 @@ export interface FileRoutesByFullPath {
   '/monitor/$id': typeof MonitorIdRoute
   '/monitor/devices': typeof MonitorDevicesRoute
   '/api/ai/root-cause-assist': typeof ApiAiRootCauseAssistRoute
-  '/api/autopilot/recommendations': typeof ApiAutopilotRecommendationsRoute
+  '/api/autopilot/recommendations': typeof ApiAutopilotRecommendationsRouteWithChildren
   '/api/autopilot/services': typeof ApiAutopilotServicesRouteWithChildren
   '/api/evidence/snapshots': typeof ApiEvidenceSnapshotsRoute
   '/api/monitor/devices': typeof ApiMonitorDevicesRouteWithChildren
@@ -209,6 +216,7 @@ export interface FileRoutesByFullPath {
   '/api/alerts/$id/ack': typeof ApiAlertsIdAckRoute
   '/api/alerts/$id/resolve': typeof ApiAlertsIdResolveRoute
   '/api/autopilot/services/$id': typeof ApiAutopilotServicesIdRoute
+  '/api/autopilot/recommendations/from-alert/$alertId': typeof ApiAutopilotRecommendationsFromAlertAlertIdRoute
   '/api/monitor/devices/$id/correlate-recent': typeof ApiMonitorDevicesIdCorrelateRecentRoute
   '/api/monitor/devices/$id/log-paths': typeof ApiMonitorDevicesIdLogPathsRoute
   '/api/monitor/devices/$id/logs/recent': typeof ApiMonitorDevicesIdLogsRecentRoute
@@ -230,7 +238,7 @@ export interface FileRoutesByTo {
   '/monitor/$id': typeof MonitorIdRoute
   '/monitor/devices': typeof MonitorDevicesRoute
   '/api/ai/root-cause-assist': typeof ApiAiRootCauseAssistRoute
-  '/api/autopilot/recommendations': typeof ApiAutopilotRecommendationsRoute
+  '/api/autopilot/recommendations': typeof ApiAutopilotRecommendationsRouteWithChildren
   '/api/autopilot/services': typeof ApiAutopilotServicesRouteWithChildren
   '/api/evidence/snapshots': typeof ApiEvidenceSnapshotsRoute
   '/api/monitor/devices': typeof ApiMonitorDevicesRouteWithChildren
@@ -239,6 +247,7 @@ export interface FileRoutesByTo {
   '/api/alerts/$id/ack': typeof ApiAlertsIdAckRoute
   '/api/alerts/$id/resolve': typeof ApiAlertsIdResolveRoute
   '/api/autopilot/services/$id': typeof ApiAutopilotServicesIdRoute
+  '/api/autopilot/recommendations/from-alert/$alertId': typeof ApiAutopilotRecommendationsFromAlertAlertIdRoute
   '/api/monitor/devices/$id/correlate-recent': typeof ApiMonitorDevicesIdCorrelateRecentRoute
   '/api/monitor/devices/$id/log-paths': typeof ApiMonitorDevicesIdLogPathsRoute
   '/api/monitor/devices/$id/logs/recent': typeof ApiMonitorDevicesIdLogsRecentRoute
@@ -261,7 +270,7 @@ export interface FileRoutesById {
   '/monitor/$id': typeof MonitorIdRoute
   '/monitor/devices': typeof MonitorDevicesRoute
   '/api/ai/root-cause-assist': typeof ApiAiRootCauseAssistRoute
-  '/api/autopilot/recommendations': typeof ApiAutopilotRecommendationsRoute
+  '/api/autopilot/recommendations': typeof ApiAutopilotRecommendationsRouteWithChildren
   '/api/autopilot/services': typeof ApiAutopilotServicesRouteWithChildren
   '/api/evidence/snapshots': typeof ApiEvidenceSnapshotsRoute
   '/api/monitor/devices': typeof ApiMonitorDevicesRouteWithChildren
@@ -270,6 +279,7 @@ export interface FileRoutesById {
   '/api/alerts/$id/ack': typeof ApiAlertsIdAckRoute
   '/api/alerts/$id/resolve': typeof ApiAlertsIdResolveRoute
   '/api/autopilot/services/$id': typeof ApiAutopilotServicesIdRoute
+  '/api/autopilot/recommendations/from-alert/$alertId': typeof ApiAutopilotRecommendationsFromAlertAlertIdRoute
   '/api/monitor/devices/$id/correlate-recent': typeof ApiMonitorDevicesIdCorrelateRecentRoute
   '/api/monitor/devices/$id/log-paths': typeof ApiMonitorDevicesIdLogPathsRoute
   '/api/monitor/devices/$id/logs/recent': typeof ApiMonitorDevicesIdLogsRecentRoute
@@ -302,6 +312,7 @@ export interface FileRouteTypes {
     | '/api/alerts/$id/ack'
     | '/api/alerts/$id/resolve'
     | '/api/autopilot/services/$id'
+    | '/api/autopilot/recommendations/from-alert/$alertId'
     | '/api/monitor/devices/$id/correlate-recent'
     | '/api/monitor/devices/$id/log-paths'
     | '/api/monitor/devices/$id/logs/recent'
@@ -332,6 +343,7 @@ export interface FileRouteTypes {
     | '/api/alerts/$id/ack'
     | '/api/alerts/$id/resolve'
     | '/api/autopilot/services/$id'
+    | '/api/autopilot/recommendations/from-alert/$alertId'
     | '/api/monitor/devices/$id/correlate-recent'
     | '/api/monitor/devices/$id/log-paths'
     | '/api/monitor/devices/$id/logs/recent'
@@ -362,6 +374,7 @@ export interface FileRouteTypes {
     | '/api/alerts/$id/ack'
     | '/api/alerts/$id/resolve'
     | '/api/autopilot/services/$id'
+    | '/api/autopilot/recommendations/from-alert/$alertId'
     | '/api/monitor/devices/$id/correlate-recent'
     | '/api/monitor/devices/$id/log-paths'
     | '/api/monitor/devices/$id/logs/recent'
@@ -381,7 +394,7 @@ export interface RootRouteChildren {
   ApiAlertsRoute: typeof ApiAlertsRouteWithChildren
   ApiTimelineRoute: typeof ApiTimelineRoute
   ApiAiRootCauseAssistRoute: typeof ApiAiRootCauseAssistRoute
-  ApiAutopilotRecommendationsRoute: typeof ApiAutopilotRecommendationsRoute
+  ApiAutopilotRecommendationsRoute: typeof ApiAutopilotRecommendationsRouteWithChildren
   ApiAutopilotServicesRoute: typeof ApiAutopilotServicesRouteWithChildren
   ApiEvidenceSnapshotsRoute: typeof ApiEvidenceSnapshotsRoute
   ApiMonitorDevicesRoute: typeof ApiMonitorDevicesRouteWithChildren
@@ -580,6 +593,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiMonitorDevicesIdCorrelateRecentRouteImport
       parentRoute: typeof ApiMonitorDevicesRoute
     }
+    '/api/autopilot/recommendations/from-alert/$alertId': {
+      id: '/api/autopilot/recommendations/from-alert/$alertId'
+      path: '/from-alert/$alertId'
+      fullPath: '/api/autopilot/recommendations/from-alert/$alertId'
+      preLoaderRoute: typeof ApiAutopilotRecommendationsFromAlertAlertIdRouteImport
+      parentRoute: typeof ApiAutopilotRecommendationsRoute
+    }
     '/api/monitor/devices/$id/logs/recent': {
       id: '/api/monitor/devices/$id/logs/recent'
       path: '/$id/logs/recent'
@@ -629,6 +649,21 @@ const ApiAlertsRouteWithChildren = ApiAlertsRoute._addFileChildren(
   ApiAlertsRouteChildren,
 )
 
+interface ApiAutopilotRecommendationsRouteChildren {
+  ApiAutopilotRecommendationsFromAlertAlertIdRoute: typeof ApiAutopilotRecommendationsFromAlertAlertIdRoute
+}
+
+const ApiAutopilotRecommendationsRouteChildren: ApiAutopilotRecommendationsRouteChildren =
+  {
+    ApiAutopilotRecommendationsFromAlertAlertIdRoute:
+      ApiAutopilotRecommendationsFromAlertAlertIdRoute,
+  }
+
+const ApiAutopilotRecommendationsRouteWithChildren =
+  ApiAutopilotRecommendationsRoute._addFileChildren(
+    ApiAutopilotRecommendationsRouteChildren,
+  )
+
 interface ApiAutopilotServicesRouteChildren {
   ApiAutopilotServicesIdRoute: typeof ApiAutopilotServicesIdRoute
 }
@@ -670,7 +705,8 @@ const rootRouteChildren: RootRouteChildren = {
   ApiAlertsRoute: ApiAlertsRouteWithChildren,
   ApiTimelineRoute: ApiTimelineRoute,
   ApiAiRootCauseAssistRoute: ApiAiRootCauseAssistRoute,
-  ApiAutopilotRecommendationsRoute: ApiAutopilotRecommendationsRoute,
+  ApiAutopilotRecommendationsRoute:
+    ApiAutopilotRecommendationsRouteWithChildren,
   ApiAutopilotServicesRoute: ApiAutopilotServicesRouteWithChildren,
   ApiEvidenceSnapshotsRoute: ApiEvidenceSnapshotsRoute,
   ApiMonitorDevicesRoute: ApiMonitorDevicesRouteWithChildren,
