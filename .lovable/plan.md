@@ -1,83 +1,91 @@
-# Phase 7 — Tacera-Aware Monitoring Platform
+# Live Monitor Intelligence Console — Phased Build Plan
 
-## Reality check first
+This is a massive scope (12 phases, ~10 new backend modules, 2 new stores, 4+ new UI panels, AI integration, WebSocket log tailing, incident management). Trying to ship all 12 phases in one pass guarantees half-wired buttons and broken regressions — exactly what you said not to do.
 
-Before scoping new work, here's what's already true in the current codebase (verified by reading `server/index.js`, `server/lib/healthDb.js`, `src/routes/monitor.devices.tsx`):
+I'm proposing to ship it in **4 incremental milestones**, each one fully working and tested before moving on. After each milestone you can verify in preview and tell me to continue.
 
-- **Add Device is not actually broken.** The `/monitor` button is a `<Link>` to `/monitor/devices`. The devices page has an inline form (not a modal) wired to `monitorApi.upsertDevice` → `POST /api/monitor/devices` → SQLite. Save, edit, delete, test-now all work today.
-- **Devices DO persist.** `better-sqlite3` writes to `/tmp/tacera-doctor-health.db` (configurable via `TACERA_DB_PATH`). They survive backend restart and page refresh.
-- **A real polling engine already exists** (`pollingScheduler.js`) with ICMP/TCP/HTTPS/MQTT-connect probes, exponential backoff, stale sweeps, WebSocket bus.
-- **What is missing**: a global site-config store, Tacera-aware device profiles, MQTT *freshness* (vs connect), topology graph, CCP→registry auto-discovery, and wiring monitor evidence into Autopilot / AI Commander.
+---
 
-So Phase 7 is mostly **net-new capability layered on a working foundation**, not a rebuild. The "broken buttons / lost config" symptoms are about the *Command Center site config* (which today only lives in `localStorage` via `siteConfig.ts`), not the monitored-devices registry.
+## Milestone A — Foundation (Phases 1, 2, 3)
+**Goal:** Solid device registry + safe log access + immutable snapshots.
 
-## Why one mega-turn won't work
+- **Phase 1**: Verify/finish all 16 quick-add profiles in `liveMonitorProfiles.ts` (most exist already — audit log paths, SSH usernames, ports against your spec).
+- **Phase 2**: Live log access
+  - Backend: `GET /api/monitor/devices/:id/logs/recent`, `POST .../logs/tail/start`, `POST .../logs/tail/stop`
+  - Safe SSH executor with allowlisted log paths (no arbitrary commands), 500-line cap, timeout
+  - WebSocket tail streaming via existing `wsBus`
+  - UI: Log panel on each device card — path dropdown, line selector, severity coloring, search/filter, View/Tail/Stop/Copy/Clear
+- **Phase 3**: Evidence snapshots
+  - Backend: `server/lib/evidenceSnapshotStore.js`, `server/data/evidence/snapshots.json`
+  - Endpoints: `POST/GET /api/evidence/snapshots`, `GET /api/evidence/snapshots/:id`
+  - Immutable bundles (probe + logs + alerts + timeline refs + deterministic findings)
+  - UI: "Capture Evidence" button per device, Evidence Snapshots collapsible panel
 
-The spec lists 15 sub-phases (7A–7O) touching ~30 files: a new Zustand store with backend sync, a new monitor engine, 8 new device profiles, 2 new probe types (MQTT freshness, Webmin), a topology component package, CCP auto-discovery rewrite, 2 integration surfaces (Autopilot, Commander), plus UI upgrades on 3 pages. Done in one turn this lands as broken half-features. I want to slice it into 3 shippable rounds, each landing real working capability.
+**Acceptance:** Tests 1, 2, 3, 5 from your spec pass.
 
-## Slice 1 (this turn) — Foundation: persistent site config + Tacera profiles + MQTT freshness
+---
 
-This is the load-bearing piece everything else needs. Without it slices 2 and 3 have nothing to attach to.
+## Milestone B — Detection (Phases 4, 5, 6)
+**Goal:** Deterministic intelligence — patterns, alerts, timeline.
 
-### 7A — Global site config store with backend persistence
-- New file `src/stores/siteConfigStore.ts` using Zustand + persist middleware. Holds the full shape from the spec (`site`, `network`, `topology`, `devices`, `imports`, `monitor`, `runtime`).
-- Debounced (500ms) sync to backend via new endpoints.
-- Backend: `server/data/site-config.json` + `GET/PUT /api/site-config` with atomic write.
-- On app boot, hydrate from backend → fall back to localStorage → fall back to defaults.
-- Migrate existing `src/lib/siteConfig.ts` callers to read from the store (keep the old API as a thin shim so nothing breaks).
+- **Phase 4**: `server/lib/logCorrelationEngine.js` — pure regex/rule pattern matcher for MQTT / Pulse Gateway / INGA / IPConnect / HL7 / Webmin / Controller patterns. Returns structured `correlatedEvents[]`, `suspectedPatterns[]`. **No AI.**
+- **Phase 5**: `server/lib/alertEngine.js` + `server/data/alerts/alerts.json`
+  - Deterministic alert generation from probe failures + log patterns + stale MQTT
+  - `GET /api/alerts`, `POST /api/alerts/:id/ack`, `POST /api/alerts/:id/resolve`
+  - UI: Active Alerts / Critical / Recently Resolved sections at top of Live Monitor
+- **Phase 6**: `server/lib/failureTimelineStore.js` + `server/data/timeline/events.json`
+  - Unified event log from all sources (devices, probes, alerts, snapshots, AI calls, autopilot, trace)
+  - `GET /api/timeline` with deviceId/alertId filters
+  - UI: Failure Timeline collapsible panel with filters and clickable refs
 
-### 7C — Tacera device profiles
-- New `src/lib/taceraDeviceProfiles.ts` exporting profiles for: IPC Primary/Secondary, Pulse Gateway, Pulse Manage, INGA, MQTT Broker, IP-CCT, IP-RoomController, IP-APP1, AN-PD2, IPNet Router, Display Driver, Linux/Windows VM, Webmin, Switch, Router, DNS, Hypervisor.
-- Each profile defines: expected ports, expected protocols, default poll interval, stale threshold, MQTT topics to watch, dependency hints (e.g. Controller → IPC → Pulse Gateway → MQTT Broker).
-- Devices page gets a "Tacera profile" dropdown that prefills the form (replaces the generic Quick-add row, keeping the same UX).
+**Acceptance:** Test 4 passes. Alerts surface from real probe failures.
 
-### 7D (partial) — MQTT freshness probe + Webmin probe
-- New `server/lib/probes/mqttFreshnessProbe.js`: subscribes to a topic for N seconds, records last-message-age. Returns `ok: false` with `reason: "stale"` if no message within threshold. Different from existing `mqttConnectProbe` which only validates connect.
-- New `server/lib/probes/webminProbe.js`: HTTPS GET to `/session_login.cgi`, asserts Webmin response markers.
-- Wired into `pollingScheduler.PROBES` map under new protocol keys `mqtt-fresh` and `webmin`.
+---
 
-### Cross-cutting
-- Extend SQLite `devices` table with new columns via additive migration: `device_type`, `critical`, `parent_device_id`, `mqtt_topics` (JSON), `expected_services` (JSON), `site_zone`, `dependencies` (JSON). All nullable so existing rows keep working.
-- Update `MonitorDevice` type and `monitorClient.ts` to surface the new fields.
+## Milestone C — AI + Trace + Autopilot Integration (Phases 7, 8, 9)
+**Goal:** AI explains; Trace and Autopilot consume deterministic evidence.
 
-### Out of scope this slice (deferred to slice 2/3)
-- Topology graph component (slice 2)
-- CCP → registry auto-discovery (slice 2)
-- Live Monitor page upgrades — grouping/filter/search beyond what exists today (slice 2)
-- Autopilot / AI Commander integration (slice 3)
-- Tacera-aware inference engine ("Pulse Gateway degraded — broker stale while UI reachable") (slice 3)
+- **Phase 7**: `POST /api/ai/root-cause-assist` — sanitizes input (strips secrets, caps log lines), calls Lovable AI Gateway via existing `aiCommander`-style backend route. Structured response (rootCause / supports / contradicts / unknown / nextChecks / customer + internal summaries / escalation draft / disclaimer). Graceful degrade when AI unavailable.
+- **Phase 8**: Wire Trace Signal Path to consume registry + latest probes + log patterns + alerts + snapshots. Add "Trace This Device" button on cards. Trace stays deterministic; AI explains after.
+- **Phase 9**: Autopilot recommendation engine extension — map alert types to safe playbooks (Webmin restart, mosquitto restart, pulse-gateway docker restart, INGA "check broker first", controller "manual only"). Always require approval. HIGH risk blocked.
 
-## Slice 2 (next turn) — Topology + auto-discovery + monitor UX
-- `src/components/topology/` graph (use `reactflow`, already in stack family).
-- CCP/CNFG import auto-creates devices using the Tacera profiles + relationships.
-- Live Monitor: grouping by device_type, dependency badges, stale link rendering.
-- New endpoint `GET /api/monitor/topology` returning nodes+links from the registry.
+**Acceptance:** Tests 6, 7, 8 pass.
 
-## Slice 3 (turn after) — Inference + Autopilot + Commander
-- `server/lib/taceraInference.js`: deterministic rules over current device_state + dependencies that produce human-readable inferences (Pulse degraded vs IPC isolated vs controller isolated).
-- Autopilot scan consumes inferences as evidence.
-- AI Commander handoff includes monitor snapshot + topology + inferences.
+---
 
-## Technical specifics for slice 1
+## Milestone D — Incidents + Final UI Polish (Phases 10, 11)
+**Goal:** Black-box recorder for postmortems.
 
-- **State library**: Zustand (already in repo). Persist middleware for localStorage; manual debounced fetch for backend sync.
-- **Backend write safety**: write to `site-config.json.tmp` then `fs.rename` for atomic swap.
-- **Schema migration**: idempotent `ALTER TABLE devices ADD COLUMN IF NOT EXISTS` won't work in SQLite — instead, check `PRAGMA table_info(devices)` and conditionally `ALTER TABLE ADD COLUMN`. Wrapped in try/catch per column for safety.
-- **MQTT freshness probe**: uses existing `mqtt` package, subscribes with QoS 0, `clean: true`, 8s window, returns `latencyMs = ageOfLastMessage` and `ok = ageMs < staleThreshold`.
-- **Backwards compatibility**: existing `siteConfig.ts` `getBackendUrl()` and friends keep working — store wraps them, doesn't replace them.
+- **Phase 10**: `server/lib/incidentStore.js` + `server/data/incidents/incidents.json`. Auto-create on critical-alert threshold or manual. Attach alerts/snapshots/notes/AI summaries. Incident History UI tab.
+- **Phase 11**: Final Live Monitor layout pass — all sections collapsible, device cards with full button set (Test / Logs / Tail / Evidence / Trace / Ask AI / Create Incident / Edit / Delete). Avoid overwhelming layout.
 
-## Validation before finishing slice 1
-- `tsc` passes.
-- Backend boots: `node server/index.js` starts without error.
-- Existing `/monitor` and `/monitor/devices` pages render unchanged behavior.
-- New endpoints respond: `curl http://localhost:3001/api/site-config` returns JSON.
-- New probes load (smoke test in `server/test/monitoring.test.js`).
-- AI Commander, Autopilot, CCP import, Trace Signal Path, Evidence Playback all still work (no breaking imports).
+**Acceptance:** Test 9 passes. Full UI matches Phase 11 spec.
 
-## What I will explicitly NOT do this turn
-- Won't replace the inline device form with a modal (the inline form works; the spec's "broken modal" premise doesn't match the code).
-- Won't touch Autopilot or AI Commander code (slice 3).
-- Won't add `reactflow` or build the topology component (slice 2).
-- Won't fabricate any demo devices or seed data.
+---
 
-Approve this slicing and I'll execute slice 1.
+## Cross-cutting safety guarantees (every milestone)
+
+- **Never** call AI for truth — only for explanation of deterministic evidence.
+- **Never** allow arbitrary shell commands — log endpoints accept only saved-device log paths from a server-side allowlist.
+- **Never** auto-execute Autopilot actions — approval required, HIGH risk blocked.
+- **Never** break existing: Command Center, Autopilot service registry, Deep Evidence, AI Commander, current Live Monitor quick-add cards.
+- All new backend endpoints are same-origin TanStack `src/routes/api/*` proxied to `server/index.js`.
+
+---
+
+## Technical conventions used
+
+- Backend stores: JSON files under `server/data/` matching the existing `autopilotServicesStore.js` pattern.
+- Server functions in `server/lib/*.js`, registered in `server/index.js`.
+- Frontend API clients in `src/lib/*Client.ts` with `window` event bus for cross-component refresh (matching `autopilotServicesClient.ts`).
+- Same-origin proxy routes in `src/routes/api/*.ts` using `createFileRoute`.
+- WebSocket log tailing reuses existing `wsBus` infrastructure.
+- AI calls use Lovable AI Gateway through a backend route (no client-side AI calls, no secrets in browser).
+
+---
+
+## What I need from you
+
+**Approve this plan and pick a starting milestone.** I strongly recommend starting with **Milestone A** and verifying each one in preview before continuing. If you say "go", I'll start Milestone A.
+
+If you want a different ordering (e.g. AI first because it's the most visible), tell me — but the dependencies are: Logs → Patterns → Alerts → Snapshots → AI/Trace/Autopilot → Incidents.
