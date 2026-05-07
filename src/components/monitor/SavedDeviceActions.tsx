@@ -117,7 +117,7 @@ export function SavedDeviceActions({
             {correlating ? <Loader2 className="mr-1 h-3 w-3 animate-spin" /> : <Search className="mr-1 h-3 w-3" />} Correlate Logs
           </Button>
         )}
-        <Link to="/trace" search={{ deviceId: device.id } as never}>
+        <Link to="/trace">
           <Button size="sm" variant="ghost" className="h-7 text-xs">
             <Activity className="mr-1 h-3 w-3" /> Trace
           </Button>
