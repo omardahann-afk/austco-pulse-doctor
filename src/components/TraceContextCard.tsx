@@ -17,8 +17,8 @@ export function TraceContextCard({ deviceId, alertId }: { deviceId?: string; ale
     void (async () => {
       try {
         if (deviceId) {
-          const r = await monitorApi.listDevices();
-          if (r.ok) setDevice(r.devices.find((d) => d.id === deviceId) || null);
+          const r = await monitorApi.devices();
+          if (r.ok) setDevice(r.devices.find((d: MonitorDevice) => d.id === deviceId) || null);
           const tl = await intelligenceApi.listTimeline({ deviceId, limit: 15 });
           if (tl.ok) setTimeline(tl.events);
         }
