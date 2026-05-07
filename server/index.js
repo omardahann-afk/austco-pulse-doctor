@@ -530,6 +530,18 @@ app.post("/api/monitor/probe-now/:id", async (req, res) => {
   try {
     const r = await probeDeviceNow(req.params.id);
     if (!r.ok) return res.status(400).json(r);
+    try {
+      const dev = (await import("./lib/healthDb.js")).getDevice(req.params.id);
+      if (dev && r.evidence && !r.evidence.ok) {
+        const a = alertFromProbe({ device: dev, evidence: r.evidence });
+        if (a) appendTimelineEvent({ source: "probe", deviceId: dev.id, severity: a.severity,
+          title: `Probe failed: ${dev.name || dev.id}`, alertId: a.alertId, description: r.evidence.error });
+      } else if (dev) {
+        appendTimelineEvent({ source: "probe", deviceId: dev.id, severity: "info",
+          title: `Probe ok: ${dev.name || dev.id}`,
+          description: `${typeof r.evidence?.latencyMs === "number" ? r.evidence.latencyMs.toFixed(1) : "—"} ms` });
+      }
+    } catch {}
     res.json(r);
   } catch (err) { res.status(500).json({ ok: false, reason: "agent_error", message: err?.message || String(err) }); }
 });
