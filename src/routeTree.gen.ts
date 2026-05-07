@@ -32,6 +32,7 @@ import { Route as ApiAutopilotServicesRouteImport } from './routes/api/autopilot
 import { Route as ApiAutopilotRecommendationsRouteImport } from './routes/api/autopilot.recommendations'
 import { Route as ApiAiRootCauseAssistRouteImport } from './routes/api/ai.root-cause-assist'
 import { Route as ApiAutopilotServicesIdRouteImport } from './routes/api/autopilot.services.$id'
+import { Route as ApiAutopilotRecommendationsIdRouteImport } from './routes/api/autopilot.recommendations.$id'
 import { Route as ApiAlertsIdResolveRouteImport } from './routes/api/alerts.$id.resolve'
 import { Route as ApiAlertsIdAckRouteImport } from './routes/api/alerts.$id.ack'
 import { Route as ApiMonitorDevicesIdLogPathsRouteImport } from './routes/api/monitor.devices.$id.log-paths'
@@ -155,6 +156,12 @@ const ApiAutopilotServicesIdRoute = ApiAutopilotServicesIdRouteImport.update({
   path: '/$id',
   getParentRoute: () => ApiAutopilotServicesRoute,
 } as any)
+const ApiAutopilotRecommendationsIdRoute =
+  ApiAutopilotRecommendationsIdRouteImport.update({
+    id: '/$id',
+    path: '/$id',
+    getParentRoute: () => ApiAutopilotRecommendationsRoute,
+  } as any)
 const ApiAlertsIdResolveRoute = ApiAlertsIdResolveRouteImport.update({
   id: '/$id/resolve',
   path: '/$id/resolve',
@@ -215,6 +222,7 @@ export interface FileRoutesByFullPath {
   '/api/monitor/status': typeof ApiMonitorStatusRoute
   '/api/alerts/$id/ack': typeof ApiAlertsIdAckRoute
   '/api/alerts/$id/resolve': typeof ApiAlertsIdResolveRoute
+  '/api/autopilot/recommendations/$id': typeof ApiAutopilotRecommendationsIdRoute
   '/api/autopilot/services/$id': typeof ApiAutopilotServicesIdRoute
   '/api/autopilot/recommendations/from-alert/$alertId': typeof ApiAutopilotRecommendationsFromAlertAlertIdRoute
   '/api/monitor/devices/$id/correlate-recent': typeof ApiMonitorDevicesIdCorrelateRecentRoute
@@ -246,6 +254,7 @@ export interface FileRoutesByTo {
   '/api/monitor/status': typeof ApiMonitorStatusRoute
   '/api/alerts/$id/ack': typeof ApiAlertsIdAckRoute
   '/api/alerts/$id/resolve': typeof ApiAlertsIdResolveRoute
+  '/api/autopilot/recommendations/$id': typeof ApiAutopilotRecommendationsIdRoute
   '/api/autopilot/services/$id': typeof ApiAutopilotServicesIdRoute
   '/api/autopilot/recommendations/from-alert/$alertId': typeof ApiAutopilotRecommendationsFromAlertAlertIdRoute
   '/api/monitor/devices/$id/correlate-recent': typeof ApiMonitorDevicesIdCorrelateRecentRoute
@@ -278,6 +287,7 @@ export interface FileRoutesById {
   '/api/monitor/status': typeof ApiMonitorStatusRoute
   '/api/alerts/$id/ack': typeof ApiAlertsIdAckRoute
   '/api/alerts/$id/resolve': typeof ApiAlertsIdResolveRoute
+  '/api/autopilot/recommendations/$id': typeof ApiAutopilotRecommendationsIdRoute
   '/api/autopilot/services/$id': typeof ApiAutopilotServicesIdRoute
   '/api/autopilot/recommendations/from-alert/$alertId': typeof ApiAutopilotRecommendationsFromAlertAlertIdRoute
   '/api/monitor/devices/$id/correlate-recent': typeof ApiMonitorDevicesIdCorrelateRecentRoute
@@ -311,6 +321,7 @@ export interface FileRouteTypes {
     | '/api/monitor/status'
     | '/api/alerts/$id/ack'
     | '/api/alerts/$id/resolve'
+    | '/api/autopilot/recommendations/$id'
     | '/api/autopilot/services/$id'
     | '/api/autopilot/recommendations/from-alert/$alertId'
     | '/api/monitor/devices/$id/correlate-recent'
@@ -342,6 +353,7 @@ export interface FileRouteTypes {
     | '/api/monitor/status'
     | '/api/alerts/$id/ack'
     | '/api/alerts/$id/resolve'
+    | '/api/autopilot/recommendations/$id'
     | '/api/autopilot/services/$id'
     | '/api/autopilot/recommendations/from-alert/$alertId'
     | '/api/monitor/devices/$id/correlate-recent'
@@ -373,6 +385,7 @@ export interface FileRouteTypes {
     | '/api/monitor/status'
     | '/api/alerts/$id/ack'
     | '/api/alerts/$id/resolve'
+    | '/api/autopilot/recommendations/$id'
     | '/api/autopilot/services/$id'
     | '/api/autopilot/recommendations/from-alert/$alertId'
     | '/api/monitor/devices/$id/correlate-recent'
@@ -565,6 +578,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiAutopilotServicesIdRouteImport
       parentRoute: typeof ApiAutopilotServicesRoute
     }
+    '/api/autopilot/recommendations/$id': {
+      id: '/api/autopilot/recommendations/$id'
+      path: '/$id'
+      fullPath: '/api/autopilot/recommendations/$id'
+      preLoaderRoute: typeof ApiAutopilotRecommendationsIdRouteImport
+      parentRoute: typeof ApiAutopilotRecommendationsRoute
+    }
     '/api/alerts/$id/resolve': {
       id: '/api/alerts/$id/resolve'
       path: '/$id/resolve'
@@ -650,11 +670,13 @@ const ApiAlertsRouteWithChildren = ApiAlertsRoute._addFileChildren(
 )
 
 interface ApiAutopilotRecommendationsRouteChildren {
+  ApiAutopilotRecommendationsIdRoute: typeof ApiAutopilotRecommendationsIdRoute
   ApiAutopilotRecommendationsFromAlertAlertIdRoute: typeof ApiAutopilotRecommendationsFromAlertAlertIdRoute
 }
 
 const ApiAutopilotRecommendationsRouteChildren: ApiAutopilotRecommendationsRouteChildren =
   {
+    ApiAutopilotRecommendationsIdRoute: ApiAutopilotRecommendationsIdRoute,
     ApiAutopilotRecommendationsFromAlertAlertIdRoute:
       ApiAutopilotRecommendationsFromAlertAlertIdRoute,
   }
