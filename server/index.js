@@ -65,7 +65,7 @@ import {
   alertFromProbe, alertsFromCorrelation,
 } from "./lib/alertEngine.js";
 import { appendTimelineEvent, listTimelineEvents } from "./lib/failureTimelineStore.js";
-import { correlateLogLines } from "./lib/logCorrelationEngine.js";
+import { correlateLogs } from "./lib/logCorrelationEngine.js";
 import {
   buildRecommendation, saveRecommendation, listRecommendations,
   getRecommendation, approveRecommendation, rejectRecommendation,
