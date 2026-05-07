@@ -22,6 +22,7 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as MonitorDevicesRouteImport } from './routes/monitor.devices'
 import { Route as MonitorIdRouteImport } from './routes/monitor.$id'
 import { Route as EvidencePlaybackRouteImport } from './routes/evidence.playback'
+import { Route as ApiTimelineRouteImport } from './routes/api/timeline'
 import { Route as ApiAlertsRouteImport } from './routes/api/alerts'
 import { Route as ApiMonitorStatusRouteImport } from './routes/api/monitor.status'
 import { Route as ApiMonitorStateRouteImport } from './routes/api/monitor.state'
@@ -29,6 +30,7 @@ import { Route as ApiMonitorDevicesRouteImport } from './routes/api/monitor.devi
 import { Route as ApiEvidenceSnapshotsRouteImport } from './routes/api/evidence.snapshots'
 import { Route as ApiAutopilotServicesRouteImport } from './routes/api/autopilot.services'
 import { Route as ApiAutopilotServicesIdRouteImport } from './routes/api/autopilot.services.$id'
+import { Route as ApiAlertsIdResolveRouteImport } from './routes/api/alerts.$id.resolve'
 import { Route as ApiAlertsIdAckRouteImport } from './routes/api/alerts.$id.ack'
 import { Route as ApiMonitorDevicesIdLogPathsRouteImport } from './routes/api/monitor.devices.$id.log-paths'
 import { Route as ApiMonitorDevicesIdLogsRecentRouteImport } from './routes/api/monitor.devices.$id.logs.recent'
@@ -98,6 +100,11 @@ const EvidencePlaybackRoute = EvidencePlaybackRouteImport.update({
   path: '/playback',
   getParentRoute: () => EvidenceRoute,
 } as any)
+const ApiTimelineRoute = ApiTimelineRouteImport.update({
+  id: '/api/timeline',
+  path: '/api/timeline',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiAlertsRoute = ApiAlertsRouteImport.update({
   id: '/api/alerts',
   path: '/api/alerts',
@@ -133,6 +140,11 @@ const ApiAutopilotServicesIdRoute = ApiAutopilotServicesIdRouteImport.update({
   path: '/$id',
   getParentRoute: () => ApiAutopilotServicesRoute,
 } as any)
+const ApiAlertsIdResolveRoute = ApiAlertsIdResolveRouteImport.update({
+  id: '/$id/resolve',
+  path: '/$id/resolve',
+  getParentRoute: () => ApiAlertsRoute,
+} as any)
 const ApiAlertsIdAckRoute = ApiAlertsIdAckRouteImport.update({
   id: '/$id/ack',
   path: '/$id/ack',
@@ -163,6 +175,7 @@ export interface FileRoutesByFullPath {
   '/monitor': typeof MonitorRouteWithChildren
   '/trace': typeof TraceRoute
   '/api/alerts': typeof ApiAlertsRouteWithChildren
+  '/api/timeline': typeof ApiTimelineRoute
   '/evidence/playback': typeof EvidencePlaybackRoute
   '/monitor/$id': typeof MonitorIdRoute
   '/monitor/devices': typeof MonitorDevicesRoute
@@ -172,6 +185,7 @@ export interface FileRoutesByFullPath {
   '/api/monitor/state': typeof ApiMonitorStateRoute
   '/api/monitor/status': typeof ApiMonitorStatusRoute
   '/api/alerts/$id/ack': typeof ApiAlertsIdAckRoute
+  '/api/alerts/$id/resolve': typeof ApiAlertsIdResolveRoute
   '/api/autopilot/services/$id': typeof ApiAutopilotServicesIdRoute
   '/api/monitor/devices/$id/log-paths': typeof ApiMonitorDevicesIdLogPathsRoute
   '/api/monitor/devices/$id/logs/recent': typeof ApiMonitorDevicesIdLogsRecentRoute
@@ -188,6 +202,7 @@ export interface FileRoutesByTo {
   '/monitor': typeof MonitorRouteWithChildren
   '/trace': typeof TraceRoute
   '/api/alerts': typeof ApiAlertsRouteWithChildren
+  '/api/timeline': typeof ApiTimelineRoute
   '/evidence/playback': typeof EvidencePlaybackRoute
   '/monitor/$id': typeof MonitorIdRoute
   '/monitor/devices': typeof MonitorDevicesRoute
@@ -197,6 +212,7 @@ export interface FileRoutesByTo {
   '/api/monitor/state': typeof ApiMonitorStateRoute
   '/api/monitor/status': typeof ApiMonitorStatusRoute
   '/api/alerts/$id/ack': typeof ApiAlertsIdAckRoute
+  '/api/alerts/$id/resolve': typeof ApiAlertsIdResolveRoute
   '/api/autopilot/services/$id': typeof ApiAutopilotServicesIdRoute
   '/api/monitor/devices/$id/log-paths': typeof ApiMonitorDevicesIdLogPathsRoute
   '/api/monitor/devices/$id/logs/recent': typeof ApiMonitorDevicesIdLogsRecentRoute
@@ -214,6 +230,7 @@ export interface FileRoutesById {
   '/monitor': typeof MonitorRouteWithChildren
   '/trace': typeof TraceRoute
   '/api/alerts': typeof ApiAlertsRouteWithChildren
+  '/api/timeline': typeof ApiTimelineRoute
   '/evidence/playback': typeof EvidencePlaybackRoute
   '/monitor/$id': typeof MonitorIdRoute
   '/monitor/devices': typeof MonitorDevicesRoute
@@ -223,6 +240,7 @@ export interface FileRoutesById {
   '/api/monitor/state': typeof ApiMonitorStateRoute
   '/api/monitor/status': typeof ApiMonitorStatusRoute
   '/api/alerts/$id/ack': typeof ApiAlertsIdAckRoute
+  '/api/alerts/$id/resolve': typeof ApiAlertsIdResolveRoute
   '/api/autopilot/services/$id': typeof ApiAutopilotServicesIdRoute
   '/api/monitor/devices/$id/log-paths': typeof ApiMonitorDevicesIdLogPathsRoute
   '/api/monitor/devices/$id/logs/recent': typeof ApiMonitorDevicesIdLogsRecentRoute
@@ -241,6 +259,7 @@ export interface FileRouteTypes {
     | '/monitor'
     | '/trace'
     | '/api/alerts'
+    | '/api/timeline'
     | '/evidence/playback'
     | '/monitor/$id'
     | '/monitor/devices'
@@ -250,6 +269,7 @@ export interface FileRouteTypes {
     | '/api/monitor/state'
     | '/api/monitor/status'
     | '/api/alerts/$id/ack'
+    | '/api/alerts/$id/resolve'
     | '/api/autopilot/services/$id'
     | '/api/monitor/devices/$id/log-paths'
     | '/api/monitor/devices/$id/logs/recent'
@@ -266,6 +286,7 @@ export interface FileRouteTypes {
     | '/monitor'
     | '/trace'
     | '/api/alerts'
+    | '/api/timeline'
     | '/evidence/playback'
     | '/monitor/$id'
     | '/monitor/devices'
@@ -275,6 +296,7 @@ export interface FileRouteTypes {
     | '/api/monitor/state'
     | '/api/monitor/status'
     | '/api/alerts/$id/ack'
+    | '/api/alerts/$id/resolve'
     | '/api/autopilot/services/$id'
     | '/api/monitor/devices/$id/log-paths'
     | '/api/monitor/devices/$id/logs/recent'
@@ -291,6 +313,7 @@ export interface FileRouteTypes {
     | '/monitor'
     | '/trace'
     | '/api/alerts'
+    | '/api/timeline'
     | '/evidence/playback'
     | '/monitor/$id'
     | '/monitor/devices'
@@ -300,6 +323,7 @@ export interface FileRouteTypes {
     | '/api/monitor/state'
     | '/api/monitor/status'
     | '/api/alerts/$id/ack'
+    | '/api/alerts/$id/resolve'
     | '/api/autopilot/services/$id'
     | '/api/monitor/devices/$id/log-paths'
     | '/api/monitor/devices/$id/logs/recent'
@@ -317,6 +341,7 @@ export interface RootRouteChildren {
   MonitorRoute: typeof MonitorRouteWithChildren
   TraceRoute: typeof TraceRoute
   ApiAlertsRoute: typeof ApiAlertsRouteWithChildren
+  ApiTimelineRoute: typeof ApiTimelineRoute
   ApiAutopilotServicesRoute: typeof ApiAutopilotServicesRouteWithChildren
   ApiEvidenceSnapshotsRoute: typeof ApiEvidenceSnapshotsRoute
   ApiMonitorDevicesRoute: typeof ApiMonitorDevicesRouteWithChildren
@@ -417,6 +442,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof EvidencePlaybackRouteImport
       parentRoute: typeof EvidenceRoute
     }
+    '/api/timeline': {
+      id: '/api/timeline'
+      path: '/api/timeline'
+      fullPath: '/api/timeline'
+      preLoaderRoute: typeof ApiTimelineRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/alerts': {
       id: '/api/alerts'
       path: '/api/alerts'
@@ -465,6 +497,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/api/autopilot/services/$id'
       preLoaderRoute: typeof ApiAutopilotServicesIdRouteImport
       parentRoute: typeof ApiAutopilotServicesRoute
+    }
+    '/api/alerts/$id/resolve': {
+      id: '/api/alerts/$id/resolve'
+      path: '/$id/resolve'
+      fullPath: '/api/alerts/$id/resolve'
+      preLoaderRoute: typeof ApiAlertsIdResolveRouteImport
+      parentRoute: typeof ApiAlertsRoute
     }
     '/api/alerts/$id/ack': {
       id: '/api/alerts/$id/ack'
@@ -517,10 +556,12 @@ const MonitorRouteWithChildren =
 
 interface ApiAlertsRouteChildren {
   ApiAlertsIdAckRoute: typeof ApiAlertsIdAckRoute
+  ApiAlertsIdResolveRoute: typeof ApiAlertsIdResolveRoute
 }
 
 const ApiAlertsRouteChildren: ApiAlertsRouteChildren = {
   ApiAlertsIdAckRoute: ApiAlertsIdAckRoute,
+  ApiAlertsIdResolveRoute: ApiAlertsIdResolveRoute,
 }
 
 const ApiAlertsRouteWithChildren = ApiAlertsRoute._addFileChildren(
@@ -563,6 +604,7 @@ const rootRouteChildren: RootRouteChildren = {
   MonitorRoute: MonitorRouteWithChildren,
   TraceRoute: TraceRoute,
   ApiAlertsRoute: ApiAlertsRouteWithChildren,
+  ApiTimelineRoute: ApiTimelineRoute,
   ApiAutopilotServicesRoute: ApiAutopilotServicesRouteWithChildren,
   ApiEvidenceSnapshotsRoute: ApiEvidenceSnapshotsRoute,
   ApiMonitorDevicesRoute: ApiMonitorDevicesRouteWithChildren,
@@ -572,3 +614,12 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { createStart } from '@tanstack/react-start'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+  }
+}
