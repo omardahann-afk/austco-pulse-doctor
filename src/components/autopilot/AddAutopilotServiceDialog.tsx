@@ -61,17 +61,35 @@ export function AddAutopilotServiceDialog(props: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   initial?: AutopilotService | null;
+  presetType?: AutopilotServiceTypeKey | null;
   onSaved?: (s: AutopilotService) => void;
 }) {
-  const { open, onOpenChange, initial = null, onSaved } = props;
+  const { open, onOpenChange, initial = null, presetType = null, onSaved } = props;
   const [form, setForm] = useState<Form>(EMPTY);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     if (!open) return;
-    setForm(initial ? fromService(initial) : EMPTY);
+    if (initial) {
+      setForm(fromService(initial));
+    } else if (presetType) {
+      const profile = AUTOPILOT_SERVICE_PROFILES.find((p) => p.type === presetType);
+      setForm({
+        ...EMPTY,
+        type: presetType,
+        name: profile?.label ?? "",
+        sshUsername: profile?.defaults.sshUsername ?? EMPTY.sshUsername,
+        sshPort: String(profile?.defaults.sshPort ?? EMPTY.sshPort),
+        serviceManager: profile?.defaults.serviceManager ?? EMPTY.serviceManager,
+        systemdUnit: profile?.defaults.systemdUnit ?? "",
+        dockerContainer: profile?.defaults.dockerContainer ?? "",
+        webminPort: profile?.defaults.webminPort != null ? String(profile.defaults.webminPort) : "",
+      });
+    } else {
+      setForm(EMPTY);
+    }
     setSaving(false);
-  }, [initial, open]);
+  }, [initial, open, presetType]);
 
   function update<K extends keyof Form>(k: K, v: Form[K]) {
     setForm((f) => ({ ...f, [k]: v }));
