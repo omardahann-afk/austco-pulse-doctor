@@ -22,15 +22,24 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as MonitorDevicesRouteImport } from './routes/monitor.devices'
 import { Route as MonitorIdRouteImport } from './routes/monitor.$id'
 import { Route as EvidencePlaybackRouteImport } from './routes/evidence.playback'
+import { Route as ApiTimelineRouteImport } from './routes/api/timeline'
 import { Route as ApiAlertsRouteImport } from './routes/api/alerts'
 import { Route as ApiMonitorStatusRouteImport } from './routes/api/monitor.status'
 import { Route as ApiMonitorStateRouteImport } from './routes/api/monitor.state'
 import { Route as ApiMonitorDevicesRouteImport } from './routes/api/monitor.devices'
 import { Route as ApiEvidenceSnapshotsRouteImport } from './routes/api/evidence.snapshots'
 import { Route as ApiAutopilotServicesRouteImport } from './routes/api/autopilot.services'
+import { Route as ApiAutopilotRecommendationsRouteImport } from './routes/api/autopilot.recommendations'
+import { Route as ApiAiRootCauseAssistRouteImport } from './routes/api/ai.root-cause-assist'
 import { Route as ApiAutopilotServicesIdRouteImport } from './routes/api/autopilot.services.$id'
+import { Route as ApiAutopilotRecommendationsIdRouteImport } from './routes/api/autopilot.recommendations.$id'
+import { Route as ApiAlertsIdResolveRouteImport } from './routes/api/alerts.$id.resolve'
 import { Route as ApiAlertsIdAckRouteImport } from './routes/api/alerts.$id.ack'
 import { Route as ApiMonitorDevicesIdLogPathsRouteImport } from './routes/api/monitor.devices.$id.log-paths'
+import { Route as ApiMonitorDevicesIdCorrelateRecentRouteImport } from './routes/api/monitor.devices.$id.correlate-recent'
+import { Route as ApiAutopilotRecommendationsFromAlertAlertIdRouteImport } from './routes/api/autopilot.recommendations.from-alert.$alertId'
+import { Route as ApiAutopilotRecommendationsIdRejectRouteImport } from './routes/api/autopilot.recommendations.$id.reject'
+import { Route as ApiAutopilotRecommendationsIdApproveRouteImport } from './routes/api/autopilot.recommendations.$id.approve'
 import { Route as ApiMonitorDevicesIdLogsRecentRouteImport } from './routes/api/monitor.devices.$id.logs.recent'
 
 const TraceRoute = TraceRouteImport.update({
@@ -98,6 +107,11 @@ const EvidencePlaybackRoute = EvidencePlaybackRouteImport.update({
   path: '/playback',
   getParentRoute: () => EvidenceRoute,
 } as any)
+const ApiTimelineRoute = ApiTimelineRouteImport.update({
+  id: '/api/timeline',
+  path: '/api/timeline',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiAlertsRoute = ApiAlertsRouteImport.update({
   id: '/api/alerts',
   path: '/api/alerts',
@@ -128,10 +142,32 @@ const ApiAutopilotServicesRoute = ApiAutopilotServicesRouteImport.update({
   path: '/api/autopilot/services',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiAutopilotRecommendationsRoute =
+  ApiAutopilotRecommendationsRouteImport.update({
+    id: '/api/autopilot/recommendations',
+    path: '/api/autopilot/recommendations',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const ApiAiRootCauseAssistRoute = ApiAiRootCauseAssistRouteImport.update({
+  id: '/api/ai/root-cause-assist',
+  path: '/api/ai/root-cause-assist',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiAutopilotServicesIdRoute = ApiAutopilotServicesIdRouteImport.update({
   id: '/$id',
   path: '/$id',
   getParentRoute: () => ApiAutopilotServicesRoute,
+} as any)
+const ApiAutopilotRecommendationsIdRoute =
+  ApiAutopilotRecommendationsIdRouteImport.update({
+    id: '/$id',
+    path: '/$id',
+    getParentRoute: () => ApiAutopilotRecommendationsRoute,
+  } as any)
+const ApiAlertsIdResolveRoute = ApiAlertsIdResolveRouteImport.update({
+  id: '/$id/resolve',
+  path: '/$id/resolve',
+  getParentRoute: () => ApiAlertsRoute,
 } as any)
 const ApiAlertsIdAckRoute = ApiAlertsIdAckRouteImport.update({
   id: '/$id/ack',
@@ -143,6 +179,30 @@ const ApiMonitorDevicesIdLogPathsRoute =
     id: '/$id/log-paths',
     path: '/$id/log-paths',
     getParentRoute: () => ApiMonitorDevicesRoute,
+  } as any)
+const ApiMonitorDevicesIdCorrelateRecentRoute =
+  ApiMonitorDevicesIdCorrelateRecentRouteImport.update({
+    id: '/$id/correlate-recent',
+    path: '/$id/correlate-recent',
+    getParentRoute: () => ApiMonitorDevicesRoute,
+  } as any)
+const ApiAutopilotRecommendationsFromAlertAlertIdRoute =
+  ApiAutopilotRecommendationsFromAlertAlertIdRouteImport.update({
+    id: '/from-alert/$alertId',
+    path: '/from-alert/$alertId',
+    getParentRoute: () => ApiAutopilotRecommendationsRoute,
+  } as any)
+const ApiAutopilotRecommendationsIdRejectRoute =
+  ApiAutopilotRecommendationsIdRejectRouteImport.update({
+    id: '/reject',
+    path: '/reject',
+    getParentRoute: () => ApiAutopilotRecommendationsIdRoute,
+  } as any)
+const ApiAutopilotRecommendationsIdApproveRoute =
+  ApiAutopilotRecommendationsIdApproveRouteImport.update({
+    id: '/approve',
+    path: '/approve',
+    getParentRoute: () => ApiAutopilotRecommendationsIdRoute,
   } as any)
 const ApiMonitorDevicesIdLogsRecentRoute =
   ApiMonitorDevicesIdLogsRecentRouteImport.update({
@@ -163,16 +223,25 @@ export interface FileRoutesByFullPath {
   '/monitor': typeof MonitorRouteWithChildren
   '/trace': typeof TraceRoute
   '/api/alerts': typeof ApiAlertsRouteWithChildren
+  '/api/timeline': typeof ApiTimelineRoute
   '/evidence/playback': typeof EvidencePlaybackRoute
   '/monitor/$id': typeof MonitorIdRoute
   '/monitor/devices': typeof MonitorDevicesRoute
+  '/api/ai/root-cause-assist': typeof ApiAiRootCauseAssistRoute
+  '/api/autopilot/recommendations': typeof ApiAutopilotRecommendationsRouteWithChildren
   '/api/autopilot/services': typeof ApiAutopilotServicesRouteWithChildren
   '/api/evidence/snapshots': typeof ApiEvidenceSnapshotsRoute
   '/api/monitor/devices': typeof ApiMonitorDevicesRouteWithChildren
   '/api/monitor/state': typeof ApiMonitorStateRoute
   '/api/monitor/status': typeof ApiMonitorStatusRoute
   '/api/alerts/$id/ack': typeof ApiAlertsIdAckRoute
+  '/api/alerts/$id/resolve': typeof ApiAlertsIdResolveRoute
+  '/api/autopilot/recommendations/$id': typeof ApiAutopilotRecommendationsIdRouteWithChildren
   '/api/autopilot/services/$id': typeof ApiAutopilotServicesIdRoute
+  '/api/autopilot/recommendations/$id/approve': typeof ApiAutopilotRecommendationsIdApproveRoute
+  '/api/autopilot/recommendations/$id/reject': typeof ApiAutopilotRecommendationsIdRejectRoute
+  '/api/autopilot/recommendations/from-alert/$alertId': typeof ApiAutopilotRecommendationsFromAlertAlertIdRoute
+  '/api/monitor/devices/$id/correlate-recent': typeof ApiMonitorDevicesIdCorrelateRecentRoute
   '/api/monitor/devices/$id/log-paths': typeof ApiMonitorDevicesIdLogPathsRoute
   '/api/monitor/devices/$id/logs/recent': typeof ApiMonitorDevicesIdLogsRecentRoute
 }
@@ -188,16 +257,25 @@ export interface FileRoutesByTo {
   '/monitor': typeof MonitorRouteWithChildren
   '/trace': typeof TraceRoute
   '/api/alerts': typeof ApiAlertsRouteWithChildren
+  '/api/timeline': typeof ApiTimelineRoute
   '/evidence/playback': typeof EvidencePlaybackRoute
   '/monitor/$id': typeof MonitorIdRoute
   '/monitor/devices': typeof MonitorDevicesRoute
+  '/api/ai/root-cause-assist': typeof ApiAiRootCauseAssistRoute
+  '/api/autopilot/recommendations': typeof ApiAutopilotRecommendationsRouteWithChildren
   '/api/autopilot/services': typeof ApiAutopilotServicesRouteWithChildren
   '/api/evidence/snapshots': typeof ApiEvidenceSnapshotsRoute
   '/api/monitor/devices': typeof ApiMonitorDevicesRouteWithChildren
   '/api/monitor/state': typeof ApiMonitorStateRoute
   '/api/monitor/status': typeof ApiMonitorStatusRoute
   '/api/alerts/$id/ack': typeof ApiAlertsIdAckRoute
+  '/api/alerts/$id/resolve': typeof ApiAlertsIdResolveRoute
+  '/api/autopilot/recommendations/$id': typeof ApiAutopilotRecommendationsIdRouteWithChildren
   '/api/autopilot/services/$id': typeof ApiAutopilotServicesIdRoute
+  '/api/autopilot/recommendations/$id/approve': typeof ApiAutopilotRecommendationsIdApproveRoute
+  '/api/autopilot/recommendations/$id/reject': typeof ApiAutopilotRecommendationsIdRejectRoute
+  '/api/autopilot/recommendations/from-alert/$alertId': typeof ApiAutopilotRecommendationsFromAlertAlertIdRoute
+  '/api/monitor/devices/$id/correlate-recent': typeof ApiMonitorDevicesIdCorrelateRecentRoute
   '/api/monitor/devices/$id/log-paths': typeof ApiMonitorDevicesIdLogPathsRoute
   '/api/monitor/devices/$id/logs/recent': typeof ApiMonitorDevicesIdLogsRecentRoute
 }
@@ -214,16 +292,25 @@ export interface FileRoutesById {
   '/monitor': typeof MonitorRouteWithChildren
   '/trace': typeof TraceRoute
   '/api/alerts': typeof ApiAlertsRouteWithChildren
+  '/api/timeline': typeof ApiTimelineRoute
   '/evidence/playback': typeof EvidencePlaybackRoute
   '/monitor/$id': typeof MonitorIdRoute
   '/monitor/devices': typeof MonitorDevicesRoute
+  '/api/ai/root-cause-assist': typeof ApiAiRootCauseAssistRoute
+  '/api/autopilot/recommendations': typeof ApiAutopilotRecommendationsRouteWithChildren
   '/api/autopilot/services': typeof ApiAutopilotServicesRouteWithChildren
   '/api/evidence/snapshots': typeof ApiEvidenceSnapshotsRoute
   '/api/monitor/devices': typeof ApiMonitorDevicesRouteWithChildren
   '/api/monitor/state': typeof ApiMonitorStateRoute
   '/api/monitor/status': typeof ApiMonitorStatusRoute
   '/api/alerts/$id/ack': typeof ApiAlertsIdAckRoute
+  '/api/alerts/$id/resolve': typeof ApiAlertsIdResolveRoute
+  '/api/autopilot/recommendations/$id': typeof ApiAutopilotRecommendationsIdRouteWithChildren
   '/api/autopilot/services/$id': typeof ApiAutopilotServicesIdRoute
+  '/api/autopilot/recommendations/$id/approve': typeof ApiAutopilotRecommendationsIdApproveRoute
+  '/api/autopilot/recommendations/$id/reject': typeof ApiAutopilotRecommendationsIdRejectRoute
+  '/api/autopilot/recommendations/from-alert/$alertId': typeof ApiAutopilotRecommendationsFromAlertAlertIdRoute
+  '/api/monitor/devices/$id/correlate-recent': typeof ApiMonitorDevicesIdCorrelateRecentRoute
   '/api/monitor/devices/$id/log-paths': typeof ApiMonitorDevicesIdLogPathsRoute
   '/api/monitor/devices/$id/logs/recent': typeof ApiMonitorDevicesIdLogsRecentRoute
 }
@@ -241,16 +328,25 @@ export interface FileRouteTypes {
     | '/monitor'
     | '/trace'
     | '/api/alerts'
+    | '/api/timeline'
     | '/evidence/playback'
     | '/monitor/$id'
     | '/monitor/devices'
+    | '/api/ai/root-cause-assist'
+    | '/api/autopilot/recommendations'
     | '/api/autopilot/services'
     | '/api/evidence/snapshots'
     | '/api/monitor/devices'
     | '/api/monitor/state'
     | '/api/monitor/status'
     | '/api/alerts/$id/ack'
+    | '/api/alerts/$id/resolve'
+    | '/api/autopilot/recommendations/$id'
     | '/api/autopilot/services/$id'
+    | '/api/autopilot/recommendations/$id/approve'
+    | '/api/autopilot/recommendations/$id/reject'
+    | '/api/autopilot/recommendations/from-alert/$alertId'
+    | '/api/monitor/devices/$id/correlate-recent'
     | '/api/monitor/devices/$id/log-paths'
     | '/api/monitor/devices/$id/logs/recent'
   fileRoutesByTo: FileRoutesByTo
@@ -266,16 +362,25 @@ export interface FileRouteTypes {
     | '/monitor'
     | '/trace'
     | '/api/alerts'
+    | '/api/timeline'
     | '/evidence/playback'
     | '/monitor/$id'
     | '/monitor/devices'
+    | '/api/ai/root-cause-assist'
+    | '/api/autopilot/recommendations'
     | '/api/autopilot/services'
     | '/api/evidence/snapshots'
     | '/api/monitor/devices'
     | '/api/monitor/state'
     | '/api/monitor/status'
     | '/api/alerts/$id/ack'
+    | '/api/alerts/$id/resolve'
+    | '/api/autopilot/recommendations/$id'
     | '/api/autopilot/services/$id'
+    | '/api/autopilot/recommendations/$id/approve'
+    | '/api/autopilot/recommendations/$id/reject'
+    | '/api/autopilot/recommendations/from-alert/$alertId'
+    | '/api/monitor/devices/$id/correlate-recent'
     | '/api/monitor/devices/$id/log-paths'
     | '/api/monitor/devices/$id/logs/recent'
   id:
@@ -291,16 +396,25 @@ export interface FileRouteTypes {
     | '/monitor'
     | '/trace'
     | '/api/alerts'
+    | '/api/timeline'
     | '/evidence/playback'
     | '/monitor/$id'
     | '/monitor/devices'
+    | '/api/ai/root-cause-assist'
+    | '/api/autopilot/recommendations'
     | '/api/autopilot/services'
     | '/api/evidence/snapshots'
     | '/api/monitor/devices'
     | '/api/monitor/state'
     | '/api/monitor/status'
     | '/api/alerts/$id/ack'
+    | '/api/alerts/$id/resolve'
+    | '/api/autopilot/recommendations/$id'
     | '/api/autopilot/services/$id'
+    | '/api/autopilot/recommendations/$id/approve'
+    | '/api/autopilot/recommendations/$id/reject'
+    | '/api/autopilot/recommendations/from-alert/$alertId'
+    | '/api/monitor/devices/$id/correlate-recent'
     | '/api/monitor/devices/$id/log-paths'
     | '/api/monitor/devices/$id/logs/recent'
   fileRoutesById: FileRoutesById
@@ -317,6 +431,9 @@ export interface RootRouteChildren {
   MonitorRoute: typeof MonitorRouteWithChildren
   TraceRoute: typeof TraceRoute
   ApiAlertsRoute: typeof ApiAlertsRouteWithChildren
+  ApiTimelineRoute: typeof ApiTimelineRoute
+  ApiAiRootCauseAssistRoute: typeof ApiAiRootCauseAssistRoute
+  ApiAutopilotRecommendationsRoute: typeof ApiAutopilotRecommendationsRouteWithChildren
   ApiAutopilotServicesRoute: typeof ApiAutopilotServicesRouteWithChildren
   ApiEvidenceSnapshotsRoute: typeof ApiEvidenceSnapshotsRoute
   ApiMonitorDevicesRoute: typeof ApiMonitorDevicesRouteWithChildren
@@ -417,6 +534,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof EvidencePlaybackRouteImport
       parentRoute: typeof EvidenceRoute
     }
+    '/api/timeline': {
+      id: '/api/timeline'
+      path: '/api/timeline'
+      fullPath: '/api/timeline'
+      preLoaderRoute: typeof ApiTimelineRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/alerts': {
       id: '/api/alerts'
       path: '/api/alerts'
@@ -459,12 +583,40 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiAutopilotServicesRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/autopilot/recommendations': {
+      id: '/api/autopilot/recommendations'
+      path: '/api/autopilot/recommendations'
+      fullPath: '/api/autopilot/recommendations'
+      preLoaderRoute: typeof ApiAutopilotRecommendationsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/ai/root-cause-assist': {
+      id: '/api/ai/root-cause-assist'
+      path: '/api/ai/root-cause-assist'
+      fullPath: '/api/ai/root-cause-assist'
+      preLoaderRoute: typeof ApiAiRootCauseAssistRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/autopilot/services/$id': {
       id: '/api/autopilot/services/$id'
       path: '/$id'
       fullPath: '/api/autopilot/services/$id'
       preLoaderRoute: typeof ApiAutopilotServicesIdRouteImport
       parentRoute: typeof ApiAutopilotServicesRoute
+    }
+    '/api/autopilot/recommendations/$id': {
+      id: '/api/autopilot/recommendations/$id'
+      path: '/$id'
+      fullPath: '/api/autopilot/recommendations/$id'
+      preLoaderRoute: typeof ApiAutopilotRecommendationsIdRouteImport
+      parentRoute: typeof ApiAutopilotRecommendationsRoute
+    }
+    '/api/alerts/$id/resolve': {
+      id: '/api/alerts/$id/resolve'
+      path: '/$id/resolve'
+      fullPath: '/api/alerts/$id/resolve'
+      preLoaderRoute: typeof ApiAlertsIdResolveRouteImport
+      parentRoute: typeof ApiAlertsRoute
     }
     '/api/alerts/$id/ack': {
       id: '/api/alerts/$id/ack'
@@ -479,6 +631,34 @@ declare module '@tanstack/react-router' {
       fullPath: '/api/monitor/devices/$id/log-paths'
       preLoaderRoute: typeof ApiMonitorDevicesIdLogPathsRouteImport
       parentRoute: typeof ApiMonitorDevicesRoute
+    }
+    '/api/monitor/devices/$id/correlate-recent': {
+      id: '/api/monitor/devices/$id/correlate-recent'
+      path: '/$id/correlate-recent'
+      fullPath: '/api/monitor/devices/$id/correlate-recent'
+      preLoaderRoute: typeof ApiMonitorDevicesIdCorrelateRecentRouteImport
+      parentRoute: typeof ApiMonitorDevicesRoute
+    }
+    '/api/autopilot/recommendations/from-alert/$alertId': {
+      id: '/api/autopilot/recommendations/from-alert/$alertId'
+      path: '/from-alert/$alertId'
+      fullPath: '/api/autopilot/recommendations/from-alert/$alertId'
+      preLoaderRoute: typeof ApiAutopilotRecommendationsFromAlertAlertIdRouteImport
+      parentRoute: typeof ApiAutopilotRecommendationsRoute
+    }
+    '/api/autopilot/recommendations/$id/reject': {
+      id: '/api/autopilot/recommendations/$id/reject'
+      path: '/reject'
+      fullPath: '/api/autopilot/recommendations/$id/reject'
+      preLoaderRoute: typeof ApiAutopilotRecommendationsIdRejectRouteImport
+      parentRoute: typeof ApiAutopilotRecommendationsIdRoute
+    }
+    '/api/autopilot/recommendations/$id/approve': {
+      id: '/api/autopilot/recommendations/$id/approve'
+      path: '/approve'
+      fullPath: '/api/autopilot/recommendations/$id/approve'
+      preLoaderRoute: typeof ApiAutopilotRecommendationsIdApproveRouteImport
+      parentRoute: typeof ApiAutopilotRecommendationsIdRoute
     }
     '/api/monitor/devices/$id/logs/recent': {
       id: '/api/monitor/devices/$id/logs/recent'
@@ -517,15 +697,53 @@ const MonitorRouteWithChildren =
 
 interface ApiAlertsRouteChildren {
   ApiAlertsIdAckRoute: typeof ApiAlertsIdAckRoute
+  ApiAlertsIdResolveRoute: typeof ApiAlertsIdResolveRoute
 }
 
 const ApiAlertsRouteChildren: ApiAlertsRouteChildren = {
   ApiAlertsIdAckRoute: ApiAlertsIdAckRoute,
+  ApiAlertsIdResolveRoute: ApiAlertsIdResolveRoute,
 }
 
 const ApiAlertsRouteWithChildren = ApiAlertsRoute._addFileChildren(
   ApiAlertsRouteChildren,
 )
+
+interface ApiAutopilotRecommendationsIdRouteChildren {
+  ApiAutopilotRecommendationsIdApproveRoute: typeof ApiAutopilotRecommendationsIdApproveRoute
+  ApiAutopilotRecommendationsIdRejectRoute: typeof ApiAutopilotRecommendationsIdRejectRoute
+}
+
+const ApiAutopilotRecommendationsIdRouteChildren: ApiAutopilotRecommendationsIdRouteChildren =
+  {
+    ApiAutopilotRecommendationsIdApproveRoute:
+      ApiAutopilotRecommendationsIdApproveRoute,
+    ApiAutopilotRecommendationsIdRejectRoute:
+      ApiAutopilotRecommendationsIdRejectRoute,
+  }
+
+const ApiAutopilotRecommendationsIdRouteWithChildren =
+  ApiAutopilotRecommendationsIdRoute._addFileChildren(
+    ApiAutopilotRecommendationsIdRouteChildren,
+  )
+
+interface ApiAutopilotRecommendationsRouteChildren {
+  ApiAutopilotRecommendationsIdRoute: typeof ApiAutopilotRecommendationsIdRouteWithChildren
+  ApiAutopilotRecommendationsFromAlertAlertIdRoute: typeof ApiAutopilotRecommendationsFromAlertAlertIdRoute
+}
+
+const ApiAutopilotRecommendationsRouteChildren: ApiAutopilotRecommendationsRouteChildren =
+  {
+    ApiAutopilotRecommendationsIdRoute:
+      ApiAutopilotRecommendationsIdRouteWithChildren,
+    ApiAutopilotRecommendationsFromAlertAlertIdRoute:
+      ApiAutopilotRecommendationsFromAlertAlertIdRoute,
+  }
+
+const ApiAutopilotRecommendationsRouteWithChildren =
+  ApiAutopilotRecommendationsRoute._addFileChildren(
+    ApiAutopilotRecommendationsRouteChildren,
+  )
 
 interface ApiAutopilotServicesRouteChildren {
   ApiAutopilotServicesIdRoute: typeof ApiAutopilotServicesIdRoute
@@ -539,11 +757,14 @@ const ApiAutopilotServicesRouteWithChildren =
   ApiAutopilotServicesRoute._addFileChildren(ApiAutopilotServicesRouteChildren)
 
 interface ApiMonitorDevicesRouteChildren {
+  ApiMonitorDevicesIdCorrelateRecentRoute: typeof ApiMonitorDevicesIdCorrelateRecentRoute
   ApiMonitorDevicesIdLogPathsRoute: typeof ApiMonitorDevicesIdLogPathsRoute
   ApiMonitorDevicesIdLogsRecentRoute: typeof ApiMonitorDevicesIdLogsRecentRoute
 }
 
 const ApiMonitorDevicesRouteChildren: ApiMonitorDevicesRouteChildren = {
+  ApiMonitorDevicesIdCorrelateRecentRoute:
+    ApiMonitorDevicesIdCorrelateRecentRoute,
   ApiMonitorDevicesIdLogPathsRoute: ApiMonitorDevicesIdLogPathsRoute,
   ApiMonitorDevicesIdLogsRecentRoute: ApiMonitorDevicesIdLogsRecentRoute,
 }
@@ -563,6 +784,10 @@ const rootRouteChildren: RootRouteChildren = {
   MonitorRoute: MonitorRouteWithChildren,
   TraceRoute: TraceRoute,
   ApiAlertsRoute: ApiAlertsRouteWithChildren,
+  ApiTimelineRoute: ApiTimelineRoute,
+  ApiAiRootCauseAssistRoute: ApiAiRootCauseAssistRoute,
+  ApiAutopilotRecommendationsRoute:
+    ApiAutopilotRecommendationsRouteWithChildren,
   ApiAutopilotServicesRoute: ApiAutopilotServicesRouteWithChildren,
   ApiEvidenceSnapshotsRoute: ApiEvidenceSnapshotsRoute,
   ApiMonitorDevicesRoute: ApiMonitorDevicesRouteWithChildren,
