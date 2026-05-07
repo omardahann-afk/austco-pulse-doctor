@@ -725,6 +725,139 @@ app.post("/api/site-config", (req, res) => {
   }
 });
 
+/* ------------------------------------------------------------------ */
+/* Alerts / timeline / log correlation / AI root-cause                */
+/* ------------------------------------------------------------------ */
+app.get("/api/alerts", (req, res) => {
+  try {
+    const status = req.query?.status ? String(req.query.status) : undefined;
+    const deviceId = req.query?.deviceId ? String(req.query.deviceId) : undefined;
+    res.json({ ok: true, alerts: listAlerts({ status, deviceId }) });
+  } catch (err) { res.status(500).json({ ok: false, reason: "agent_error", message: err?.message || String(err) }); }
+});
+app.get("/api/alerts/:id", (req, res) => {
+  const a = getAlert(req.params.id);
+  if (!a) return res.status(404).json({ ok: false, reason: "not_found" });
+  res.json({ ok: true, alert: a });
+});
+app.post("/api/alerts/:id/ack", (req, res) => {
+  const a = ackAlert(req.params.id);
+  if (!a) return res.status(404).json({ ok: false, reason: "not_found" });
+  res.json({ ok: true, alert: a });
+});
+app.post("/api/alerts/:id/resolve", (req, res) => {
+  const a = resolveAlert(req.params.id);
+  if (!a) return res.status(404).json({ ok: false, reason: "not_found" });
+  res.json({ ok: true, alert: a });
+});
+
+app.get("/api/timeline", (req, res) => {
+  try {
+    const deviceId = req.query?.deviceId ? String(req.query.deviceId) : undefined;
+    const severity = req.query?.severity ? String(req.query.severity) : undefined;
+    const source = req.query?.source ? String(req.query.source) : undefined;
+    const limit = req.query?.limit ? Number(req.query.limit) : undefined;
+    res.json({ ok: true, events: listTimelineEvents({ deviceId, severity, source, limit }) });
+  } catch (err) { res.status(500).json({ ok: false, reason: "agent_error", message: err?.message || String(err) }); }
+});
+
+app.post("/api/monitor/devices/:id/correlate-recent", async (req, res) => {
+  try {
+    const { path: p, lines, sshPassword } = req.body || {};
+    const dev = getDevice(req.params.id);
+    if (!dev) return res.status(404).json({ ok: false, reason: "device_not_found" });
+    const logs = await readRecentLogs({ deviceId: req.params.id, path: p, lines, sshPassword });
+    if (!logs.ok) return res.status(400).json(logs);
+    const correlation = correlateLogs({
+      lines: (logs.lines || []).map((l) => (typeof l === "string" ? l : l?.line || "")),
+      deviceProfile: { kind: dev.kind },
+      deviceId: dev.id,
+    });
+    let alertsCreated = 0;
+    try {
+      const created = alertsFromCorrelation({ device: dev, correlatedEvents: correlation.correlatedEvents || [] });
+      alertsCreated = created.length;
+    } catch {}
+    res.json({ ok: true, correlation, alertsCreated, logs: { count: logs.lines?.length || 0 } });
+  } catch (err) { res.status(500).json({ ok: false, reason: "agent_error", message: err?.message || String(err) }); }
+});
+
+app.post("/api/ai/root-cause-assist", async (req, res) => {
+  try {
+    const body = req.body || {};
+    // Sanitize: cap log lines, never include passwords.
+    const safe = JSON.parse(JSON.stringify(body));
+    if (Array.isArray(safe?.logs?.lines)) safe.logs.lines = safe.logs.lines.slice(-200);
+    if (safe?.device?.meta?.ssh?.password) safe.device.meta.ssh.password = "[redacted]";
+    const explanation = await explainWithOllama({
+      kind: "root_cause_assist",
+      payload: safe,
+    }).catch(() => null);
+    const fallback = {
+      plainEnglishRootCause: safe.alert?.deterministicCause || "Deterministic engine has not classified the cause.",
+      whyThisLooksLikely: safe.alert?.description || "",
+      evidenceThatSupportsIt: safe.alert?.evidence || [],
+      evidenceThatContradictsIt: [],
+      whatIsStillUnknown: [],
+      recommendedNextChecks: safe.alert?.recommendedNextCheck ? [safe.alert.recommendedNextCheck] : [],
+      customerSafeSummary: "",
+      internalTechnicalSummary: "",
+      escalationDraft: "",
+      confidenceWarning: explanation ? null : "AI gateway unavailable — deterministic summary only.",
+      safetyDisclaimer: "AI explains only. Deterministic engine decides the action.",
+    };
+    res.json({ ok: true, response: explanation?.response || fallback });
+  } catch (err) { res.status(500).json({ ok: false, reason: "agent_error", message: err?.message || String(err) }); }
+});
+
+/* ------------------------------------------------------------------ */
+/* Autopilot recommendations from alerts                              */
+/* ------------------------------------------------------------------ */
+app.post("/api/autopilot/recommendations/from-alert/:alertId", (req, res) => {
+  try {
+    const alert = getAlert(req.params.alertId);
+    if (!alert) return res.status(404).json({ ok: false, reason: "alert_not_found" });
+    const device = alert.deviceId ? getDevice(alert.deviceId) : null;
+    const rec = recommendFromAlertId(alert.alertId, { device });
+    appendTimelineEvent({
+      source: "autopilot",
+      deviceId: alert.deviceId,
+      severity: "info",
+      title: `Recommendation generated: ${rec.title}`,
+      alertId: alert.alertId,
+      raw: { recommendationId: rec.recommendationId, riskLevel: rec.riskLevel },
+    });
+    res.json({ ok: true, recommendation: rec });
+  } catch (err) { res.status(500).json({ ok: false, reason: "agent_error", message: err?.message || String(err) }); }
+});
+
+app.get("/api/autopilot/recommendations", (_req, res) => {
+  try { res.json({ ok: true, recommendations: listRecommendations() }); }
+  catch (err) { res.status(500).json({ ok: false, reason: "agent_error", message: err?.message || String(err) }); }
+});
+
+app.get("/api/autopilot/recommendations/:id", (req, res) => {
+  const r = getRecommendation(req.params.id);
+  if (!r) return res.status(404).json({ ok: false, reason: "not_found" });
+  res.json({ ok: true, recommendation: r });
+});
+
+app.post("/api/autopilot/recommendations/:id/approve", (req, res) => {
+  const r = approveRecommendation(req.params.id, { actor: req.body?.actor || "technician" });
+  if (!r) return res.status(404).json({ ok: false, reason: "not_found" });
+  appendTimelineEvent({ source: "autopilot", deviceId: r.deviceId, severity: "info",
+    title: `Recommendation approved: ${r.title}`, alertId: r.alertId, raw: { recommendationId: r.recommendationId } });
+  res.json({ ok: true, recommendation: r });
+});
+
+app.post("/api/autopilot/recommendations/:id/reject", (req, res) => {
+  const r = rejectRecommendation(req.params.id, { actor: req.body?.actor || "technician", reason: req.body?.reason || null });
+  if (!r) return res.status(404).json({ ok: false, reason: "not_found" });
+  appendTimelineEvent({ source: "autopilot", deviceId: r.deviceId, severity: "info",
+    title: `Recommendation rejected: ${r.title}`, alertId: r.alertId, raw: { recommendationId: r.recommendationId } });
+  res.json({ ok: true, recommendation: r });
+});
+
 const httpServer = http.createServer(app);
 attachWsBus(httpServer, { path: "/ws/monitor" });
 httpServer.listen(PORT, BIND, () => {
