@@ -17,6 +17,8 @@ import { LIVE_MONITOR_PROFILES, type LiveMonitorProfileKey } from "@/lib/liveMon
 import { DeviceConfigCard, makeDraft, type DraftDevice } from "@/components/monitor/DeviceConfigCard";
 import { SavedDeviceActions } from "@/components/monitor/SavedDeviceActions";
 import { EvidenceSnapshotsPanel } from "@/components/monitor/EvidenceSnapshotsPanel";
+import { AlertsPanel } from "@/components/monitor/AlertsPanel";
+import { TimelinePanel } from "@/components/monitor/TimelinePanel";
 
 const MONITOR_REGISTRY_UPDATED_EVENT = "monitor-registry:updated";
 
@@ -161,6 +163,9 @@ function MonitorPage() {
       </div>
 
       <EvidenceSnapshotsPanel />
+
+      <AlertsPanel />
+      <TimelinePanel />
 
       {/* Empty state when no devices registered */}
       {devices.length === 0 ? (

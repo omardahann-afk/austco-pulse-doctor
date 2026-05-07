@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { Camera, FileText, Loader2, Zap } from "lucide-react";
+import { Link } from "@tanstack/react-router";
+import { Camera, FileText, Loader2, Zap, Search, Activity } from "lucide-react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -7,6 +8,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 import { DeviceLogPanel } from "./DeviceLogPanel";
 import { monitorApi, type DeviceStateRow } from "@/lib/monitorClient";
 import type { MonitorDevice } from "@/lib/monitorClient";
+import { intelligenceApi, ALERTS_UPDATED_EVENT, TIMELINE_UPDATED_EVENT } from "@/lib/intelligenceClient";
 
 const EVIDENCE_UPDATED_EVENT = "evidence-snapshots:updated";
 
@@ -20,6 +22,7 @@ export function SavedDeviceActions({
   const [logsOpen, setLogsOpen] = useState(false);
   const [capturing, setCapturing] = useState(false);
   const [testing, setTesting] = useState(false);
+  const [correlating, setCorrelating] = useState(false);
 
   const meta = (device.meta || {}) as Record<string, unknown>;
   const ssh = (meta.ssh || {}) as Record<string, unknown>;
@@ -74,10 +77,29 @@ export function SavedDeviceActions({
       const r = await monitorApi.probeNow(device.id);
       if (!r.ok) toast.error(r.reason || "probe_failed");
       else toast.success(`Probe ${r.evidence?.ok ? "OK" : "FAIL"} · ${r.evidence?.latencyMs?.toFixed(1) ?? "—"} ms`);
+      window.dispatchEvent(new CustomEvent(ALERTS_UPDATED_EVENT));
+      window.dispatchEvent(new CustomEvent(TIMELINE_UPDATED_EVENT));
     } catch (err) {
       toast.error(err instanceof Error ? err.message : String(err));
     } finally {
       setTesting(false);
+    }
+  }
+
+  async function correlateRecent() {
+    if (logPaths.length === 0) { toast.error("No log paths configured"); return; }
+    setCorrelating(true);
+    try {
+      const r = await intelligenceApi.correlateRecent(device.id, { lines: 200 });
+      if (!r.ok) { toast.error("Correlation failed"); return; }
+      const n = r.correlation?.suspectedPatterns?.length ?? 0;
+      toast.success(`${n} pattern(s) detected · ${r.alertsCreated ?? 0} alert(s)`);
+      window.dispatchEvent(new CustomEvent(ALERTS_UPDATED_EVENT));
+      window.dispatchEvent(new CustomEvent(TIMELINE_UPDATED_EVENT));
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : String(err));
+    } finally {
+      setCorrelating(false);
     }
   }
 
@@ -90,6 +112,16 @@ export function SavedDeviceActions({
         <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={captureEvidence} disabled={capturing}>
           {capturing ? <Loader2 className="mr-1 h-3 w-3 animate-spin" /> : <Camera className="mr-1 h-3 w-3" />} Capture Evidence
         </Button>
+        {logPaths.length > 0 && (
+          <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={correlateRecent} disabled={correlating}>
+            {correlating ? <Loader2 className="mr-1 h-3 w-3 animate-spin" /> : <Search className="mr-1 h-3 w-3" />} Correlate Logs
+          </Button>
+        )}
+        <Link to="/trace">
+          <Button size="sm" variant="ghost" className="h-7 text-xs">
+            <Activity className="mr-1 h-3 w-3" /> Trace
+          </Button>
+        </Link>
         {logPaths.length > 0 && (
           <Collapsible open={logsOpen} onOpenChange={setLogsOpen}>
             <CollapsibleTrigger asChild>
