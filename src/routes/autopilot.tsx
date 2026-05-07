@@ -413,9 +413,10 @@ function AutopilotPage() {
 
       <AddAutopilotServiceDialog
         open={serviceDialogOpen}
-        onOpenChange={setServiceDialogOpen}
+        onOpenChange={(o) => { setServiceDialogOpen(o); if (!o) setPresetType(null); }}
         initial={editingService}
-        onSaved={() => setEditingService(null)}
+        presetType={presetType}
+        onSaved={() => { setEditingService(null); setPresetType(null); }}
       />
     </div>
   );
