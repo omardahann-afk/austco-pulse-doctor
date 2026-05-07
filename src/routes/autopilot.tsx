@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Loader2, Play, Square, RefreshCw, ShieldAlert, ShieldCheck, AlertTriangle, Copy, ChevronDown, Sparkles, Bot, FlaskConical, Info, Lightbulb, Plus, Trash2 } from "lucide-react";
+import { Loader2, Play, Square, RefreshCw, ShieldAlert, ShieldCheck, AlertTriangle, Copy, ChevronDown, Sparkles, Bot, FlaskConical, Info, Lightbulb, Plus } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
   autopilotGetStatus, autopilotScanNow, autopilotStart, autopilotStop,
@@ -27,6 +27,8 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { AiCommanderTrigger } from "@/components/AiCommanderTrigger";
 import { AddAutopilotServiceDialog } from "@/components/autopilot/AddAutopilotServiceDialog";
 import { RecommendationsFromAlertsPanel } from "@/components/autopilot/RecommendationsFromAlertsPanel";
+import { AutopilotServiceTile } from "@/components/autopilot/AutopilotServiceTile";
+import { RemediationServiceCard } from "@/components/autopilot/RemediationServiceCard";
 import {
   AUTOPILOT_SERVICES_UPDATED_EVENT,
   AUTOPILOT_SERVICE_PROFILES,
@@ -249,63 +251,60 @@ function AutopilotPage() {
         <Card><CardContent className="flex items-center gap-2 p-4 text-sm text-destructive"><AlertTriangle className="h-4 w-4" />{error}</CardContent></Card>
       )}
 
-      {/* Add Autopilot Services — quick-add at top, independent of Command Center */}
-      <section className="space-y-3">
-        <div>
-          <h2 className="text-sm font-semibold">Add Autopilot Services</h2>
-          <p className="text-xs text-muted-foreground">Register services Autopilot can scan and build safe recommendations for. Independent of Command Center.</p>
+      {/* AUTOPILOT SERVICE ORCHESTRATION — operational tiles */}
+      <section className="rounded-xl border-2 border-border/60 bg-gradient-to-b from-card/80 to-card/40 p-4 shadow-[var(--shadow-panel)]">
+        <div className="mb-3 flex items-center justify-between">
+          <div>
+            <div className="font-mono text-[10px] font-semibold uppercase tracking-[0.2em] text-primary/80">// SAFE REMEDIATION ORCHESTRATION</div>
+            <h2 className="mt-0.5 text-base font-bold uppercase tracking-wide">Autopilot Service Orchestration</h2>
+            <p className="mt-0.5 text-[11.5px] text-muted-foreground">Click a tile to register a service Autopilot can scan and remediate. Risk class governs whether actions can auto-execute.</p>
+          </div>
+          <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
+            {services.length} registered service{services.length === 1 ? "" : "s"}
+          </span>
         </div>
-        <div className="flex flex-wrap gap-2">
-          <Button size="sm" variant="secondary" onClick={() => { setEditingService(null); setPresetType(null); setServiceDialogOpen(true); }}>
-            <Plus className="h-4 w-4" /> Add Autopilot Service
-          </Button>
-          {AUTOPILOT_SERVICE_PROFILES.filter((p) => p.type !== "custom").map((p) => (
-            <Button
-              key={p.type}
-              size="sm"
-              variant="outline"
-              className="h-7 text-xs"
-              onClick={() => { setEditingService(null); setPresetType(p.type); setServiceDialogOpen(true); }}
-            >
-              <Plus className="h-3.5 w-3.5" /> {p.label}
-            </Button>
-          ))}
+        <div className="grid gap-2.5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+          {AUTOPILOT_SERVICE_PROFILES.map((p) => {
+            const count = services.filter((s) => s.type === p.type).length;
+            return (
+              <AutopilotServiceTile
+                key={p.type}
+                icon={p.icon}
+                shortName={p.shortName}
+                description={p.description}
+                riskClass={p.riskClass}
+                monitoredCount={count}
+                onClick={() => { setEditingService(null); setPresetType(p.type); setServiceDialogOpen(true); }}
+              />
+            );
+          })}
+        </div>
+      </section>
+
+      {/* OPERATIONAL REMEDIATION REGISTRY — runtime cards */}
+      <section className="space-y-3">
+        <div className="flex items-center justify-between">
+          <div>
+            <div className="font-mono text-[10px] font-semibold uppercase tracking-[0.2em] text-primary/80">// OPERATIONAL REMEDIATION REGISTRY</div>
+            <h2 className="mt-0.5 text-base font-bold uppercase tracking-wide">Registered Services</h2>
+          </div>
+          <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">deterministic · approval-gated</span>
         </div>
         {services.length === 0 ? (
-          <Card>
-            <CardContent className="space-y-2 p-6 text-center text-sm">
-              <div className="font-medium">No Autopilot services configured yet.</div>
-              <div className="text-muted-foreground">
-                Add IPC, Pulse Gateway, Pulse Manage, INGA, MQTT, HL7, or IPConnect services here.
-              </div>
-            </CardContent>
-          </Card>
+          <div className="flex flex-col items-center justify-center rounded-lg border-2 border-dashed border-border/50 bg-card/30 p-8 text-center">
+            <ShieldCheck className="h-6 w-6 text-muted-foreground" />
+            <div className="mt-2 font-mono text-xs uppercase tracking-wider text-muted-foreground">No remediation-controlled services yet</div>
+            <p className="mt-1 max-w-sm text-[11.5px] text-muted-foreground">Use a tile above to register IPC Webmin, Pulse, MQTT, INGA, or HL7. Each registration is independent of Command Center.</p>
+          </div>
         ) : (
-          <div className="space-y-2">
+          <div className="grid gap-3 lg:grid-cols-2 2xl:grid-cols-3">
             {services.map((s) => (
-              <Card key={s.id}>
-                <CardContent className="flex flex-wrap items-center justify-between gap-3 p-3 text-sm">
-                  <div className="min-w-0">
-                    <div className="flex items-center gap-2">
-                      <span className="font-medium">{s.name}</span>
-                      <span className="rounded border border-border/60 bg-muted/30 px-1.5 py-0.5 text-[10px] font-mono uppercase">{s.type}</span>
-                      {!s.enabled && <span className="text-[10px] text-muted-foreground">disabled</span>}
-                    </div>
-                    <div className="mt-0.5 text-xs text-muted-foreground font-mono">
-                      {s.sshUsername}@{s.host}:{s.sshPort} · {s.serviceManager}
-                      {s.systemdUnit ? ` · unit=${s.systemdUnit}` : ""}
-                      {s.dockerContainer ? ` · container=${s.dockerContainer}` : ""}
-                      {s.webminPort ? ` · webmin=${s.webminPort}` : ""}
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Button size="sm" variant="ghost" className="h-7" onClick={() => { setEditingService(s); setServiceDialogOpen(true); }}>Edit</Button>
-                    <Button size="sm" variant="ghost" className="h-7 text-red-400 hover:text-red-300" onClick={() => handleDeleteService(s.id)}>
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
+              <RemediationServiceCard
+                key={s.id}
+                service={s}
+                onEdit={() => { setEditingService(s); setServiceDialogOpen(true); }}
+                onDelete={() => handleDeleteService(s.id)}
+              />
             ))}
           </div>
         )}

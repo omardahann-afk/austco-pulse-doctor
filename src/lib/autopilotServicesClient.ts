@@ -69,16 +69,41 @@ export type AutopilotServiceTypeKey =
 export const AUTOPILOT_SERVICE_PROFILES: Array<{
   type: AutopilotServiceTypeKey;
   label: string;
+  shortName: string;
+  icon: string;
+  description: string;
+  riskClass: "LOW" | "MEDIUM" | "HIGH";
+  group: "webmin" | "pulse" | "messaging" | "systemd" | "docker" | "custom";
   defaults: Partial<AutopilotService>;
 }> = [
-  { type: "ipc-webmin",    label: "IPC Webmin",       defaults: { role: "IPC Webmin",       sshUsername: "tech",  sshPort: 22, serviceManager: "webmin", webminPort: 10000 } },
-  { type: "pulse-gateway", label: "Pulse Gateway",    defaults: { role: "Pulse Gateway",    sshUsername: "admin", sshPort: 22, serviceManager: "docker", dockerContainer: "pulse-gateway" } },
-  { type: "pulse-manage",  label: "Pulse Manage",     defaults: { role: "Pulse Manage",     sshUsername: "admin", sshPort: 22, serviceManager: "docker", dockerContainer: "pulse-manage" } },
-  { type: "inga",          label: "INGA",             defaults: { role: "Integration Gateway", sshUsername: "admin", sshPort: 22, serviceManager: "systemd", systemdUnit: "inga" } },
-  { type: "mqtt-broker",   label: "MQTT Broker",      defaults: { role: "MQTT Broker",      sshUsername: "admin", sshPort: 22, serviceManager: "systemd", systemdUnit: "mosquitto" } },
-  { type: "hl7",           label: "HL7",              defaults: { role: "HL7",              sshUsername: "admin", sshPort: 22, serviceManager: "systemd", systemdUnit: "hl7" } },
-  { type: "ipconnect",     label: "IPConnect",        defaults: { role: "IPConnect",        sshUsername: "admin", sshPort: 22, serviceManager: "systemd", systemdUnit: "ipconnect" } },
-  { type: "docker",        label: "Docker Container", defaults: { role: "Docker Service",   sshUsername: "admin", sshPort: 22, serviceManager: "docker" } },
-  { type: "systemd",       label: "Systemd Service",  defaults: { role: "Systemd Service",  sshUsername: "admin", sshPort: 22, serviceManager: "systemd" } },
-  { type: "custom",        label: "Custom Service",   defaults: { role: "Custom Service",   sshUsername: "admin", sshPort: 22, serviceManager: "custom" } },
+  { type: "ipc-webmin",    label: "IPC Webmin",       shortName: "WEBMIN SERVICES",  icon: "ServerCog", riskClass: "MEDIUM", group: "webmin",
+    description: "Safe management of Webmin-managed IPC infrastructure with TLS-verified probes.",
+    defaults: { role: "IPC Webmin", sshUsername: "tech", sshPort: 22, serviceManager: "webmin", webminPort: 10000 } },
+  { type: "pulse-gateway", label: "Pulse Gateway",    shortName: "PULSE GATEWAY",    icon: "Radio",     riskClass: "MEDIUM", group: "pulse",
+    description: "Container/runtime monitoring and safe restart for the Pulse Gateway service.",
+    defaults: { role: "Pulse Gateway", sshUsername: "admin", sshPort: 22, serviceManager: "docker", dockerContainer: "pulse-gateway" } },
+  { type: "pulse-manage",  label: "Pulse Manage",     shortName: "PULSE MANAGE",     icon: "Sliders",   riskClass: "MEDIUM", group: "pulse",
+    description: "Container monitoring and orchestration recovery for the Pulse Manage admin service.",
+    defaults: { role: "Pulse Manage", sshUsername: "admin", sshPort: 22, serviceManager: "docker", dockerContainer: "pulse-manage" } },
+  { type: "inga",          label: "INGA",             shortName: "INGA",             icon: "Workflow",  riskClass: "MEDIUM", group: "systemd",
+    description: "Systemd-supervised Integration Gateway with deterministic restart playbooks.",
+    defaults: { role: "Integration Gateway", sshUsername: "admin", sshPort: 22, serviceManager: "systemd", systemdUnit: "inga" } },
+  { type: "mqtt-broker",   label: "MQTT Broker",      shortName: "MQTT BROKER",      icon: "Cable",     riskClass: "HIGH",   group: "messaging",
+    description: "Broker supervision and event-flow validation. High-impact restarts require approval.",
+    defaults: { role: "MQTT Broker", sshUsername: "admin", sshPort: 22, serviceManager: "systemd", systemdUnit: "mosquitto" } },
+  { type: "hl7",           label: "HL7",              shortName: "HL7 SERVICES",     icon: "HeartPulse", riskClass: "HIGH",  group: "messaging",
+    description: "HL7 interface supervision. Patient-data path — restarts require manual approval.",
+    defaults: { role: "HL7", sshUsername: "admin", sshPort: 22, serviceManager: "systemd", systemdUnit: "hl7" } },
+  { type: "ipconnect",     label: "IPConnect",        shortName: "IPCONNECT",        icon: "Cloud",     riskClass: "MEDIUM", group: "systemd",
+    description: "IPConnect VM supervision via systemd with safe restart playbooks.",
+    defaults: { role: "IPConnect", sshUsername: "admin", sshPort: 22, serviceManager: "systemd", systemdUnit: "ipconnect" } },
+  { type: "docker",        label: "Docker Container", shortName: "DOCKER SERVICES",  icon: "Container", riskClass: "MEDIUM", group: "docker",
+    description: "Generic Docker container supervision with safe restart and log inspection.",
+    defaults: { role: "Docker Service", sshUsername: "admin", sshPort: 22, serviceManager: "docker" } },
+  { type: "systemd",       label: "Systemd Service",  shortName: "SYSTEMD SERVICES", icon: "Cog",       riskClass: "MEDIUM", group: "systemd",
+    description: "Generic systemd unit supervision and approval-gated restarts.",
+    defaults: { role: "Systemd Service", sshUsername: "admin", sshPort: 22, serviceManager: "systemd" } },
+  { type: "custom",        label: "Custom Service",   shortName: "CUSTOM",           icon: "Wrench",    riskClass: "MANUAL" as never as "HIGH", group: "custom",
+    description: "Hand-rolled service. Autopilot will not auto-execute — manual review only.",
+    defaults: { role: "Custom Service", sshUsername: "admin", sshPort: 22, serviceManager: "custom" } },
 ];
