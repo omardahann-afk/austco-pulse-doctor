@@ -13,6 +13,8 @@ import { Play, Square, RefreshCw, Plus } from "lucide-react";
 import { toast } from "sonner";
 import { AddDeviceDialog } from "@/components/monitor/AddDeviceDialog";
 import { useSiteConfigStore } from "@/stores/siteConfigStore";
+import { LIVE_MONITOR_PROFILES, type LiveMonitorProfileKey } from "@/lib/liveMonitorProfiles";
+import { DeviceConfigCard, makeDraft, type DraftDevice } from "@/components/monitor/DeviceConfigCard";
 
 const MONITOR_REGISTRY_UPDATED_EVENT = "monitor-registry:updated";
 
@@ -30,6 +32,17 @@ function MonitorPage() {
   const { conn, scheduler, devices, lastEventAt, requestSnapshot } = useMonitorBus();
   const hydrateFromBackend = useSiteConfigStore((state) => state.hydrateFromBackend);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [drafts, setDrafts] = useState<DraftDevice[]>([]);
+
+  function addDraft(key: LiveMonitorProfileKey) {
+    setDrafts((prev) => [...prev, makeDraft(key)]);
+  }
+  function updateDraft(draftId: string, next: DraftDevice) {
+    setDrafts((prev) => prev.map((d) => (d.draftId === draftId ? next : d)));
+  }
+  function removeDraft(draftId: string) {
+    setDrafts((prev) => prev.filter((d) => d.draftId !== draftId));
+  }
 
   useEffect(() => {
     if (typeof window === "undefined") return undefined;
@@ -99,6 +112,35 @@ function MonitorPage() {
           </div>
         }
       />
+
+      {/* Add Tacera / Pulse Devices — quick-add cards */}
+      <Card>
+        <CardHeader className="py-3">
+          <CardTitle className="text-sm font-semibold">Add Tacera / Pulse Devices</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <div className="flex flex-wrap gap-1.5">
+            {LIVE_MONITOR_PROFILES.map((p) => (
+              <Button key={p.key} type="button" size="sm" variant="outline" className="h-7 px-2 text-[11px]" onClick={() => addDraft(p.key)}>
+                <Plus className="mr-1 h-3 w-3" /> {p.label}
+              </Button>
+            ))}
+          </div>
+          {drafts.length > 0 && (
+            <div className="grid gap-3 lg:grid-cols-2">
+              {drafts.map((draft) => (
+                <DeviceConfigCard
+                  key={draft.draftId}
+                  draft={draft}
+                  onChange={(next) => updateDraft(draft.draftId, next)}
+                  onRemove={() => removeDraft(draft.draftId)}
+                  onSaved={() => { removeDraft(draft.draftId); void handleDeviceSaved(); }}
+                />
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
       {/* KPI strip */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
