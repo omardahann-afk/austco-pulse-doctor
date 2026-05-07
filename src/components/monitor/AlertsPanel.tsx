@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
-import { AlertTriangle, CheckCircle2, RefreshCw, Loader2, Brain } from "lucide-react";
+import { useNavigate } from "@tanstack/react-router";
+import { AlertTriangle, CheckCircle2, RefreshCw, Loader2, Brain, Send } from "lucide-react";
 import { toast } from "sonner";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -8,6 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { intelligenceApi, type Alert, ALERTS_UPDATED_EVENT, TIMELINE_UPDATED_EVENT } from "@/lib/intelligenceClient";
 import { relativeTime } from "@/lib/monitorClient";
 import { RootCauseDialog } from "./RootCauseDialog";
+import { recommendationsApi, RECOMMENDATIONS_UPDATED_EVENT, PENDING_ALERT_FOR_AUTOPILOT_KEY } from "@/lib/autopilotRecommendationsClient";
 
 function sevColor(s: Alert["severity"]) {
   if (s === "critical") return "bg-red-500/15 text-red-400 border-red-500/30";
@@ -20,6 +22,8 @@ export function AlertsPanel() {
   const [loading, setLoading] = useState(false);
   const [acting, setActing] = useState<string | null>(null);
   const [aiAlert, setAiAlert] = useState<Alert | null>(null);
+  const [sending, setSending] = useState<string | null>(null);
+  const navigate = useNavigate();
 
   async function load() {
     setLoading(true);
@@ -48,6 +52,21 @@ export function AlertsPanel() {
     try { await intelligenceApi.resolveAlert(id); toast.success("Resolved"); await load(); window.dispatchEvent(new CustomEvent(TIMELINE_UPDATED_EVENT)); }
     catch (err) { toast.error(err instanceof Error ? err.message : String(err)); }
     finally { setActing(null); }
+  }
+
+  async function sendToAutopilot(a: Alert) {
+    setSending(a.alertId);
+    try {
+      const r = await recommendationsApi.fromAlert(a.alertId);
+      if (!r.ok || !r.recommendation) throw new Error(r.reason || "failed");
+      try { sessionStorage.setItem(PENDING_ALERT_FOR_AUTOPILOT_KEY, a.alertId); } catch {}
+      window.dispatchEvent(new CustomEvent(RECOMMENDATIONS_UPDATED_EVENT));
+      window.dispatchEvent(new CustomEvent(TIMELINE_UPDATED_EVENT));
+      toast.success("Recommendation sent to Autopilot");
+      void navigate({ to: "/autopilot", hash: `rec-${r.recommendation.recommendationId}` });
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : String(err));
+    } finally { setSending(null); }
   }
 
   const active = alerts.filter((a) => a.status === "active");
@@ -94,6 +113,9 @@ export function AlertsPanel() {
               <div className="flex shrink-0 flex-wrap items-center gap-1">
                 <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => setAiAlert(a)}>
                   <Brain className="mr-1 h-3 w-3" /> Ask AI
+                </Button>
+                <Button size="sm" variant="ghost" className="h-7 text-xs" disabled={sending === a.alertId} onClick={() => sendToAutopilot(a)}>
+                  {sending === a.alertId ? <Loader2 className="mr-1 h-3 w-3 animate-spin" /> : <Send className="mr-1 h-3 w-3" />} Send to Autopilot
                 </Button>
                 {a.status === "active" && (
                   <Button size="sm" variant="ghost" className="h-7 text-xs" disabled={acting === a.alertId} onClick={() => ack(a.alertId)}>
