@@ -249,6 +249,68 @@ function AutopilotPage() {
         <Card><CardContent className="flex items-center gap-2 p-4 text-sm text-destructive"><AlertTriangle className="h-4 w-4" />{error}</CardContent></Card>
       )}
 
+      {/* Add Autopilot Services — quick-add at top, independent of Command Center */}
+      <section className="space-y-3">
+        <div>
+          <h2 className="text-sm font-semibold">Add Autopilot Services</h2>
+          <p className="text-xs text-muted-foreground">Register services Autopilot can scan and build safe recommendations for. Independent of Command Center.</p>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <Button size="sm" variant="secondary" onClick={() => { setEditingService(null); setPresetType(null); setServiceDialogOpen(true); }}>
+            <Plus className="h-4 w-4" /> Add Autopilot Service
+          </Button>
+          {AUTOPILOT_SERVICE_PROFILES.filter((p) => p.type !== "custom").map((p) => (
+            <Button
+              key={p.type}
+              size="sm"
+              variant="outline"
+              className="h-7 text-xs"
+              onClick={() => { setEditingService(null); setPresetType(p.type); setServiceDialogOpen(true); }}
+            >
+              <Plus className="h-3.5 w-3.5" /> {p.label}
+            </Button>
+          ))}
+        </div>
+        {services.length === 0 ? (
+          <Card>
+            <CardContent className="space-y-2 p-6 text-center text-sm">
+              <div className="font-medium">No Autopilot services configured yet.</div>
+              <div className="text-muted-foreground">
+                Add IPC, Pulse Gateway, Pulse Manage, INGA, MQTT, HL7, or IPConnect services here.
+              </div>
+            </CardContent>
+          </Card>
+        ) : (
+          <div className="space-y-2">
+            {services.map((s) => (
+              <Card key={s.id}>
+                <CardContent className="flex flex-wrap items-center justify-between gap-3 p-3 text-sm">
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2">
+                      <span className="font-medium">{s.name}</span>
+                      <span className="rounded border border-border/60 bg-muted/30 px-1.5 py-0.5 text-[10px] font-mono uppercase">{s.type}</span>
+                      {!s.enabled && <span className="text-[10px] text-muted-foreground">disabled</span>}
+                    </div>
+                    <div className="mt-0.5 text-xs text-muted-foreground font-mono">
+                      {s.sshUsername}@{s.host}:{s.sshPort} · {s.serviceManager}
+                      {s.systemdUnit ? ` · unit=${s.systemdUnit}` : ""}
+                      {s.dockerContainer ? ` · container=${s.dockerContainer}` : ""}
+                      {s.webminPort ? ` · webmin=${s.webminPort}` : ""}
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Button size="sm" variant="ghost" className="h-7" onClick={() => { setEditingService(s); setServiceDialogOpen(true); }}>Edit</Button>
+                    <Button size="sm" variant="ghost" className="h-7 text-red-400 hover:text-red-300" onClick={() => handleDeleteService(s.id)}>
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        )}
+      </section>
+
       <RecommendationsFromAlertsPanel />
 
       {/* 1. Mission Control top status bar */}
