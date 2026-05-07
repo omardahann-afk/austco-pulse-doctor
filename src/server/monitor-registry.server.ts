@@ -63,3 +63,44 @@ export async function stopMonitorScheduler() {
 export function getMonitorProxyWsUrl() {
   return "/ws/monitor";
 }
+
+export async function getDeviceLogPaths(deviceId: string) {
+  return fetchJson<{ ok: boolean; deviceId: string; paths: string[] }>(
+    `/api/monitor/devices/${encodeURIComponent(deviceId)}/log-paths`,
+  );
+}
+
+export async function readDeviceRecentLogs(
+  deviceId: string,
+  body: { path?: string; lines?: number; sshPassword?: string },
+) {
+  return fetchJson<{
+    ok: boolean;
+    path?: string;
+    sizeBytes?: number;
+    truncated?: boolean;
+    lineCount?: number;
+    fetchedAt?: string;
+    lines?: string[];
+    reason?: string;
+    error?: string;
+    allowed?: string[];
+  }>(`/api/monitor/devices/${encodeURIComponent(deviceId)}/logs/recent`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body || {}),
+  });
+}
+
+export async function listEvidenceSnapshots(deviceId?: string) {
+  const qs = deviceId ? `?deviceId=${encodeURIComponent(deviceId)}` : "";
+  return fetchJson<{ ok: boolean; snapshots: JsonValue[] }>(`/api/evidence/snapshots${qs}`);
+}
+
+export async function createEvidenceSnapshot(body: JsonValue) {
+  return fetchJson<{ ok: boolean; snapshot: JsonValue }>("/api/evidence/snapshots", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+}

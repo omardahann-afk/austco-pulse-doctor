@@ -15,6 +15,8 @@ import { AddDeviceDialog } from "@/components/monitor/AddDeviceDialog";
 import { useSiteConfigStore } from "@/stores/siteConfigStore";
 import { LIVE_MONITOR_PROFILES, type LiveMonitorProfileKey } from "@/lib/liveMonitorProfiles";
 import { DeviceConfigCard, makeDraft, type DraftDevice } from "@/components/monitor/DeviceConfigCard";
+import { SavedDeviceActions } from "@/components/monitor/SavedDeviceActions";
+import { EvidenceSnapshotsPanel } from "@/components/monitor/EvidenceSnapshotsPanel";
 
 const MONITOR_REGISTRY_UPDATED_EVENT = "monitor-registry:updated";
 
@@ -31,6 +33,7 @@ const STATE_ORDER: DeviceState[] = ["down", "degraded", "stale", "unknown", "up"
 function MonitorPage() {
   const { conn, scheduler, devices, lastEventAt, requestSnapshot } = useMonitorBus();
   const hydrateFromBackend = useSiteConfigStore((state) => state.hydrateFromBackend);
+  const monitoredDevices = useSiteConfigStore((state) => state.monitoredDevices);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [drafts, setDrafts] = useState<DraftDevice[]>([]);
 
@@ -157,6 +160,8 @@ function MonitorPage() {
         ))}
       </div>
 
+      <EvidenceSnapshotsPanel />
+
       {/* Empty state when no devices registered */}
       {devices.length === 0 ? (
         <Card>
@@ -212,6 +217,22 @@ function MonitorPage() {
                     ))}
                   </TableBody>
                 </Table>
+                <div className="space-y-2 border-t border-border/40 p-3">
+                  {g.rows.map((d) => {
+                    const full = monitoredDevices.find((m) => m.id === d.id);
+                    if (!full) return null;
+                    return (
+                      <details key={d.id} className="rounded-md border border-border/30 bg-muted/5">
+                        <summary className="cursor-pointer px-2 py-1.5 text-xs font-medium">
+                          Actions · {full.name || full.id}
+                        </summary>
+                        <div className="border-t border-border/30 p-2">
+                          <SavedDeviceActions device={full} state={d} />
+                        </div>
+                      </details>
+                    );
+                  })}
+                </div>
               </CardContent>
             </Card>
           ))}

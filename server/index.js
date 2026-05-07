@@ -58,6 +58,8 @@ import { attachWsBus, wsClientCount } from "./lib/wsBus.js";
 import multer from "multer";
 import { parseCcpZipBuffer, isZipBuffer } from "./lib/ccpZipParser.js";
 import { readSiteConfig, writeSiteConfig, siteConfigInfo } from "./lib/siteConfigStore.js";
+import { readRecentLogs, listDeviceLogPaths } from "./lib/logReader.js";
+import { listSnapshots, getSnapshot, createSnapshot } from "./lib/evidenceSnapshotStore.js";
 
 const PORT = Number(process.env.PORT || 3001);
 const BIND = process.env.BIND_HOST || "0.0.0.0"; // change to 127.0.0.1 for localhost-only
@@ -576,6 +578,59 @@ app.get("/api/monitor/status", (_req, res) => {
 
 app.get("/api/monitor/ws-info", (_req, res) => {
   res.json({ ok: true, path: "/ws/monitor", clients: wsClientCount() });
+});
+
+/* ------------------------------------------------------------------ */
+/* Live log access — safe, allowlisted, read-only                     */
+/* ------------------------------------------------------------------ */
+app.get("/api/monitor/devices/:id/log-paths", (req, res) => {
+  try { res.json(listDeviceLogPaths(req.params.id)); }
+  catch (err) { res.status(500).json({ ok: false, reason: "agent_error", message: err?.message || String(err) }); }
+});
+
+app.post("/api/monitor/devices/:id/logs/recent", async (req, res) => {
+  try {
+    const { path: p, lines, sshPassword } = req.body || {};
+    const result = await readRecentLogs({
+      deviceId: req.params.id,
+      path: p,
+      lines: lines,
+      sshPassword,
+    });
+    if (!result.ok) return res.status(400).json(result);
+    res.json(result);
+  } catch (err) {
+    res.status(500).json({ ok: false, reason: "agent_error", message: err?.message || String(err) });
+  }
+});
+
+/* ------------------------------------------------------------------ */
+/* Evidence snapshots — immutable, deterministic                       */
+/* ------------------------------------------------------------------ */
+app.get("/api/evidence/snapshots", (req, res) => {
+  try {
+    const deviceId = req.query?.deviceId ? String(req.query.deviceId) : undefined;
+    res.json({ ok: true, snapshots: listSnapshots({ deviceId }) });
+  } catch (err) { res.status(500).json({ ok: false, reason: "agent_error", message: err?.message || String(err) }); }
+});
+
+app.get("/api/evidence/snapshots/:id", (req, res) => {
+  try {
+    const snap = getSnapshot(req.params.id);
+    if (!snap) return res.status(404).json({ ok: false, reason: "not_found" });
+    res.json({ ok: true, snapshot: snap });
+  } catch (err) { res.status(500).json({ ok: false, reason: "agent_error", message: err?.message || String(err) }); }
+});
+
+app.post("/api/evidence/snapshots", (req, res) => {
+  try {
+    const body = req.body || {};
+    if (!body.device || !body.device.id) {
+      return res.status(400).json({ ok: false, reason: "invalid_request", message: "device.id required" });
+    }
+    const snap = createSnapshot(body);
+    res.json({ ok: true, snapshot: snap });
+  } catch (err) { res.status(500).json({ ok: false, reason: "agent_error", message: err?.message || String(err) }); }
 });
 
 /* ------------------------------------------------------------------ */
