@@ -24,6 +24,7 @@ import { Route as MonitorIdRouteImport } from './routes/monitor.$id'
 import { Route as EvidencePlaybackRouteImport } from './routes/evidence.playback'
 import { Route as ApiTimelineRouteImport } from './routes/api/timeline'
 import { Route as ApiAlertsRouteImport } from './routes/api/alerts'
+import { Route as ApiSystemCorrelationRouteImport } from './routes/api/system.correlation'
 import { Route as ApiMonitorStatusRouteImport } from './routes/api/monitor.status'
 import { Route as ApiMonitorStateRouteImport } from './routes/api/monitor.state'
 import { Route as ApiMonitorDevicesRouteImport } from './routes/api/monitor.devices'
@@ -115,6 +116,11 @@ const ApiTimelineRoute = ApiTimelineRouteImport.update({
 const ApiAlertsRoute = ApiAlertsRouteImport.update({
   id: '/api/alerts',
   path: '/api/alerts',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiSystemCorrelationRoute = ApiSystemCorrelationRouteImport.update({
+  id: '/api/system/correlation',
+  path: '/api/system/correlation',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiMonitorStatusRoute = ApiMonitorStatusRouteImport.update({
@@ -234,6 +240,7 @@ export interface FileRoutesByFullPath {
   '/api/monitor/devices': typeof ApiMonitorDevicesRouteWithChildren
   '/api/monitor/state': typeof ApiMonitorStateRoute
   '/api/monitor/status': typeof ApiMonitorStatusRoute
+  '/api/system/correlation': typeof ApiSystemCorrelationRoute
   '/api/alerts/$id/ack': typeof ApiAlertsIdAckRoute
   '/api/alerts/$id/resolve': typeof ApiAlertsIdResolveRoute
   '/api/autopilot/recommendations/$id': typeof ApiAutopilotRecommendationsIdRouteWithChildren
@@ -268,6 +275,7 @@ export interface FileRoutesByTo {
   '/api/monitor/devices': typeof ApiMonitorDevicesRouteWithChildren
   '/api/monitor/state': typeof ApiMonitorStateRoute
   '/api/monitor/status': typeof ApiMonitorStatusRoute
+  '/api/system/correlation': typeof ApiSystemCorrelationRoute
   '/api/alerts/$id/ack': typeof ApiAlertsIdAckRoute
   '/api/alerts/$id/resolve': typeof ApiAlertsIdResolveRoute
   '/api/autopilot/recommendations/$id': typeof ApiAutopilotRecommendationsIdRouteWithChildren
@@ -303,6 +311,7 @@ export interface FileRoutesById {
   '/api/monitor/devices': typeof ApiMonitorDevicesRouteWithChildren
   '/api/monitor/state': typeof ApiMonitorStateRoute
   '/api/monitor/status': typeof ApiMonitorStatusRoute
+  '/api/system/correlation': typeof ApiSystemCorrelationRoute
   '/api/alerts/$id/ack': typeof ApiAlertsIdAckRoute
   '/api/alerts/$id/resolve': typeof ApiAlertsIdResolveRoute
   '/api/autopilot/recommendations/$id': typeof ApiAutopilotRecommendationsIdRouteWithChildren
@@ -339,6 +348,7 @@ export interface FileRouteTypes {
     | '/api/monitor/devices'
     | '/api/monitor/state'
     | '/api/monitor/status'
+    | '/api/system/correlation'
     | '/api/alerts/$id/ack'
     | '/api/alerts/$id/resolve'
     | '/api/autopilot/recommendations/$id'
@@ -373,6 +383,7 @@ export interface FileRouteTypes {
     | '/api/monitor/devices'
     | '/api/monitor/state'
     | '/api/monitor/status'
+    | '/api/system/correlation'
     | '/api/alerts/$id/ack'
     | '/api/alerts/$id/resolve'
     | '/api/autopilot/recommendations/$id'
@@ -407,6 +418,7 @@ export interface FileRouteTypes {
     | '/api/monitor/devices'
     | '/api/monitor/state'
     | '/api/monitor/status'
+    | '/api/system/correlation'
     | '/api/alerts/$id/ack'
     | '/api/alerts/$id/resolve'
     | '/api/autopilot/recommendations/$id'
@@ -439,6 +451,7 @@ export interface RootRouteChildren {
   ApiMonitorDevicesRoute: typeof ApiMonitorDevicesRouteWithChildren
   ApiMonitorStateRoute: typeof ApiMonitorStateRoute
   ApiMonitorStatusRoute: typeof ApiMonitorStatusRoute
+  ApiSystemCorrelationRoute: typeof ApiSystemCorrelationRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -546,6 +559,13 @@ declare module '@tanstack/react-router' {
       path: '/api/alerts'
       fullPath: '/api/alerts'
       preLoaderRoute: typeof ApiAlertsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/system/correlation': {
+      id: '/api/system/correlation'
+      path: '/api/system/correlation'
+      fullPath: '/api/system/correlation'
+      preLoaderRoute: typeof ApiSystemCorrelationRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/monitor/status': {
@@ -793,6 +813,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiMonitorDevicesRoute: ApiMonitorDevicesRouteWithChildren,
   ApiMonitorStateRoute: ApiMonitorStateRoute,
   ApiMonitorStatusRoute: ApiMonitorStatusRoute,
+  ApiSystemCorrelationRoute: ApiSystemCorrelationRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

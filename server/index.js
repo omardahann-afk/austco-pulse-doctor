@@ -66,6 +66,7 @@ import {
 } from "./lib/alertEngine.js";
 import { appendTimelineEvent, listTimelineEvents } from "./lib/failureTimelineStore.js";
 import { correlateLogs } from "./lib/logCorrelationEngine.js";
+import { runSystemCorrelation } from "./lib/systemCorrelationEngine.js";
 import {
   buildRecommendation, saveRecommendation, listRecommendations,
   getRecommendation, approveRecommendation, rejectRecommendation,
@@ -759,6 +760,20 @@ app.get("/api/timeline", (req, res) => {
     const limit = req.query?.limit ? Number(req.query.limit) : undefined;
     res.json({ ok: true, events: listTimelineEvents({ deviceId, severity, source, limit }) });
   } catch (err) { res.status(500).json({ ok: false, reason: "agent_error", message: err?.message || String(err) }); }
+});
+
+/* Cross-system correlation — site-wide deterministic root-cause */
+app.get("/api/system/correlation", (_req, res) => {
+  try {
+    const devices = listDevices();
+    const deviceStates = listDeviceStates();
+    const activeAlerts = listAlerts({ status: "active" });
+    const timeline = listTimelineEvents({ limit: 100 });
+    const result = runSystemCorrelation({ devices, deviceStates, activeAlerts, timeline });
+    res.json({ ok: true, correlation: result });
+  } catch (err) {
+    res.status(500).json({ ok: false, reason: "agent_error", message: err?.message || String(err) });
+  }
 });
 
 app.post("/api/monitor/devices/:id/correlate-recent", async (req, res) => {
