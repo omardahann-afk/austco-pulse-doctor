@@ -623,6 +623,21 @@ app.post("/api/monitor/devices/:id/logs/recent", async (req, res) => {
       sshPassword,
     });
     if (!result.ok) return res.status(400).json(result);
+    // Attach normalized log meanings (deterministic, no AI).
+    try {
+      const dev = getDevice(req.params.id);
+      const norm = normalizeLogLines({
+        deviceProfile: { kind: dev?.kind || "unknown" },
+        deviceId: req.params.id,
+        lines: result.lines || [],
+        sourcePath: result.path || p || null,
+      });
+      result.normalized = norm.events;
+      result.normalizedService = norm.service;
+    } catch (e) {
+      result.normalized = [];
+      result.normalizedError = e?.message || String(e);
+    }
     res.json(result);
   } catch (err) {
     res.status(500).json({ ok: false, reason: "agent_error", message: err?.message || String(err) });
