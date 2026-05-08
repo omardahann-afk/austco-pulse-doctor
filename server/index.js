@@ -66,6 +66,7 @@ import {
 } from "./lib/alertEngine.js";
 import { appendTimelineEvent, listTimelineEvents } from "./lib/failureTimelineStore.js";
 import { correlateLogs } from "./lib/logCorrelationEngine.js";
+import { runSystemCorrelation } from "./lib/systemCorrelationEngine.js";
 import {
   buildRecommendation, saveRecommendation, listRecommendations,
   getRecommendation, approveRecommendation, rejectRecommendation,
