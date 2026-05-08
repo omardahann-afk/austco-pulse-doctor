@@ -623,7 +623,8 @@ app.post("/api/monitor/devices/:id/logs/recent", async (req, res) => {
       sshPassword,
     });
     if (!result.ok) return res.status(400).json(result);
-    // Attach normalized log meanings (deterministic, no AI).
+    // Attach normalized log meanings + run deterministic correlation/alerting
+    // so View/Tail Logs feed the same intelligence pipeline as Correlate Logs.
     try {
       const dev = getDevice(req.params.id);
       const norm = normalizeLogLines({
@@ -634,6 +635,18 @@ app.post("/api/monitor/devices/:id/logs/recent", async (req, res) => {
       });
       result.normalized = norm.events;
       result.normalizedService = norm.service;
+      if (dev) {
+        const correlation = correlateLogs({
+          lines: result.lines || [],
+          deviceProfile: { kind: dev.kind },
+          deviceId: dev.id,
+        });
+        result.correlation = correlation;
+        try {
+          const created = alertsFromCorrelation({ device: dev, correlatedEvents: correlation.correlatedEvents || [] });
+          result.alertsCreated = created.length;
+        } catch { result.alertsCreated = 0; }
+      }
     } catch (e) {
       result.normalized = [];
       result.normalizedError = e?.message || String(e);
