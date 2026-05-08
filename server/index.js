@@ -799,18 +799,48 @@ app.post("/api/monitor/devices/:id/correlate-recent", async (req, res) => {
     if (!dev) return res.status(404).json({ ok: false, reason: "device_not_found" });
     const logs = await readRecentLogs({ deviceId: req.params.id, path: p, lines, sshPassword });
     if (!logs.ok) return res.status(400).json(logs);
+    const rawLines = (logs.lines || []).map((l) => (typeof l === "string" ? l : l?.line || ""));
     const correlation = correlateLogs({
-      lines: (logs.lines || []).map((l) => (typeof l === "string" ? l : l?.line || "")),
+      lines: rawLines,
       deviceProfile: { kind: dev.kind },
       deviceId: dev.id,
+    });
+    const normalized = normalizeLogLines({
+      deviceProfile: { kind: dev.kind },
+      deviceId: dev.id,
+      lines: rawLines,
+      sourcePath: logs.path || p || null,
     });
     let alertsCreated = 0;
     try {
       const created = alertsFromCorrelation({ device: dev, correlatedEvents: correlation.correlatedEvents || [] });
       alertsCreated = created.length;
     } catch {}
-    res.json({ ok: true, correlation, alertsCreated, logs: { count: logs.lines?.length || 0 } });
+    res.json({
+      ok: true,
+      correlation,
+      normalized: normalized.events,
+      normalizedService: normalized.service,
+      alertsCreated,
+      logs: { count: logs.lines?.length || 0, path: logs.path || null },
+    });
   } catch (err) { res.status(500).json({ ok: false, reason: "agent_error", message: err?.message || String(err) }); }
+});
+
+/* Direct log normalization for any caller (deterministic, no IO). */
+app.post("/api/logs/normalize", (req, res) => {
+  try {
+    const { lines, deviceId, kind, profile, sourcePath } = req.body || {};
+    if (!Array.isArray(lines)) return res.status(400).json({ ok: false, reason: "lines_required" });
+    const deviceProfile = profile || { kind: kind || (deviceId ? (getDevice(deviceId)?.kind || null) : null) };
+    const norm = normalizeLogLines({ deviceProfile, deviceId: deviceId || null, lines, sourcePath: sourcePath || null });
+    res.json({ ok: true, ...norm });
+  } catch (err) { res.status(500).json({ ok: false, reason: "agent_error", message: err?.message || String(err) }); }
+});
+
+app.get("/api/logs/normalize/rules", (_req, res) => {
+  try { res.json({ ok: true, rules: listNormalizerRules() }); }
+  catch (err) { res.status(500).json({ ok: false, reason: "agent_error", message: err?.message || String(err) }); }
 });
 
 app.post("/api/ai/root-cause-assist", async (req, res) => {
