@@ -10,6 +10,20 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 
 const TAIL_INTERVAL_MS = 3000;
 
+type NormalizedEvent = {
+  timestamp: string | null;
+  sourceService: string;
+  severity: "info" | "warning" | "critical";
+  eventType: string;
+  rawLine: string;
+  normalizedMeaning: string;
+  relatedServices: string[];
+  confidenceImpact: { rootCauseHint: string; delta: number };
+  correlationTags: string[];
+  suggestedTechCheck: string;
+  line: number;
+};
+
 type LogResp = {
   ok: boolean;
   path?: string;
@@ -21,6 +35,8 @@ type LogResp = {
   reason?: string;
   error?: string;
   allowed?: string[];
+  normalized?: NormalizedEvent[];
+  normalizedService?: string;
 };
 
 function severityClass(line: string): string {
@@ -182,6 +198,40 @@ export function DeviceLogPanel({
             )}
           </pre>
         </ScrollArea>
+      )}
+
+      {data?.ok && Array.isArray(data.normalized) && data.normalized.length > 0 && (
+        <div className="rounded border border-border/40 bg-muted/10 p-2">
+          <div className="mb-1 flex items-center gap-2 text-[10px] uppercase tracking-wider text-muted-foreground">
+            <span>Log meaning</span>
+            <span className="text-foreground/60">·</span>
+            <span>{data.normalized.length} normalized event(s)</span>
+            {data.normalizedService && <span className="ml-auto text-foreground/60">service: {data.normalizedService}</span>}
+          </div>
+          <div className="space-y-1.5 max-h-[260px] overflow-auto">
+            {data.normalized.slice(0, 50).map((e, i) => (
+              <div key={i} className="rounded border border-border/30 bg-background/40 p-2 text-[11px]">
+                <div className="flex flex-wrap items-center gap-1.5">
+                  <span className={
+                    e.severity === "critical" ? "rounded bg-red-500/20 px-1.5 py-0.5 text-[10px] font-semibold text-red-300"
+                    : e.severity === "warning" ? "rounded bg-amber-500/20 px-1.5 py-0.5 text-[10px] font-semibold text-amber-300"
+                    : "rounded bg-muted px-1.5 py-0.5 text-[10px] font-semibold"
+                  }>{e.severity.toUpperCase()}</span>
+                  <span className="font-mono text-[10px] text-muted-foreground">{e.eventType}</span>
+                  <span className="ml-auto text-[10px] text-muted-foreground">line {e.line}</span>
+                </div>
+                <div className="mt-1 text-foreground">{e.normalizedMeaning}</div>
+                <div className="mt-0.5 text-[10px] text-muted-foreground">
+                  Related: {e.relatedServices.join(", ") || "—"}
+                </div>
+                <div className="text-[10px] text-emerald-300/90">Check: {e.suggestedTechCheck}</div>
+                <div className="text-[10px] text-muted-foreground">
+                  Confidence impact: +{e.confidenceImpact.delta} → {e.confidenceImpact.rootCauseHint}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
       )}
     </div>
   );
