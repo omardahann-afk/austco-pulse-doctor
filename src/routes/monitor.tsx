@@ -18,6 +18,7 @@ import { StateBadge } from "@/components/monitor/StateBadge";
 import { EvidenceSnapshotsPanel } from "@/components/monitor/EvidenceSnapshotsPanel";
 import { AlertsPanel } from "@/components/monitor/AlertsPanel";
 import { TimelinePanel } from "@/components/monitor/TimelinePanel";
+import { SystemCorrelationPanel } from "@/components/monitor/SystemCorrelationPanel";
 
 const MONITOR_REGISTRY_UPDATED_EVENT = "monitor-registry:updated";
 
@@ -215,6 +216,7 @@ function MonitorPage() {
         )}
       </section>
 
+      <SystemCorrelationPanel />
       <EvidenceSnapshotsPanel />
       <AlertsPanel />
       <TimelinePanel />
