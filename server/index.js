@@ -68,6 +68,7 @@ import { appendTimelineEvent, listTimelineEvents } from "./lib/failureTimelineSt
 import { correlateLogs } from "./lib/logCorrelationEngine.js";
 import { runSystemCorrelation } from "./lib/systemCorrelationEngine.js";
 import { normalizeLogLines, listNormalizerRules } from "./lib/taceraLogNormalizer.js";
+import { generateDiagnosticForDevice, listDiagnosticResults, getDiagnosticResult } from "./lib/diagnosticResultEngine.js";
 import {
   buildRecommendation, saveRecommendation, listRecommendations,
   getRecommendation, approveRecommendation, rejectRecommendation,
@@ -789,6 +790,51 @@ app.get("/api/timeline", (req, res) => {
     const limit = req.query?.limit ? Number(req.query.limit) : undefined;
     res.json({ ok: true, events: listTimelineEvents({ deviceId, severity, source, limit }) });
   } catch (err) { res.status(500).json({ ok: false, reason: "agent_error", message: err?.message || String(err) }); }
+});
+
+/* ------------------------------------------------------------------ */
+/* Diagnostic results — technician-ready issue/solution output        */
+/* ------------------------------------------------------------------ */
+app.post("/api/diagnostics/result/device/:deviceId", (req, res) => {
+  try {
+    const result = generateDiagnosticForDevice(req.params.deviceId);
+    if (!result) return res.status(404).json({ ok: false, reason: "device_not_found" });
+    appendTimelineEvent({ source: "diagnostic", deviceId: result.deviceId, severity: result.status === "down" ? "critical" : result.status === "degraded" ? "warning" : "info", title: `Diagnosis generated: ${result.issueTitle}`, raw: { resultId: result.resultId, confidence: result.confidencePercent } });
+    res.json({ ok: true, result });
+  } catch (err) {
+    res.status(500).json({ ok: false, reason: "agent_error", message: err?.message || String(err) });
+  }
+});
+
+app.get("/api/diagnostics/results", (req, res) => {
+  try {
+    const deviceId = req.query?.deviceId ? String(req.query.deviceId) : undefined;
+    res.json({ ok: true, results: listDiagnosticResults({ deviceId }) });
+  } catch (err) {
+    res.status(500).json({ ok: false, reason: "agent_error", message: err?.message || String(err) });
+  }
+});
+
+app.get("/api/diagnostics/results/:id", (req, res) => {
+  const result = getDiagnosticResult(req.params.id);
+  if (!result) return res.status(404).json({ ok: false, reason: "not_found" });
+  res.json({ ok: true, result });
+});
+
+app.post("/api/diagnostics/results/:id/ai-explain", async (req, res) => {
+  try {
+    const result = getDiagnosticResult(req.params.id);
+    if (!result) return res.status(404).json({ ok: false, reason: "not_found" });
+    const explanation = await explainWithOllama({ kind: "diagnostic_result", payload: { result } }).catch(() => null);
+    res.json({ ok: true, explanation: explanation?.response || {
+      plainEnglish: result.issueSummary,
+      technicianSummary: result.internalTechnicalSummary,
+      customerSafeSummary: result.customerSafeSummary,
+      safetyDisclaimer: "AI explains only. Deterministic evidence controls diagnosis and action."
+    }});
+  } catch (err) {
+    res.status(500).json({ ok: false, reason: "agent_error", message: err?.message || String(err) });
+  }
 });
 
 /* Cross-system correlation — site-wide deterministic root-cause */

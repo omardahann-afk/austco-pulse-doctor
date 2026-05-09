@@ -21,6 +21,7 @@ type NormalizedEvent = {
   confidenceImpact: { rootCauseHint: string; delta: number };
   correlationTags: string[];
   suggestedTechCheck: string;
+  doNotDo?: string[];
   line: number;
 };
 
@@ -225,6 +226,9 @@ export function DeviceLogPanel({
                   Related: {e.relatedServices.join(", ") || "—"}
                 </div>
                 <div className="text-[10px] text-emerald-300/90">Check: {e.suggestedTechCheck}</div>
+                {Array.isArray(e.doNotDo) && e.doNotDo.length > 0 && (
+                  <div className="text-[10px] text-red-300/90">Do not: {e.doNotDo[0]}</div>
+                )}
                 <div className="text-[10px] text-muted-foreground">
                   Confidence impact: +{e.confidenceImpact.delta} → {e.confidenceImpact.rootCauseHint}
                 </div>

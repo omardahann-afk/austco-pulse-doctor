@@ -4,6 +4,7 @@ import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { StateBadge } from "@/components/monitor/StateBadge";
 import { SavedDeviceActions } from "@/components/monitor/SavedDeviceActions";
+import { DiagnosticResultPanel } from "@/components/monitor/DiagnosticResultPanel";
 import {
   findLiveMonitorProfile,
   type LiveMonitorProfileKey,
@@ -98,6 +99,11 @@ export function RuntimeNodeCard({ device, state }: { device: MonitorDevice; stat
           <div className="font-mono text-[9px] uppercase tracking-wider text-muted-foreground">Logs</div>
           <div className="mt-0.5 font-mono">{logPaths.length} path{logPaths.length === 1 ? "" : "s"}</div>
         </div>
+      </div>
+
+      {/* DIAGNOSTIC RESULT AREA */}
+      <div className="border-b border-border/40 p-3">
+        <DiagnosticResultPanel deviceId={device.id} />
       </div>
 
       {/* OPERATIONS AREA */}
