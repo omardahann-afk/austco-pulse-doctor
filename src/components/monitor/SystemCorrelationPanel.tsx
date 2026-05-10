@@ -84,7 +84,7 @@ export function SystemCorrelationPanel() {
         <div>
           <div className="font-mono text-[10px] font-semibold uppercase tracking-[0.2em] text-primary/80">// SYSTEM CORRELATION</div>
           <h2 className="mt-0.5 text-base font-bold uppercase tracking-wide">Cross-Service Root Cause</h2>
-          <p className="mt-0.5 text-[11.5px] text-muted-foreground">Site-wide deterministic intelligence — distinguishes cause from cascade across MQTT, Pulse, INGA, IPConnect, License, controllers and switch fabric.</p>
+          <p className="mt-0.5 text-[11.5px] text-muted-foreground">Site-wide deterministic intelligence — distinguishes cause from cascade across event bridge, Pulse, INGA, IPConnect, License, controllers and switch fabric.</p>
         </div>
         <Button size="sm" variant="outline" onClick={refresh} disabled={loading} className="h-8 shrink-0">
           <RefreshCw className={"mr-1.5 h-3.5 w-3.5 " + (loading ? "animate-spin" : "")} /> Recorrelate

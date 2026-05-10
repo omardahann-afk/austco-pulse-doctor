@@ -308,7 +308,7 @@ export function buildCorrelationStory({ session, diagnosis }) {
     technicianConclusion = "Identify which IP-IN8 input is active and trace the dry contact back to the access-control device. Do NOT replace nurse call hardware.";
     developerConclusion = "ACCESS_INPUT_ACTIVE event(s) inside the reproduction window — origin is the IP-IN8 path.";
     customerSafeConclusion = "The call was raised by an external access-control input rather than a nurse call device.";
-  } else if (root.kind === "mqtt_broker_down") {
+  } else if (root.kind === "eventBridge_broker_down") {
     plainEnglishSummary = "Multiple services are getting CONNECTION_REFUSED — the messaging broker (or its host port) is the upstream failure.";
     whyThisMatters = "Restarting individual consumers will not help if the broker itself is down.";
     technicianConclusion = "Check the broker service status and that its listener ports are up. Do NOT restart consumers one by one.";

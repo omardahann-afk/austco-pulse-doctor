@@ -103,7 +103,7 @@ function MonitorPage() {
       <PageHeader
         eyebrow="LIVE OPERATIONS"
         title="Tacera / Pulse Operations Console"
-        description="Real-time ICMP, TCP, HTTPS, MQTT and Webmin probe telemetry streamed from the on-site agent."
+        description="Real-time ICMP, TCP, HTTPS, event bridge and Webmin probe telemetry streamed from the on-site agent."
         actions={
           <div className="flex items-center gap-2">
             <ConnectionPill conn={conn} lastEventAt={lastEventAt} />

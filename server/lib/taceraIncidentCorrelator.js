@@ -102,7 +102,7 @@ function detectInvalidCallpointPattern(reproEvents) {
       "Check INGA replay window for stale signal traffic",
     ],
     doNotDo: [
-      "Do NOT restart MQTT broker first",
+      "Do NOT restart unrelated middleware first",
       "Do NOT restart Pulse Gateway first",
       "Do NOT replace the calling hardware before validating the CCP mapping",
     ],
@@ -240,12 +240,12 @@ function detectMqttBrokerDown(reproEvents) {
   const refused = reproEvents.filter((e) => e.eventType === "CONNECTION_REFUSED");
   if (refused.length < 2) return null;
   // Only consider this a broker-down pattern if multiple downstream consumers see the refusal.
-  const downstreamConsumers = new Set(refused.map((e) => e.applianceType).filter((t) => t && t !== "mqtt-broker"));
+  const downstreamConsumers = new Set(refused.map((e) => e.applianceType).filter((t) => t && t !== "eventBridge-broker"));
   if (downstreamConsumers.size < 2) return null;
   return {
-    kind: "mqtt_broker_down",
-    rootApplianceType: "mqtt-broker",
-    summary: `Multiple services (${downstreamConsumers.size}) report CONNECTION_REFUSED — MQTT broker (or its host port) is the upstream failure.`,
+    kind: "eventBridge_broker_down",
+    rootApplianceType: "eventBridge-broker",
+    summary: `Multiple services (${downstreamConsumers.size}) report CONNECTION_REFUSED — event broker (or its host port) is the upstream failure.`,
     evidenceEvents: refused,
     nextChecks: ["systemctl status mosquitto", "Check 1883/8883 listeners", "Inspect broker logs in window"],
     doNotDo: ["Do NOT restart each consumer one by one — fix the broker"],
@@ -464,7 +464,7 @@ export function correlateIncident({ session }) {
   // Always emit ruled-out causes deterministically based on profiles.
   const ruledOut = [];
   if (chosen?.kind === "invalid_callpoint_burst") {
-    ruledOut.push("MQTT messaging instability", "Pulse Gateway internal fault", "Display hardware fault");
+    ruledOut.push("event bridge messaging instability", "Pulse Gateway internal fault", "Display hardware fault");
   }
   if (chosen?.kind === "controller_first_then_downstream") {
     ruledOut.push("Pulse Gateway internal fault", "Display hardware fault", "Mobile app crash");
