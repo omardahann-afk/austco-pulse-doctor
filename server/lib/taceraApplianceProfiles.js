@@ -77,7 +77,7 @@ export const TACERA_APPLIANCE_PROFILES = Object.freeze({
     diagnosticPriority: 3,
     isRootCauseCandidate: false,
     isUsuallyDownstreamSymptom: true,
-    upstreamDependencies: ["ipconnect", "mqtt-broker", "controller", "switch"],
+    upstreamDependencies: ["ipconnect", "mqtt-broker", "ip-cct", "switch"],
     downstreamDependencies: ["display", "pulse-mobile", "pulse-manage"],
     defaultPorts: [443, 8443, 1883],
     knownLogPaths: [
