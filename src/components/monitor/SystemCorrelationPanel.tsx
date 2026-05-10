@@ -76,7 +76,7 @@ export function SystemCorrelationPanel() {
   }, [refresh]);
 
   const top = data?.rootCauseCandidates?.[0] || null;
-  const no confirmed fault = data && !err && data.rootCauseCandidates.length === 0 && data.cascadingFailures.length === 0;
+  const noConfirmedFault = data && !err && data.rootCauseCandidates.length === 0 && data.cascadingFailures.length === 0;
 
   return (
     <section className="rounded-xl border-2 border-primary/40 bg-gradient-to-b from-primary/5 to-card/40 p-4 shadow-[var(--shadow-panel)]">
@@ -93,7 +93,7 @@ export function SystemCorrelationPanel() {
 
       {err && <div className="rounded-md border border-destructive/40 bg-destructive/10 p-3 text-xs text-destructive">{err}</div>}
 
-      {!err && no confirmed fault && (
+      {!err && noConfirmedFault && (
         <div className="flex items-center gap-2 rounded-md border border-success/30 bg-success/10 p-3 text-xs text-success">
           <ShieldCheck className="h-4 w-4" /> No cross-system root cause detected. All correlated services are no confirmed fault.
         </div>
