@@ -53,6 +53,7 @@ export function buildDeveloperPackage({ session, diagnosis, signalPath }) {
     downstreamSymptoms: diagnosis?.downstreamSymptoms || [],
     rawEvidenceCount: (session.rawEvidence || []).length,
     normalizedEventCount: (session.normalizedEvents || []).length,
+    correlationStory: diagnosis?.correlationStory || null,
     deterministicReasoning: buildReasoningTrace(diagnosis, signalPath),
   };
 }
