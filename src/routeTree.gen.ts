@@ -30,6 +30,7 @@ import { Route as ApiMonitorStatusRouteImport } from './routes/api/monitor.statu
 import { Route as ApiMonitorStateRouteImport } from './routes/api/monitor.state'
 import { Route as ApiMonitorDevicesRouteImport } from './routes/api/monitor.devices'
 import { Route as ApiLiveCaptureStartRouteImport } from './routes/api/live-capture.start'
+import { Route as ApiLiveCaptureIdRouteImport } from './routes/api/live-capture.$id'
 import { Route as ApiEvidenceSnapshotsRouteImport } from './routes/api/evidence.snapshots'
 import { Route as ApiDiagnosticsResultsRouteImport } from './routes/api/diagnostics.results'
 import { Route as ApiAutopilotServicesRouteImport } from './routes/api/autopilot.services'
@@ -153,6 +154,11 @@ const ApiLiveCaptureStartRoute = ApiLiveCaptureStartRouteImport.update({
   path: '/start',
   getParentRoute: () => ApiLiveCaptureRoute,
 } as any)
+const ApiLiveCaptureIdRoute = ApiLiveCaptureIdRouteImport.update({
+  id: '/$id',
+  path: '/$id',
+  getParentRoute: () => ApiLiveCaptureRoute,
+} as any)
 const ApiEvidenceSnapshotsRoute = ApiEvidenceSnapshotsRouteImport.update({
   id: '/api/evidence/snapshots',
   path: '/api/evidence/snapshots',
@@ -270,6 +276,7 @@ export interface FileRoutesByFullPath {
   '/api/autopilot/services': typeof ApiAutopilotServicesRouteWithChildren
   '/api/diagnostics/results': typeof ApiDiagnosticsResultsRouteWithChildren
   '/api/evidence/snapshots': typeof ApiEvidenceSnapshotsRoute
+  '/api/live-capture/$id': typeof ApiLiveCaptureIdRoute
   '/api/live-capture/start': typeof ApiLiveCaptureStartRoute
   '/api/monitor/devices': typeof ApiMonitorDevicesRouteWithChildren
   '/api/monitor/state': typeof ApiMonitorStateRoute
@@ -310,6 +317,7 @@ export interface FileRoutesByTo {
   '/api/autopilot/services': typeof ApiAutopilotServicesRouteWithChildren
   '/api/diagnostics/results': typeof ApiDiagnosticsResultsRouteWithChildren
   '/api/evidence/snapshots': typeof ApiEvidenceSnapshotsRoute
+  '/api/live-capture/$id': typeof ApiLiveCaptureIdRoute
   '/api/live-capture/start': typeof ApiLiveCaptureStartRoute
   '/api/monitor/devices': typeof ApiMonitorDevicesRouteWithChildren
   '/api/monitor/state': typeof ApiMonitorStateRoute
@@ -351,6 +359,7 @@ export interface FileRoutesById {
   '/api/autopilot/services': typeof ApiAutopilotServicesRouteWithChildren
   '/api/diagnostics/results': typeof ApiDiagnosticsResultsRouteWithChildren
   '/api/evidence/snapshots': typeof ApiEvidenceSnapshotsRoute
+  '/api/live-capture/$id': typeof ApiLiveCaptureIdRoute
   '/api/live-capture/start': typeof ApiLiveCaptureStartRoute
   '/api/monitor/devices': typeof ApiMonitorDevicesRouteWithChildren
   '/api/monitor/state': typeof ApiMonitorStateRoute
@@ -393,6 +402,7 @@ export interface FileRouteTypes {
     | '/api/autopilot/services'
     | '/api/diagnostics/results'
     | '/api/evidence/snapshots'
+    | '/api/live-capture/$id'
     | '/api/live-capture/start'
     | '/api/monitor/devices'
     | '/api/monitor/state'
@@ -433,6 +443,7 @@ export interface FileRouteTypes {
     | '/api/autopilot/services'
     | '/api/diagnostics/results'
     | '/api/evidence/snapshots'
+    | '/api/live-capture/$id'
     | '/api/live-capture/start'
     | '/api/monitor/devices'
     | '/api/monitor/state'
@@ -473,6 +484,7 @@ export interface FileRouteTypes {
     | '/api/autopilot/services'
     | '/api/diagnostics/results'
     | '/api/evidence/snapshots'
+    | '/api/live-capture/$id'
     | '/api/live-capture/start'
     | '/api/monitor/devices'
     | '/api/monitor/state'
@@ -667,6 +679,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiLiveCaptureStartRouteImport
       parentRoute: typeof ApiLiveCaptureRoute
     }
+    '/api/live-capture/$id': {
+      id: '/api/live-capture/$id'
+      path: '/$id'
+      fullPath: '/api/live-capture/$id'
+      preLoaderRoute: typeof ApiLiveCaptureIdRouteImport
+      parentRoute: typeof ApiLiveCaptureRoute
+    }
     '/api/evidence/snapshots': {
       id: '/api/evidence/snapshots'
       path: '/api/evidence/snapshots'
@@ -829,10 +848,12 @@ const ApiAlertsRouteWithChildren = ApiAlertsRoute._addFileChildren(
 )
 
 interface ApiLiveCaptureRouteChildren {
+  ApiLiveCaptureIdRoute: typeof ApiLiveCaptureIdRoute
   ApiLiveCaptureStartRoute: typeof ApiLiveCaptureStartRoute
 }
 
 const ApiLiveCaptureRouteChildren: ApiLiveCaptureRouteChildren = {
+  ApiLiveCaptureIdRoute: ApiLiveCaptureIdRoute,
   ApiLiveCaptureStartRoute: ApiLiveCaptureStartRoute,
 }
 
