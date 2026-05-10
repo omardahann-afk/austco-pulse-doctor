@@ -36,8 +36,11 @@ import { Route as ApiDiagnosticsResultsRouteImport } from './routes/api/diagnost
 import { Route as ApiAutopilotServicesRouteImport } from './routes/api/autopilot.services'
 import { Route as ApiAutopilotRecommendationsRouteImport } from './routes/api/autopilot.recommendations'
 import { Route as ApiAiRootCauseAssistRouteImport } from './routes/api/ai.root-cause-assist'
+import { Route as ApiLiveCaptureIdStopRouteImport } from './routes/api/live-capture.$id.stop'
 import { Route as ApiLiveCaptureIdMarkReproductionStartedRouteImport } from './routes/api/live-capture.$id.mark-reproduction-started'
 import { Route as ApiLiveCaptureIdMarkReproductionFinishedRouteImport } from './routes/api/live-capture.$id.mark-reproduction-finished'
+import { Route as ApiLiveCaptureIdIngestLogsRouteImport } from './routes/api/live-capture.$id.ingest-logs'
+import { Route as ApiLiveCaptureIdAnalyzeRouteImport } from './routes/api/live-capture.$id.analyze'
 import { Route as ApiDiagnosticsResultsIdRouteImport } from './routes/api/diagnostics.results.$id'
 import { Route as ApiAutopilotServicesIdRouteImport } from './routes/api/autopilot.services.$id'
 import { Route as ApiAutopilotRecommendationsIdRouteImport } from './routes/api/autopilot.recommendations.$id'
@@ -187,6 +190,11 @@ const ApiAiRootCauseAssistRoute = ApiAiRootCauseAssistRouteImport.update({
   path: '/api/ai/root-cause-assist',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiLiveCaptureIdStopRoute = ApiLiveCaptureIdStopRouteImport.update({
+  id: '/stop',
+  path: '/stop',
+  getParentRoute: () => ApiLiveCaptureIdRoute,
+} as any)
 const ApiLiveCaptureIdMarkReproductionStartedRoute =
   ApiLiveCaptureIdMarkReproductionStartedRouteImport.update({
     id: '/mark-reproduction-started',
@@ -199,6 +207,17 @@ const ApiLiveCaptureIdMarkReproductionFinishedRoute =
     path: '/mark-reproduction-finished',
     getParentRoute: () => ApiLiveCaptureIdRoute,
   } as any)
+const ApiLiveCaptureIdIngestLogsRoute =
+  ApiLiveCaptureIdIngestLogsRouteImport.update({
+    id: '/ingest-logs',
+    path: '/ingest-logs',
+    getParentRoute: () => ApiLiveCaptureIdRoute,
+  } as any)
+const ApiLiveCaptureIdAnalyzeRoute = ApiLiveCaptureIdAnalyzeRouteImport.update({
+  id: '/analyze',
+  path: '/analyze',
+  getParentRoute: () => ApiLiveCaptureIdRoute,
+} as any)
 const ApiDiagnosticsResultsIdRoute = ApiDiagnosticsResultsIdRouteImport.update({
   id: '/$id',
   path: '/$id',
@@ -301,8 +320,11 @@ export interface FileRoutesByFullPath {
   '/api/autopilot/recommendations/$id': typeof ApiAutopilotRecommendationsIdRouteWithChildren
   '/api/autopilot/services/$id': typeof ApiAutopilotServicesIdRoute
   '/api/diagnostics/results/$id': typeof ApiDiagnosticsResultsIdRoute
+  '/api/live-capture/$id/analyze': typeof ApiLiveCaptureIdAnalyzeRoute
+  '/api/live-capture/$id/ingest-logs': typeof ApiLiveCaptureIdIngestLogsRoute
   '/api/live-capture/$id/mark-reproduction-finished': typeof ApiLiveCaptureIdMarkReproductionFinishedRoute
   '/api/live-capture/$id/mark-reproduction-started': typeof ApiLiveCaptureIdMarkReproductionStartedRoute
+  '/api/live-capture/$id/stop': typeof ApiLiveCaptureIdStopRoute
   '/api/autopilot/recommendations/$id/approve': typeof ApiAutopilotRecommendationsIdApproveRoute
   '/api/autopilot/recommendations/$id/reject': typeof ApiAutopilotRecommendationsIdRejectRoute
   '/api/autopilot/recommendations/from-alert/$alertId': typeof ApiAutopilotRecommendationsFromAlertAlertIdRoute
@@ -344,8 +366,11 @@ export interface FileRoutesByTo {
   '/api/autopilot/recommendations/$id': typeof ApiAutopilotRecommendationsIdRouteWithChildren
   '/api/autopilot/services/$id': typeof ApiAutopilotServicesIdRoute
   '/api/diagnostics/results/$id': typeof ApiDiagnosticsResultsIdRoute
+  '/api/live-capture/$id/analyze': typeof ApiLiveCaptureIdAnalyzeRoute
+  '/api/live-capture/$id/ingest-logs': typeof ApiLiveCaptureIdIngestLogsRoute
   '/api/live-capture/$id/mark-reproduction-finished': typeof ApiLiveCaptureIdMarkReproductionFinishedRoute
   '/api/live-capture/$id/mark-reproduction-started': typeof ApiLiveCaptureIdMarkReproductionStartedRoute
+  '/api/live-capture/$id/stop': typeof ApiLiveCaptureIdStopRoute
   '/api/autopilot/recommendations/$id/approve': typeof ApiAutopilotRecommendationsIdApproveRoute
   '/api/autopilot/recommendations/$id/reject': typeof ApiAutopilotRecommendationsIdRejectRoute
   '/api/autopilot/recommendations/from-alert/$alertId': typeof ApiAutopilotRecommendationsFromAlertAlertIdRoute
@@ -388,8 +413,11 @@ export interface FileRoutesById {
   '/api/autopilot/recommendations/$id': typeof ApiAutopilotRecommendationsIdRouteWithChildren
   '/api/autopilot/services/$id': typeof ApiAutopilotServicesIdRoute
   '/api/diagnostics/results/$id': typeof ApiDiagnosticsResultsIdRoute
+  '/api/live-capture/$id/analyze': typeof ApiLiveCaptureIdAnalyzeRoute
+  '/api/live-capture/$id/ingest-logs': typeof ApiLiveCaptureIdIngestLogsRoute
   '/api/live-capture/$id/mark-reproduction-finished': typeof ApiLiveCaptureIdMarkReproductionFinishedRoute
   '/api/live-capture/$id/mark-reproduction-started': typeof ApiLiveCaptureIdMarkReproductionStartedRoute
+  '/api/live-capture/$id/stop': typeof ApiLiveCaptureIdStopRoute
   '/api/autopilot/recommendations/$id/approve': typeof ApiAutopilotRecommendationsIdApproveRoute
   '/api/autopilot/recommendations/$id/reject': typeof ApiAutopilotRecommendationsIdRejectRoute
   '/api/autopilot/recommendations/from-alert/$alertId': typeof ApiAutopilotRecommendationsFromAlertAlertIdRoute
@@ -433,8 +461,11 @@ export interface FileRouteTypes {
     | '/api/autopilot/recommendations/$id'
     | '/api/autopilot/services/$id'
     | '/api/diagnostics/results/$id'
+    | '/api/live-capture/$id/analyze'
+    | '/api/live-capture/$id/ingest-logs'
     | '/api/live-capture/$id/mark-reproduction-finished'
     | '/api/live-capture/$id/mark-reproduction-started'
+    | '/api/live-capture/$id/stop'
     | '/api/autopilot/recommendations/$id/approve'
     | '/api/autopilot/recommendations/$id/reject'
     | '/api/autopilot/recommendations/from-alert/$alertId'
@@ -476,8 +507,11 @@ export interface FileRouteTypes {
     | '/api/autopilot/recommendations/$id'
     | '/api/autopilot/services/$id'
     | '/api/diagnostics/results/$id'
+    | '/api/live-capture/$id/analyze'
+    | '/api/live-capture/$id/ingest-logs'
     | '/api/live-capture/$id/mark-reproduction-finished'
     | '/api/live-capture/$id/mark-reproduction-started'
+    | '/api/live-capture/$id/stop'
     | '/api/autopilot/recommendations/$id/approve'
     | '/api/autopilot/recommendations/$id/reject'
     | '/api/autopilot/recommendations/from-alert/$alertId'
@@ -519,8 +553,11 @@ export interface FileRouteTypes {
     | '/api/autopilot/recommendations/$id'
     | '/api/autopilot/services/$id'
     | '/api/diagnostics/results/$id'
+    | '/api/live-capture/$id/analyze'
+    | '/api/live-capture/$id/ingest-logs'
     | '/api/live-capture/$id/mark-reproduction-finished'
     | '/api/live-capture/$id/mark-reproduction-started'
+    | '/api/live-capture/$id/stop'
     | '/api/autopilot/recommendations/$id/approve'
     | '/api/autopilot/recommendations/$id/reject'
     | '/api/autopilot/recommendations/from-alert/$alertId'
@@ -747,6 +784,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiAiRootCauseAssistRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/live-capture/$id/stop': {
+      id: '/api/live-capture/$id/stop'
+      path: '/stop'
+      fullPath: '/api/live-capture/$id/stop'
+      preLoaderRoute: typeof ApiLiveCaptureIdStopRouteImport
+      parentRoute: typeof ApiLiveCaptureIdRoute
+    }
     '/api/live-capture/$id/mark-reproduction-started': {
       id: '/api/live-capture/$id/mark-reproduction-started'
       path: '/mark-reproduction-started'
@@ -759,6 +803,20 @@ declare module '@tanstack/react-router' {
       path: '/mark-reproduction-finished'
       fullPath: '/api/live-capture/$id/mark-reproduction-finished'
       preLoaderRoute: typeof ApiLiveCaptureIdMarkReproductionFinishedRouteImport
+      parentRoute: typeof ApiLiveCaptureIdRoute
+    }
+    '/api/live-capture/$id/ingest-logs': {
+      id: '/api/live-capture/$id/ingest-logs'
+      path: '/ingest-logs'
+      fullPath: '/api/live-capture/$id/ingest-logs'
+      preLoaderRoute: typeof ApiLiveCaptureIdIngestLogsRouteImport
+      parentRoute: typeof ApiLiveCaptureIdRoute
+    }
+    '/api/live-capture/$id/analyze': {
+      id: '/api/live-capture/$id/analyze'
+      path: '/analyze'
+      fullPath: '/api/live-capture/$id/analyze'
+      preLoaderRoute: typeof ApiLiveCaptureIdAnalyzeRouteImport
       parentRoute: typeof ApiLiveCaptureIdRoute
     }
     '/api/diagnostics/results/$id': {
@@ -888,15 +946,21 @@ const ApiAlertsRouteWithChildren = ApiAlertsRoute._addFileChildren(
 )
 
 interface ApiLiveCaptureIdRouteChildren {
+  ApiLiveCaptureIdAnalyzeRoute: typeof ApiLiveCaptureIdAnalyzeRoute
+  ApiLiveCaptureIdIngestLogsRoute: typeof ApiLiveCaptureIdIngestLogsRoute
   ApiLiveCaptureIdMarkReproductionFinishedRoute: typeof ApiLiveCaptureIdMarkReproductionFinishedRoute
   ApiLiveCaptureIdMarkReproductionStartedRoute: typeof ApiLiveCaptureIdMarkReproductionStartedRoute
+  ApiLiveCaptureIdStopRoute: typeof ApiLiveCaptureIdStopRoute
 }
 
 const ApiLiveCaptureIdRouteChildren: ApiLiveCaptureIdRouteChildren = {
+  ApiLiveCaptureIdAnalyzeRoute: ApiLiveCaptureIdAnalyzeRoute,
+  ApiLiveCaptureIdIngestLogsRoute: ApiLiveCaptureIdIngestLogsRoute,
   ApiLiveCaptureIdMarkReproductionFinishedRoute:
     ApiLiveCaptureIdMarkReproductionFinishedRoute,
   ApiLiveCaptureIdMarkReproductionStartedRoute:
     ApiLiveCaptureIdMarkReproductionStartedRoute,
+  ApiLiveCaptureIdStopRoute: ApiLiveCaptureIdStopRoute,
 }
 
 const ApiLiveCaptureIdRouteWithChildren =
