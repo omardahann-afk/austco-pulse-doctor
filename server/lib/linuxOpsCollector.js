@@ -11,7 +11,7 @@
  * SSH access goes through the existing safe `sshExecutor` allowlist;
  * commands here are read-only diagnostics only.
  */
-import { runAllowedCommand } from "./sshExecutor.js";
+import { execOverSsh } from "./sshExecutor.js";
 
 const SAFE_COMMANDS = [
   { key: "date", cmd: "date -u +%FT%TZ" },
@@ -69,12 +69,21 @@ function parseUptimeRecentBoot(out) {
  * Collect a snapshot from one appliance.
  * Returns { ok, results: { date, uptime, ... }, flags: {...}, errors: [...] }
  */
-export async function collectLinuxOpsSnapshot({ deviceId, host, ssh }) {
+export async function collectLinuxOpsSnapshot({ host, port, username, password }) {
   const results = {};
   const errors = [];
+  if (!host || !username || !password) {
+    return {
+      ok: false,
+      collectedAt: new Date().toISOString(),
+      results,
+      flags: {},
+      errors: [{ key: "ssh", message: "host/username/password required" }],
+    };
+  }
   for (const c of SAFE_COMMANDS) {
     try {
-      const r = await runAllowedCommand({ deviceId, host, ssh, command: c.cmd });
+      const r = await execOverSsh({ host, port, username, password }, c.cmd, 10000);
       results[c.key] = r?.stdout || "";
       if (r?.stderr) results[c.key + "_stderr"] = r.stderr;
     } catch (e) {
