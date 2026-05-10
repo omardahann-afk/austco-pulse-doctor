@@ -68,6 +68,19 @@ import { appendTimelineEvent, listTimelineEvents } from "./lib/failureTimelineSt
 import { correlateLogs } from "./lib/logCorrelationEngine.js";
 import { runSystemCorrelation } from "./lib/systemCorrelationEngine.js";
 import { normalizeLogLines, listNormalizerRules } from "./lib/taceraLogNormalizer.js";
+import { normalizeForensicEvents } from "./lib/taceraEventNormalizer.js";
+import { applianceTypeFor, listApplianceProfiles, getApplianceProfile } from "./lib/taceraApplianceProfiles.js";
+import {
+  listSessions as listCaptureSessions,
+  getSession as getCaptureSession,
+  createSession as createCaptureSession,
+  markReproductionStarted as captureMarkReproStarted,
+  markReproductionFinished as captureMarkReproFinished,
+  stopSession as stopCaptureSession,
+  appendEvidence as appendCaptureEvidence,
+  setAnalysisStatus as setCaptureAnalysisStatus,
+  sessionCounters as captureCounters,
+} from "./lib/liveCaptureSessionStore.js";
 import { generateDiagnosticForDevice, listDiagnosticResults, getDiagnosticResult } from "./lib/diagnosticResultEngine.js";
 import {
   buildRecommendation, saveRecommendation, listRecommendations,
@@ -790,6 +803,210 @@ app.get("/api/timeline", (req, res) => {
     const limit = req.query?.limit ? Number(req.query.limit) : undefined;
     res.json({ ok: true, events: listTimelineEvents({ deviceId, severity, source, limit }) });
   } catch (err) { res.status(500).json({ ok: false, reason: "agent_error", message: err?.message || String(err) }); }
+});
+
+/* ------------------------------------------------------------------ */
+/* Tacera appliance knowledge                                         */
+/* ------------------------------------------------------------------ */
+app.get("/api/tacera/appliance-profiles", (_req, res) => {
+  res.json({ ok: true, profiles: listApplianceProfiles() });
+});
+
+/* ------------------------------------------------------------------ */
+/* Live Incident Capture — black-box flight recorder (M1 backbone)    */
+/* ------------------------------------------------------------------ */
+app.get("/api/live-capture", (_req, res) => {
+  try {
+    const sessions = listCaptureSessions().map((s) => ({
+      sessionId: s.sessionId,
+      status: s.status,
+      createdAt: s.createdAt,
+      startedAt: s.startedAt,
+      reproductionStartedAt: s.reproductionStartedAt,
+      reproductionEndedAt: s.reproductionEndedAt,
+      stoppedAt: s.stoppedAt,
+      problemStatement: s.problemStatement,
+      room: s.room,
+      callpoint: s.callpoint,
+      devicesIncluded: s.devicesIncluded,
+      counters: captureCounters(s),
+    }));
+    res.json({ ok: true, sessions });
+  } catch (err) {
+    res.status(500).json({ ok: false, reason: "agent_error", message: err?.message || String(err) });
+  }
+});
+
+app.get("/api/live-capture/:id", (req, res) => {
+  const s = getCaptureSession(req.params.id);
+  if (!s) return res.status(404).json({ ok: false, reason: "not_found" });
+  res.json({ ok: true, session: s, counters: captureCounters(s) });
+});
+
+app.post("/api/live-capture/start", (req, res) => {
+  try {
+    const body = req.body || {};
+    if (!body.problemStatement || !String(body.problemStatement).trim()) {
+      return res.status(400).json({ ok: false, reason: "invalid_request", message: "problemStatement required" });
+    }
+    // Resolve devicesIncluded by id from registered monitor devices, attaching applianceType.
+    const ids = Array.isArray(body.devicesIncluded) ? body.devicesIncluded : [];
+    const resolved = [];
+    for (const entry of ids) {
+      const id = typeof entry === "string" ? entry : entry?.id;
+      if (!id) continue;
+      const dev = getDevice(id);
+      if (!dev) continue;
+      resolved.push({
+        id: dev.id,
+        name: dev.name,
+        kind: dev.kind,
+        host: dev.host,
+        applianceType: applianceTypeFor(dev.kind),
+      });
+    }
+    const session = createCaptureSession({
+      problemStatement: body.problemStatement,
+      room: body.room,
+      callpoint: body.callpoint,
+      expectedBehavior: body.expectedBehavior,
+      actualBehavior: body.actualBehavior,
+      technicianNotes: body.technicianNotes,
+      devicesIncluded: resolved,
+    });
+    appendTimelineEvent({
+      source: "live-capture",
+      severity: "info",
+      title: `Live capture started: ${session.problemStatement.slice(0, 80)}`,
+      raw: { sessionId: session.sessionId, devices: resolved.map((d) => d.id) },
+    });
+    res.json({ ok: true, session, counters: captureCounters(session) });
+  } catch (err) {
+    res.status(500).json({ ok: false, reason: "agent_error", message: err?.message || String(err) });
+  }
+});
+
+app.post("/api/live-capture/:id/mark-reproduction-started", (req, res) => {
+  try {
+    const s = captureMarkReproStarted(req.params.id);
+    if (!s) return res.status(404).json({ ok: false, reason: "not_found" });
+    appendTimelineEvent({ source: "live-capture", severity: "warning", title: "Reproduction window opened", raw: { sessionId: s.sessionId, at: s.reproductionStartedAt } });
+    res.json({ ok: true, session: s, counters: captureCounters(s) });
+  } catch (err) {
+    res.status(400).json({ ok: false, reason: "invalid_state", message: err?.message || String(err) });
+  }
+});
+
+app.post("/api/live-capture/:id/mark-reproduction-finished", (req, res) => {
+  try {
+    const s = captureMarkReproFinished(req.params.id);
+    if (!s) return res.status(404).json({ ok: false, reason: "not_found" });
+    appendTimelineEvent({ source: "live-capture", severity: "warning", title: "Reproduction window closed", raw: { sessionId: s.sessionId, at: s.reproductionEndedAt } });
+    res.json({ ok: true, session: s, counters: captureCounters(s) });
+  } catch (err) {
+    res.status(400).json({ ok: false, reason: "invalid_state", message: err?.message || String(err) });
+  }
+});
+
+app.post("/api/live-capture/:id/stop", (req, res) => {
+  try {
+    const s = stopCaptureSession(req.params.id);
+    if (!s) return res.status(404).json({ ok: false, reason: "not_found" });
+    appendTimelineEvent({ source: "live-capture", severity: "info", title: "Live capture stopped", raw: { sessionId: s.sessionId, at: s.stoppedAt } });
+    res.json({ ok: true, session: s, counters: captureCounters(s) });
+  } catch (err) {
+    res.status(400).json({ ok: false, reason: "invalid_state", message: err?.message || String(err) });
+  }
+});
+
+/**
+ * Pull-based ingest: technician (or polling UI) calls this to fetch fresh
+ * log lines from each included device's saved log paths and append both raw
+ * + normalized forensic events to the session.
+ * Body (all optional): { sshPasswords: { [deviceId]: string }, lines: number }
+ */
+app.post("/api/live-capture/:id/ingest-logs", async (req, res) => {
+  try {
+    const session = getCaptureSession(req.params.id);
+    if (!session) return res.status(404).json({ ok: false, reason: "not_found" });
+    if (session.status === "stopped" || session.status === "complete" || session.status === "failed") {
+      return res.status(400).json({ ok: false, reason: "invalid_state", message: `session is ${session.status}` });
+    }
+    const lines = Number(req.body?.lines) || 200;
+    const sshPasswords = req.body?.sshPasswords || {};
+    const rawEvidence = [];
+    const normalizedEvents = [];
+    for (const inc of session.devicesIncluded || []) {
+      const dev = getDevice(inc.id);
+      if (!dev) continue;
+      const meta = (dev.meta || {});
+      const paths = Array.isArray(meta.logPaths) ? meta.logPaths : [];
+      for (const p of paths) {
+        try {
+          const r = await readRecentLogs({
+            deviceId: dev.id,
+            path: p,
+            lines,
+            sshPassword: sshPasswords[dev.id],
+          });
+          if (!r?.ok) continue;
+          const norm = normalizeForensicEvents({
+            device: dev,
+            lines: r.lines || [],
+            sourcePath: r.path || p,
+            fallbackTimestamp: new Date().toISOString(),
+          });
+          rawEvidence.push({
+            at: new Date().toISOString(),
+            deviceId: dev.id,
+            source: "log",
+            kind: "recent-lines",
+            payload: { path: r.path || p, lineCount: (r.lines || []).length },
+          });
+          for (const e of norm.events) normalizedEvents.push(e);
+        } catch (e) {
+          rawEvidence.push({
+            at: new Date().toISOString(),
+            deviceId: dev.id,
+            source: "log",
+            kind: "error",
+            payload: { path: p, message: e?.message || String(e) },
+          });
+        }
+      }
+    }
+    const updated = appendCaptureEvidence(session.sessionId, { rawEvidence, normalizedEvents });
+    res.json({ ok: true, session: updated, counters: captureCounters(updated), ingested: { raw: rawEvidence.length, events: normalizedEvents.length } });
+  } catch (err) {
+    res.status(500).json({ ok: false, reason: "agent_error", message: err?.message || String(err) });
+  }
+});
+
+/**
+ * M1 stub for analyze: real correlator lands in M2. Today this just flips
+ * status to `analyzing` then `complete` and returns the raw counters so the
+ * UI wiring is real and won't need to change in M2.
+ */
+app.post("/api/live-capture/:id/analyze", (req, res) => {
+  try {
+    const session = getCaptureSession(req.params.id);
+    if (!session) return res.status(404).json({ ok: false, reason: "not_found" });
+    if (session.status !== "stopped" && session.status !== "complete") {
+      return res.status(400).json({ ok: false, reason: "invalid_state", message: `analyze requires stopped session, got ${session.status}` });
+    }
+    setCaptureAnalysisStatus(session.sessionId, "analyzing");
+    // M2 will populate diagnosisResult / developerPackage / incidentChains.
+    // For M1 we only acknowledge that analysis would run; we DO NOT fabricate output.
+    const completed = setCaptureAnalysisStatus(session.sessionId, "complete");
+    res.json({
+      ok: true,
+      session: completed,
+      counters: captureCounters(completed),
+      note: "M1 — analyze pipeline is wired but the deterministic correlator (M2) has not run yet. No diagnosis fabricated.",
+    });
+  } catch (err) {
+    res.status(500).json({ ok: false, reason: "agent_error", message: err?.message || String(err) });
+  }
 });
 
 /* ------------------------------------------------------------------ */
