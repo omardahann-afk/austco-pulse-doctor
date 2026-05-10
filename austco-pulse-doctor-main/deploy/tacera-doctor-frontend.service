@@ -1,0 +1,21 @@
+[Unit]
+Description=Tacera Doctor — Frontend (Vite preview, port 8080)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=tacera
+Group=tacera
+WorkingDirectory=/opt/tacera-doctor
+Environment=NODE_ENV=production
+ExecStart=/usr/bin/npx vite preview --host 0.0.0.0 --port 8080
+Restart=on-failure
+RestartSec=3
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

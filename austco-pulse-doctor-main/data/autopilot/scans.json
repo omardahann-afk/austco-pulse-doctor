@@ -1,0 +1,312 @@
+[
+  {
+    "scanId": "scan_motf9w67_a145vy",
+    "startedAt": "2026-05-06T02:12:39.100Z",
+    "finishedAt": "2026-05-06T02:12:41.119Z",
+    "monitoredCount": 1,
+    "issueCount": 1,
+    "issues": [
+      {
+        "planId": "plan_motf9w65_z33l34",
+        "serviceId": "svc-pulse",
+        "serviceName": "Pulse Manage",
+        "role": "Pulse Manage",
+        "host": "127.0.0.1",
+        "severity": "FAIL",
+        "issueType": "WEBMIN_DOWN",
+        "rootCause": "Webmin down",
+        "confidence": 0.85,
+        "riskLevel": "MEDIUM",
+        "deepEvidenceUsed": true,
+        "contradictionsCount": 1,
+        "mockEvidence": true
+      }
+    ],
+    "planIds": [
+      "plan_motf9w65_z33l34"
+    ],
+    "deepEvidenceUsed": true,
+    "deepEvidenceCollectedAt": "2026-05-06T02:12:39.100Z",
+    "deepEvidenceScore": 75,
+    "deepEvidenceMock": true
+  },
+  {
+    "scanId": "scan_motf9um3_2i7llr",
+    "startedAt": "2026-05-06T02:12:37.061Z",
+    "finishedAt": "2026-05-06T02:12:39.099Z",
+    "monitoredCount": 1,
+    "issueCount": 1,
+    "issues": [
+      {
+        "planId": "plan_motf9uly_cwq97g",
+        "serviceId": "svc-pulse",
+        "serviceName": "Pulse Manage",
+        "role": "Pulse Manage",
+        "host": "127.0.0.1",
+        "severity": "FAIL",
+        "issueType": "WEBMIN_DOWN",
+        "rootCause": "Webmin down",
+        "confidence": 0.85,
+        "riskLevel": "MEDIUM",
+        "deepEvidenceUsed": true,
+        "contradictionsCount": 1,
+        "mockEvidence": true
+      }
+    ],
+    "planIds": [
+      "plan_motf9uly_cwq97g"
+    ],
+    "deepEvidenceUsed": true,
+    "deepEvidenceCollectedAt": "2026-05-06T02:12:37.060Z",
+    "deepEvidenceScore": 75,
+    "deepEvidenceMock": true
+  },
+  {
+    "scanId": "scan_motf5rvo_n3eaoa",
+    "startedAt": "2026-05-06T02:09:26.912Z",
+    "finishedAt": "2026-05-06T02:09:28.932Z",
+    "monitoredCount": 1,
+    "issueCount": 1,
+    "issues": [
+      {
+        "planId": "plan_motf5rvn_q7odi7",
+        "serviceId": "svc-pulse",
+        "serviceName": "Pulse Manage",
+        "role": "Pulse Manage",
+        "host": "127.0.0.1",
+        "severity": "FAIL",
+        "issueType": "WEBMIN_DOWN",
+        "rootCause": "Webmin down",
+        "confidence": 0.85,
+        "riskLevel": "MEDIUM",
+        "deepEvidenceUsed": true,
+        "contradictionsCount": 1,
+        "mockEvidence": true
+      }
+    ],
+    "planIds": [
+      "plan_motf5rvn_q7odi7"
+    ],
+    "deepEvidenceUsed": true,
+    "deepEvidenceCollectedAt": "2026-05-06T02:09:26.912Z",
+    "deepEvidenceScore": 75,
+    "deepEvidenceMock": true
+  },
+  {
+    "scanId": "scan_motf5qbj_rkc30v",
+    "startedAt": "2026-05-06T02:09:24.860Z",
+    "finishedAt": "2026-05-06T02:09:26.911Z",
+    "monitoredCount": 1,
+    "issueCount": 1,
+    "issues": [
+      {
+        "planId": "plan_motf5qbi_i0p1ii",
+        "serviceId": "svc-pulse",
+        "serviceName": "Pulse Manage",
+        "role": "Pulse Manage",
+        "host": "127.0.0.1",
+        "severity": "FAIL",
+        "issueType": "WEBMIN_DOWN",
+        "rootCause": "Webmin down",
+        "confidence": 0.85,
+        "riskLevel": "MEDIUM",
+        "deepEvidenceUsed": true,
+        "contradictionsCount": 1,
+        "mockEvidence": true
+      }
+    ],
+    "planIds": [
+      "plan_motf5qbi_i0p1ii"
+    ],
+    "deepEvidenceUsed": true,
+    "deepEvidenceCollectedAt": "2026-05-06T02:09:24.860Z",
+    "deepEvidenceScore": 75,
+    "deepEvidenceMock": true
+  },
+  {
+    "scanId": "scan_moteq7qq_fh6uj7",
+    "startedAt": "2026-05-06T01:57:20.979Z",
+    "finishedAt": "2026-05-06T01:57:22.994Z",
+    "monitoredCount": 1,
+    "issueCount": 1,
+    "issues": [
+      {
+        "planId": "plan_moteq7qp_oz10aj",
+        "serviceId": "svc-pulse",
+        "serviceName": "Pulse Manage",
+        "role": "Pulse Manage",
+        "host": "127.0.0.1",
+        "severity": "FAIL",
+        "issueType": "WEBMIN_DOWN",
+        "rootCause": "Webmin down",
+        "confidence": 0.85,
+        "riskLevel": "MEDIUM",
+        "deepEvidenceUsed": true,
+        "contradictionsCount": 1,
+        "mockEvidence": true
+      }
+    ],
+    "planIds": [
+      "plan_moteq7qp_oz10aj"
+    ],
+    "deepEvidenceUsed": true,
+    "deepEvidenceCollectedAt": "2026-05-06T01:57:20.979Z",
+    "deepEvidenceScore": 75,
+    "deepEvidenceMock": true
+  },
+  {
+    "scanId": "scan_moteq66p_e9afiw",
+    "startedAt": "2026-05-06T01:57:18.948Z",
+    "finishedAt": "2026-05-06T01:57:20.977Z",
+    "monitoredCount": 1,
+    "issueCount": 1,
+    "issues": [
+      {
+        "planId": "plan_moteq66l_kipxcx",
+        "serviceId": "svc-pulse",
+        "serviceName": "Pulse Manage",
+        "role": "Pulse Manage",
+        "host": "127.0.0.1",
+        "severity": "FAIL",
+        "issueType": "WEBMIN_DOWN",
+        "rootCause": "Webmin down",
+        "confidence": 0.85,
+        "riskLevel": "MEDIUM",
+        "deepEvidenceUsed": true,
+        "contradictionsCount": 1,
+        "mockEvidence": true
+      }
+    ],
+    "planIds": [
+      "plan_moteq66l_kipxcx"
+    ],
+    "deepEvidenceUsed": true,
+    "deepEvidenceCollectedAt": "2026-05-06T01:57:18.948Z",
+    "deepEvidenceScore": 75,
+    "deepEvidenceMock": true
+  },
+  {
+    "scanId": "scan_motehaeb_9duwxc",
+    "startedAt": "2026-05-06T01:50:24.512Z",
+    "finishedAt": "2026-05-06T01:50:26.531Z",
+    "monitoredCount": 1,
+    "issueCount": 1,
+    "issues": [
+      {
+        "planId": "plan_motehae9_xlhdrn",
+        "serviceId": "svc-pulse",
+        "serviceName": "Pulse Manage",
+        "role": "Pulse Manage",
+        "host": "127.0.0.1",
+        "severity": "FAIL",
+        "issueType": "WEBMIN_DOWN",
+        "rootCause": "Webmin down",
+        "confidence": 0.85,
+        "riskLevel": "MEDIUM",
+        "deepEvidenceUsed": true,
+        "contradictionsCount": 1,
+        "mockEvidence": true
+      }
+    ],
+    "planIds": [
+      "plan_motehae9_xlhdrn"
+    ],
+    "deepEvidenceUsed": true,
+    "deepEvidenceCollectedAt": "2026-05-06T01:50:24.511Z",
+    "deepEvidenceScore": 75,
+    "deepEvidenceMock": true
+  },
+  {
+    "scanId": "scan_moteh8u5_z9ow1k",
+    "startedAt": "2026-05-06T01:50:22.462Z",
+    "finishedAt": "2026-05-06T01:50:24.509Z",
+    "monitoredCount": 1,
+    "issueCount": 1,
+    "issues": [
+      {
+        "planId": "plan_moteh8u3_wx0e3d",
+        "serviceId": "svc-pulse",
+        "serviceName": "Pulse Manage",
+        "role": "Pulse Manage",
+        "host": "127.0.0.1",
+        "severity": "FAIL",
+        "issueType": "WEBMIN_DOWN",
+        "rootCause": "Webmin down",
+        "confidence": 0.85,
+        "riskLevel": "MEDIUM",
+        "deepEvidenceUsed": true,
+        "contradictionsCount": 1,
+        "mockEvidence": true
+      }
+    ],
+    "planIds": [
+      "plan_moteh8u3_wx0e3d"
+    ],
+    "deepEvidenceUsed": true,
+    "deepEvidenceCollectedAt": "2026-05-06T01:50:22.461Z",
+    "deepEvidenceScore": 75,
+    "deepEvidenceMock": true
+  },
+  {
+    "scanId": "scan_motefugo_5kj21v",
+    "startedAt": "2026-05-06T01:49:17.202Z",
+    "finishedAt": "2026-05-06T01:49:19.224Z",
+    "monitoredCount": 1,
+    "issueCount": 1,
+    "issues": [
+      {
+        "planId": "plan_motefugn_lyxak8",
+        "serviceId": "svc-pulse",
+        "serviceName": "Pulse Manage",
+        "role": "Pulse Manage",
+        "host": "127.0.0.1",
+        "severity": "FAIL",
+        "issueType": "WEBMIN_DOWN",
+        "rootCause": "Webmin down",
+        "confidence": 0.85,
+        "riskLevel": "MEDIUM",
+        "deepEvidenceUsed": true,
+        "contradictionsCount": 1,
+        "mockEvidence": true
+      }
+    ],
+    "planIds": [
+      "plan_motefugn_lyxak8"
+    ],
+    "deepEvidenceUsed": true,
+    "deepEvidenceCollectedAt": "2026-05-06T01:49:17.202Z",
+    "deepEvidenceScore": 75,
+    "deepEvidenceMock": true
+  },
+  {
+    "scanId": "scan_motefswg_ajdnlg",
+    "startedAt": "2026-05-06T01:49:15.154Z",
+    "finishedAt": "2026-05-06T01:49:17.200Z",
+    "monitoredCount": 1,
+    "issueCount": 1,
+    "issues": [
+      {
+        "planId": "plan_motefswe_6o78fh",
+        "serviceId": "svc-pulse",
+        "serviceName": "Pulse Manage",
+        "role": "Pulse Manage",
+        "host": "127.0.0.1",
+        "severity": "FAIL",
+        "issueType": "WEBMIN_DOWN",
+        "rootCause": "Webmin down",
+        "confidence": 0.85,
+        "riskLevel": "MEDIUM",
+        "deepEvidenceUsed": true,
+        "contradictionsCount": 1,
+        "mockEvidence": true
+      }
+    ],
+    "planIds": [
+      "plan_motefswe_6o78fh"
+    ],
+    "deepEvidenceUsed": true,
+    "deepEvidenceCollectedAt": "2026-05-06T01:49:15.153Z",
+    "deepEvidenceScore": 75,
+    "deepEvidenceMock": true
+  }
+]
