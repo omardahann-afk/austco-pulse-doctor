@@ -197,7 +197,10 @@ const RULES = [
 ];
 
 function extractEntities(line) {
-  const cp = line.match(RX_CALLPOINT);
+  // Only treat the dotted token as a callpoint ID when the line actually
+  // mentions a callpoint — otherwise it's almost certainly an IPv4.
+  const isCallpointLine = /call ?point/i.test(line);
+  const cp = isCallpointLine ? line.match(RX_CALLPOINT) : null;
   const ip = line.match(RX_IPV4);
   const room = line.match(RX_ROOM);
   const ctrl = line.match(RX_CONTROLLER);
