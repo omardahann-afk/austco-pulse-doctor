@@ -149,7 +149,6 @@ export function LiveCaptureResultPanel({ session, diagnosis, signalPath, develop
         developerPackage,
         confidenceBreakdown: diagnosis.confidenceBreakdown,
         doNotDo: diagnosis.doNotDo,
-        // @ts-expect-error - extra contextual payload tunnelled through alert envelope
         correlation: sanitized,
       });
       if (!r.ok) throw new Error(r.message || "AI gateway error");
