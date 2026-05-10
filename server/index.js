@@ -82,6 +82,7 @@ import {
   stopSession as stopCaptureSession,
   appendEvidence as appendCaptureEvidence,
   setAnalysisStatus as setCaptureAnalysisStatus,
+  setAnalysisResult as setCaptureAnalysisResult,
   sessionCounters as captureCounters,
 } from "./lib/liveCaptureSessionStore.js";
 import { generateDiagnosticForDevice, listDiagnosticResults, getDiagnosticResult } from "./lib/diagnosticResultEngine.js";
