@@ -95,7 +95,7 @@ export function SystemCorrelationPanel() {
 
       {!err && noConfirmedFault && (
         <div className="flex items-center gap-2 rounded-md border border-success/30 bg-success/10 p-3 text-xs text-success">
-          <ShieldCheck className="h-4 w-4" /> No cross-system root cause detected. All correlated services are no confirmed fault.
+          <ShieldCheck className="h-4 w-4" /> No cross-system root cause detected. All correlated services are noConfirmedFault.
         </div>
       )}
 

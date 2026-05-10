@@ -87,7 +87,7 @@ export const TACERA_APPLIANCE_PROFILES = Object.freeze({
     knownCommands: ["docker ps", "docker logs --tail=500 pulse-gateway"],
     healthChecks: [
       "Pulse Gateway container running",
-      "event bridge subscription no confirmed fault",
+      "event bridge subscription noConfirmedFault",
       "WebSocket clients connected",
     ],
     commonPatterns: ["WEBSOCKET_ERROR", "CONNECTION_REFUSED", "INVALID_CALLPOINT_SIGNAL", "SERVICE_RESTARTED"],
@@ -96,7 +96,7 @@ export const TACERA_APPLIANCE_PROFILES = Object.freeze({
       "blame Pulse Gateway when controllers/IPConnect are silent upstream",
     ],
     safeNextChecks: [
-      "Confirm IPConnect & controllers no confirmed fault first",
+      "Confirm IPConnect & controllers noConfirmedFault first",
       "Check event bridge reachability",
       "Inspect Pulse Gateway WS error stream for the reproduction window",
     ],
@@ -370,7 +370,7 @@ export const TACERA_APPLIANCE_PROFILES = Object.freeze({
     defaultPorts: [22, 80, 443, 161],
     knownLogPaths: [],
     knownCommands: [],
-    healthChecks: ["PoE budget no confirmed fault", "Port up/up", "VLAN tagging correct"],
+    healthChecks: ["PoE budget noConfirmedFault", "Port up/up", "VLAN tagging correct"],
     commonPatterns: ["CONTROLLER_HEARTBEAT_LOST", "CONNECTION_REFUSED"],
     dangerousActions: ["change VLAN on a port carrying live calls"],
     safeNextChecks: [
