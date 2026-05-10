@@ -261,6 +261,7 @@ export interface AiExplanationPayload {
   developerPackage: DeveloperPackage;
   confidenceBreakdown: DiagnosisResult["confidenceBreakdown"];
   doNotDo: string[];
+  correlation?: unknown;
 }
 
 export async function requestAiExplanation(payload: AiExplanationPayload): Promise<{ ok: boolean; response?: unknown; message?: string }> {
