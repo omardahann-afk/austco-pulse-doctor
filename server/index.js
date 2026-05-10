@@ -68,6 +68,19 @@ import { appendTimelineEvent, listTimelineEvents } from "./lib/failureTimelineSt
 import { correlateLogs } from "./lib/logCorrelationEngine.js";
 import { runSystemCorrelation } from "./lib/systemCorrelationEngine.js";
 import { normalizeLogLines, listNormalizerRules } from "./lib/taceraLogNormalizer.js";
+import { normalizeForensicEvents } from "./lib/taceraEventNormalizer.js";
+import { applianceTypeFor, listApplianceProfiles, getApplianceProfile } from "./lib/taceraApplianceProfiles.js";
+import {
+  listSessions as listCaptureSessions,
+  getSession as getCaptureSession,
+  createSession as createCaptureSession,
+  markReproductionStarted as captureMarkReproStarted,
+  markReproductionFinished as captureMarkReproFinished,
+  stopSession as stopCaptureSession,
+  appendEvidence as appendCaptureEvidence,
+  setAnalysisStatus as setCaptureAnalysisStatus,
+  sessionCounters as captureCounters,
+} from "./lib/liveCaptureSessionStore.js";
 import { generateDiagnosticForDevice, listDiagnosticResults, getDiagnosticResult } from "./lib/diagnosticResultEngine.js";
 import {
   buildRecommendation, saveRecommendation, listRecommendations,
