@@ -19,6 +19,7 @@ import { EvidenceSnapshotsPanel } from "@/components/monitor/EvidenceSnapshotsPa
 import { AlertsPanel } from "@/components/monitor/AlertsPanel";
 import { TimelinePanel } from "@/components/monitor/TimelinePanel";
 import { SystemCorrelationPanel } from "@/components/monitor/SystemCorrelationPanel";
+import { LiveIncidentCapturePanel } from "@/components/monitor/LiveIncidentCapturePanel";
 
 const MONITOR_REGISTRY_UPDATED_EVENT = "monitor-registry:updated";
 
@@ -115,6 +116,9 @@ function MonitorPage() {
           </div>
         }
       />
+
+      {/* M3: BLACK-BOX FLIGHT RECORDER — top of page */}
+      <LiveIncidentCapturePanel />
 
       {/* TACTICAL OPERATIONS QUICK DEPLOY */}
       <section className="rounded-xl border-2 border-border/60 bg-gradient-to-b from-card/80 to-card/40 p-4 shadow-[var(--shadow-panel)]">
