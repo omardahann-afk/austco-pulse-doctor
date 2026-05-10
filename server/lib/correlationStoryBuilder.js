@@ -206,7 +206,7 @@ export function buildCorrelationStory({ session, diagnosis }) {
       whatItDoesNotProve = "Does not by itself name the root cause.";
       nextCheck = `Cross-reference these events with ${rootApplianceType ? applianceLabel(rootApplianceType) : "the root cause candidate"}.`;
     } else {
-      // No events at all — explicitly call out missing evidence rather than 'healthy'.
+      // No events at all — explicitly call out missing evidence rather than 'no confirmed fault'.
       classification = "missing_evidence_needed";
       explanation = `No events from ${applianceLabel(type)} were captured in the reproduction window — cannot confirm or rule it out.`;
       whatItProves = "Nothing — there is no evidence to evaluate.";

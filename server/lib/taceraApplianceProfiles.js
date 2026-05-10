@@ -73,11 +73,11 @@ export const TACERA_APPLIANCE_PROFILES = Object.freeze({
   "pulse-gateway": profile({
     applianceType: "pulse-gateway",
     displayName: "Pulse Gateway",
-    role: "Message router/translator between IPConnect, MQTT, displays, mobile",
+    role: "Message router/translator between IPConnect, event bridge, displays, mobile",
     diagnosticPriority: 3,
     isRootCauseCandidate: false,
     isUsuallyDownstreamSymptom: true,
-    upstreamDependencies: ["ipconnect", "mqtt-broker", "ip-cct", "switch"],
+    upstreamDependencies: ["ipconnect", "eventBridge-broker", "ip-cct", "switch"],
     downstreamDependencies: ["display", "pulse-mobile", "pulse-manage"],
     defaultPorts: [443, 8443, 1883],
     knownLogPaths: [
@@ -87,7 +87,7 @@ export const TACERA_APPLIANCE_PROFILES = Object.freeze({
     knownCommands: ["docker ps", "docker logs --tail=500 pulse-gateway"],
     healthChecks: [
       "Pulse Gateway container running",
-      "MQTT subscription healthy",
+      "event bridge subscription no confirmed fault",
       "WebSocket clients connected",
     ],
     commonPatterns: ["WEBSOCKET_ERROR", "CONNECTION_REFUSED", "INVALID_CALLPOINT_SIGNAL", "SERVICE_RESTARTED"],
@@ -96,8 +96,8 @@ export const TACERA_APPLIANCE_PROFILES = Object.freeze({
       "blame Pulse Gateway when controllers/IPConnect are silent upstream",
     ],
     safeNextChecks: [
-      "Confirm IPConnect & controllers healthy first",
-      "Check MQTT broker reachability",
+      "Confirm IPConnect & controllers no confirmed fault first",
+      "Check event bridge reachability",
       "Inspect Pulse Gateway WS error stream for the reproduction window",
     ],
     recoveryWindowSeconds: 120,
@@ -130,18 +130,18 @@ export const TACERA_APPLIANCE_PROFILES = Object.freeze({
     diagnosticPriority: 3,
     isRootCauseCandidate: false,
     isUsuallyDownstreamSymptom: true,
-    upstreamDependencies: ["mqtt-broker", "ipconnect"],
+    upstreamDependencies: ["eventBridge-broker", "ipconnect"],
     downstreamDependencies: ["hl7", "rtls-gateway"],
     defaultPorts: [8883, 1883, 2575],
     knownLogPaths: ["/var/log/inga/inga.log", "/opt/inga/logs/inga.log"],
     knownCommands: ["systemctl status inga"],
-    healthChecks: ["MQTT subscribed", "HL7 listener up", "RTLS subscriber up"],
+    healthChecks: ["event bridge subscribed", "HL7 listener up", "RTLS subscriber up"],
     commonPatterns: ["CONNECTION_REFUSED", "HL7_ACK_TIMEOUT", "RTLS_ROOM_MAPPING_FAILURE", "INVALID_CALLPOINT_SIGNAL"],
     dangerousActions: [
-      "restart INGA before confirming MQTT broker is up",
+      "restart INGA before confirming event bridge is up",
       "blame INGA for stale callpoint replays without checking source",
     ],
-    safeNextChecks: ["Check MQTT broker first", "Inspect INGA event replay window"],
+    safeNextChecks: ["Check event bridge first", "Inspect INGA event replay window"],
     recoveryWindowSeconds: 90,
   }),
 
@@ -345,7 +345,7 @@ export const TACERA_APPLIANCE_PROFILES = Object.freeze({
     diagnosticPriority: 4,
     isRootCauseCandidate: false,
     isUsuallyDownstreamSymptom: true,
-    upstreamDependencies: ["inga", "mqtt-broker"],
+    upstreamDependencies: ["inga", "eventBridge-broker"],
     downstreamDependencies: [],
     defaultPorts: [443, 2575],
     knownLogPaths: [],
@@ -353,7 +353,7 @@ export const TACERA_APPLIANCE_PROFILES = Object.freeze({
     healthChecks: ["Subscriber up", "Acks returning"],
     commonPatterns: ["CONNECTION_REFUSED", "HL7_ACK_TIMEOUT"],
     dangerousActions: ["restart Connexall side without coordinating with vendor"],
-    safeNextChecks: ["Check upstream INGA + MQTT first"],
+    safeNextChecks: ["Check upstream INGA + event bridge first"],
     recoveryWindowSeconds: 60,
   }),
 
@@ -370,7 +370,7 @@ export const TACERA_APPLIANCE_PROFILES = Object.freeze({
     defaultPorts: [22, 80, 443, 161],
     knownLogPaths: [],
     knownCommands: [],
-    healthChecks: ["PoE budget healthy", "Port up/up", "VLAN tagging correct"],
+    healthChecks: ["PoE budget no confirmed fault", "Port up/up", "VLAN tagging correct"],
     commonPatterns: ["CONTROLLER_HEARTBEAT_LOST", "CONNECTION_REFUSED"],
     dangerousActions: ["change VLAN on a port carrying live calls"],
     safeNextChecks: [
@@ -381,9 +381,9 @@ export const TACERA_APPLIANCE_PROFILES = Object.freeze({
     recoveryWindowSeconds: 30,
   }),
 
-  "mqtt-broker": profile({
-    applianceType: "mqtt-broker",
-    displayName: "MQTT Broker (Mosquitto)",
+  "eventBridge-broker": profile({
+    applianceType: "eventBridge-broker",
+    displayName: "Event Bridge (Optional) (Mosquitto)",
     role: "Message bus between IPConnect, INGA, Pulse Gateway",
     diagnosticPriority: 2,
     isRootCauseCandidate: true,
@@ -391,12 +391,12 @@ export const TACERA_APPLIANCE_PROFILES = Object.freeze({
     upstreamDependencies: ["linux-vm", "switch"],
     downstreamDependencies: ["pulse-gateway", "inga", "ipconnect"],
     defaultPorts: [1883, 8883],
-    knownLogPaths: ["/var/log/mosquitto/mosquitto.log"],
-    knownCommands: ["systemctl status mosquitto"],
+    knownLogPaths: ["/var/log/event bridge service/event bridge service.log"],
+    knownCommands: ["systemctl status event bridge service"],
     healthChecks: ["Broker process up", "Ports open", "Subscribers connected"],
-    commonPatterns: ["MQTT_CONNECTION_REFUSED", "CONNECTION_REFUSED", "SERVICE_RESTARTED"],
+    commonPatterns: ["event bridge_CONNECTION_REFUSED", "CONNECTION_REFUSED", "SERVICE_RESTARTED"],
     dangerousActions: ["restart broker during active call traffic without warning"],
-    safeNextChecks: ["systemctl status mosquitto", "Check 1883/8883 listeners", "Inspect broker logs in window"],
+    safeNextChecks: ["systemctl status event bridge service", "Check 1883/8883 listeners", "Inspect broker logs in window"],
     recoveryWindowSeconds: 30,
   }),
 
@@ -431,7 +431,7 @@ export const TACERA_APPLIANCE_PROFILES = Object.freeze({
     isRootCauseCandidate: true,
     isUsuallyDownstreamSymptom: false,
     upstreamDependencies: ["switch"],
-    downstreamDependencies: ["pulse-gateway", "inga", "ipconnect", "license-service", "mqtt-broker"],
+    downstreamDependencies: ["pulse-gateway", "inga", "ipconnect", "license-service", "eventBridge-broker"],
     defaultPorts: [22],
     knownLogPaths: ["/var/log/syslog", "/var/log/messages"],
     knownCommands: ["date", "uptime", "df -h", "free -m", "top -b -n1 | head -30"],
@@ -467,7 +467,7 @@ export function applianceTypeFor(kind) {
   if (/odl|over-?door/.test(k)) return "odl";
   if (/ip-?in8|access-?input|access-?control/.test(k)) return "access-input";
   if (/connexall/.test(k)) return "connexall";
-  if (/mqtt|broker|mosquitto/.test(k)) return "mqtt-broker";
+  if (/eventBridge|broker|event bridge service/.test(k)) return "eventBridge-broker";
   if (/switch|poe/.test(k)) return "switch";
   if (/linux|vm|ubuntu|debian/.test(k)) return "linux-vm";
   return "unknown";

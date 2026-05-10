@@ -247,7 +247,7 @@ function detectMqttBrokerDown(reproEvents) {
     rootApplianceType: "eventBridge-broker",
     summary: `Multiple services (${downstreamConsumers.size}) report CONNECTION_REFUSED — event broker (or its host port) is the upstream failure.`,
     evidenceEvents: refused,
-    nextChecks: ["systemctl status mosquitto", "Check 1883/8883 listeners", "Inspect broker logs in window"],
+    nextChecks: ["systemctl status event bridge service", "Check 1883/8883 listeners", "Inspect broker logs in window"],
     doNotDo: ["Do NOT restart each consumer one by one — fix the broker"],
     confidenceBoost: 0.25,
   };
