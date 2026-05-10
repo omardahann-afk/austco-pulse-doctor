@@ -101,6 +101,81 @@ export interface DiagnosisResult {
   affectedRooms: string[];
   signalPath?: SignalPathResult;
   incidentChains?: unknown[];
+  correlationStory?: CorrelationStory;
+}
+
+export type IncidentClassification =
+  | "first_failure"
+  | "root_cause_evidence"
+  | "downstream_symptom"
+  | "supporting_evidence"
+  | "contradiction"
+  | "missing_evidence"
+  | "noise";
+
+export type ApplianceClassification =
+  | "likely_root_cause"
+  | "evidence_holder"
+  | "downstream_symptom"
+  | "contributing_factor"
+  | "no_relevant_evidence"
+  | "missing_evidence_needed"
+  | "unknown";
+
+export type CauseSymptomClassification = "cause" | "symptom" | "unknown" | "missing_evidence";
+
+export interface IncidentSequenceItem {
+  order: number;
+  timestamp: string;
+  appliance: string;
+  applianceType: string;
+  eventType: string;
+  severity: string;
+  summary: string;
+  whyItMatters: string;
+  classification: IncidentClassification;
+}
+
+export interface ApplianceBreakdownItem {
+  appliance: string;
+  applianceType: string;
+  role: string;
+  firstRelevantEvent: { timestamp: string; eventType: string; rawMessage: string } | null;
+  eventCount: number;
+  classification: ApplianceClassification;
+  explanation: string;
+  whatItProves: string;
+  whatItDoesNotProve: string;
+  nextCheck: string;
+}
+
+export interface CauseVsSymptomItem {
+  appliance: string;
+  applianceType: string;
+  timing: string;
+  evidence: string;
+  classification: CauseSymptomClassification;
+  explanation: string;
+}
+
+export interface CorrelationStory {
+  plainEnglishSummary: string;
+  whyThisMatters: string;
+  whatHappenedFirst: {
+    timestamp: string;
+    appliance: string;
+    applianceType: string;
+    eventType: string;
+    rawMessage: string;
+    whyItMatters: string;
+  } | null;
+  incidentSequence: IncidentSequenceItem[];
+  applianceBreakdown: ApplianceBreakdownItem[];
+  causeVsSymptom: CauseVsSymptomItem[];
+  missingEvidence: string[];
+  technicianConclusion: string;
+  developerConclusion: string;
+  customerSafeConclusion: string;
 }
 
 export interface DeveloperPackage {
@@ -126,6 +201,7 @@ export interface DeveloperPackage {
   downstreamSymptoms: DiagnosisResult["downstreamSymptoms"];
   rawEvidenceCount: number;
   normalizedEventCount: number;
+  correlationStory: CorrelationStory | null;
   deterministicReasoning: string[];
 }
 
@@ -185,6 +261,7 @@ export interface AiExplanationPayload {
   developerPackage: DeveloperPackage;
   confidenceBreakdown: DiagnosisResult["confidenceBreakdown"];
   doNotDo: string[];
+  correlation?: unknown;
 }
 
 export async function requestAiExplanation(payload: AiExplanationPayload): Promise<{ ok: boolean; response?: unknown; message?: string }> {

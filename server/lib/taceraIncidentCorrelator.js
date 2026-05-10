@@ -17,6 +17,7 @@
  */
 
 import { getApplianceProfile, listApplianceProfiles } from "./taceraApplianceProfiles.js";
+import { buildCorrelationStory } from "./correlationStoryBuilder.js";
 
 const CLUSTER_WINDOW_MS = 15_000;
 
@@ -475,7 +476,7 @@ export function correlateIncident({ session }) {
     ruledOut.push("Mobile app crash", "Pulse Gateway internal fault");
   }
 
-  return {
+  const partialDiagnosis = {
     incidentChains,
     firstFailurePoint,
     rootCause,
@@ -505,6 +506,8 @@ export function correlateIncident({ session }) {
       noTimestampCount: partitioned.unknown.length,
     },
   };
+  partialDiagnosis.correlationStory = buildCorrelationStory({ session, diagnosis: partialDiagnosis });
+  return partialDiagnosis;
 }
 
 /** Exposed helper for tests. */
