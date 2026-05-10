@@ -70,6 +70,9 @@ import { runSystemCorrelation } from "./lib/systemCorrelationEngine.js";
 import { normalizeLogLines, listNormalizerRules } from "./lib/taceraLogNormalizer.js";
 import { normalizeForensicEvents } from "./lib/taceraEventNormalizer.js";
 import { applianceTypeFor, listApplianceProfiles, getApplianceProfile } from "./lib/taceraApplianceProfiles.js";
+import { correlateIncident } from "./lib/taceraIncidentCorrelator.js";
+import { buildSignalPath } from "./lib/signalPathEngine.js";
+import { buildDeveloperPackage } from "./lib/developerEscalationBuilder.js";
 import {
   listSessions as listCaptureSessions,
   getSession as getCaptureSession,
@@ -995,14 +998,30 @@ app.post("/api/live-capture/:id/analyze", (req, res) => {
       return res.status(400).json({ ok: false, reason: "invalid_state", message: `analyze requires stopped session, got ${session.status}` });
     }
     setCaptureAnalysisStatus(session.sessionId, "analyzing");
-    // M2 will populate diagnosisResult / developerPackage / incidentChains.
-    // For M1 we only acknowledge that analysis would run; we DO NOT fabricate output.
-    const completed = setCaptureAnalysisStatus(session.sessionId, "complete");
+    const fresh = getCaptureSession(session.sessionId);
+    const diagnosis = correlateIncident({ session: fresh });
+    const signalPath = buildSignalPath({ session: fresh });
+    const developerPackage = buildDeveloperPackage({ session: fresh, diagnosis, signalPath });
+    const completed = setCaptureAnalysisResult(session.sessionId, {
+      diagnosisResult: { ...diagnosis, signalPath },
+      developerPackage,
+      incidentChains: diagnosis.incidentChains,
+    });
+    appendTimelineEvent({
+      source: "live-capture",
+      severity: diagnosis.rootCause ? "critical" : "info",
+      title: diagnosis.rootCause
+        ? `Root cause: ${diagnosis.rootCause.applianceType} (${diagnosis.rootCause.kind})`
+        : "Live capture analyzed — no deterministic root cause",
+      raw: { sessionId: session.sessionId, confidence: diagnosis.confidence },
+    });
     res.json({
       ok: true,
       session: completed,
       counters: captureCounters(completed),
-      note: "M1 — analyze pipeline is wired but the deterministic correlator (M2) has not run yet. No diagnosis fabricated.",
+      diagnosis,
+      signalPath,
+      developerPackage,
     });
   } catch (err) {
     res.status(500).json({ ok: false, reason: "agent_error", message: err?.message || String(err) });
