@@ -91,6 +91,8 @@ import { examineMachine } from "./lib/taceraMachineExaminer.js";
 import { explainDeepEvidenceWithClaude } from "./lib/claudeDeepEvidenceExplainer.js";
 import { scanTaceraLogsOnHost, buildTaceraLogDiagnosis } from "./lib/taceraLogEvidenceScanner.js";
 import { generateDiscoveryDossier } from "./lib/taceraDiscoveryDossier.js";
+import { detectTaceraRoles } from "./lib/taceraRoleDetector.js";
+import { translateTaceraFinding } from "./lib/taceraHumanTranslator.js";
 
 import {
   buildRecommendation, saveRecommendation, listRecommendations,
@@ -1401,6 +1403,29 @@ app.post("/api/system/discovery-dossier", async (req, res) => {
       reason: "discovery_dossier_failed",
       message: err?.message || String(err),
       stack: err?.stack
+    });
+  }
+});
+
+
+app.post("/api/tacera/understand-site", async (req, res) => {
+  try {
+    const body = req.body || {};
+    const evidence = body.evidence || "";
+
+    const roles = detectTaceraRoles(evidence);
+    const translated = translateTaceraFinding([evidence]);
+
+    res.json({
+      ok: true,
+      roles,
+      translated
+    });
+
+  } catch (err) {
+    res.status(500).json({
+      ok: false,
+      message: err?.message || String(err)
     });
   }
 });
