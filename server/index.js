@@ -89,6 +89,7 @@ import { generateDiagnosticForDevice, listDiagnosticResults, getDiagnosticResult
 import { buildTechnicianReadableDiagnosis } from "./lib/technicianReadableDiagnosis.js";
 import { examineMachine } from "./lib/taceraMachineExaminer.js";
 import { explainDeepEvidenceWithClaude } from "./lib/claudeDeepEvidenceExplainer.js";
+import { scanTaceraLogsOnHost, buildTaceraLogDiagnosis } from "./lib/taceraLogEvidenceScanner.js";
 
 import {
   buildRecommendation, saveRecommendation, listRecommendations,
@@ -1302,6 +1303,79 @@ app.post("/api/machine/explain-claude", async (req, res) => {
     res.json(result);
   } catch (err) {
     res.status(500).json({ ok: false, reason: "claude_explain_failed", message: err?.message || String(err) });
+  }
+});
+
+
+app.post("/api/site/full-tacera-scan", async (req, res) => {
+  try {
+    const body = req.body || {};
+    const targets = Array.isArray(body.targets) ? body.targets : [];
+
+    if (!targets.length) {
+      return res.status(400).json({ ok: false, reason: "targets_required" });
+    }
+
+    const results = [];
+
+    for (const target of targets) {
+      const host = target.host;
+      if (!host) continue;
+
+      const profile = target.profile || "custom";
+      const ssh = target.ssh || { username: "tech", password: "tech", port: 22 };
+      const webmin = target.webmin || { username: "tech", password: "tech", port: 10000 };
+
+      const machine = await examineMachine({
+        host,
+        profile,
+        ssh,
+        webmin,
+        expectedPorts: Array.isArray(target.expectedPorts) ? target.expectedPorts : null,
+        includeWebmin: target.includeWebmin !== false,
+        includeSsh: target.includeSsh !== false,
+        includeClaude: false
+      });
+
+      const logs = await scanTaceraLogsOnHost({
+        host,
+        profile,
+        ssh,
+        machine,
+        logPaths: Array.isArray(target.logPaths) ? target.logPaths : undefined
+      });
+
+      results.push({
+        host,
+        profile,
+        machine,
+        logs,
+        topSummary: logs.diagnosis
+      });
+    }
+
+    const allFindings = results.flatMap(r => r.logs?.findings || []);
+    const combined = buildTaceraLogDiagnosis({
+      host: "site",
+      profile: "combined",
+      logFindings: allFindings,
+      machine: null
+    });
+
+    res.json({
+      ok: true,
+      site: body.site || null,
+      generatedAt: new Date().toISOString(),
+      summary: combined,
+      results
+    });
+  } catch (err) {
+    res.status(500).json({
+      ok: false,
+      reason: "full_tacera_scan_failed",
+      message: err?.message || String(err),
+      stack: err?.stack
+    });
   }
 });
 
