@@ -86,6 +86,8 @@ import {
   sessionCounters as captureCounters,
 } from "./lib/liveCaptureSessionStore.js";
 import { generateDiagnosticForDevice, listDiagnosticResults, getDiagnosticResult } from "./lib/diagnosticResultEngine.js";
+import { buildTechnicianReadableDiagnosis } from "./lib/technicianReadableDiagnosis.js";
+
 import {
   buildRecommendation, saveRecommendation, listRecommendations,
   getRecommendation, approveRecommendation, rejectRecommendation,
@@ -1240,6 +1242,31 @@ app.post("/api/diagnosis/claude-full", async (req, res) => {
       ok: false,
       reason: "claude_diagnosis_failed",
       message: err?.message || String(err),
+    });
+  }
+});
+
+
+app.post("/api/diagnosis/technician-readable", async (req, res) => {
+  try {
+    const body = req.body || {};
+    const raw = body.lines || body.logs || body.rawEvidence || body.text || [];
+    const lines = Array.isArray(raw)
+      ? raw.map(x => typeof x === "string" ? x : (x.rawMessage || x.line || x.message || JSON.stringify(x)))
+      : String(raw).split(/\\r?\\n/);
+
+    const diagnosis = buildTechnicianReadableDiagnosis({
+      lines,
+      problem: body.problem || null,
+      appliance: body.appliance || null
+    });
+
+    res.json({ ok: true, diagnosis });
+  } catch (err) {
+    res.status(500).json({
+      ok: false,
+      reason: "technician_readable_failed",
+      message: err?.message || String(err)
     });
   }
 });
