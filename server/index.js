@@ -87,6 +87,8 @@ import {
 } from "./lib/liveCaptureSessionStore.js";
 import { generateDiagnosticForDevice, listDiagnosticResults, getDiagnosticResult } from "./lib/diagnosticResultEngine.js";
 import { buildTechnicianReadableDiagnosis } from "./lib/technicianReadableDiagnosis.js";
+import { examineMachine } from "./lib/taceraMachineExaminer.js";
+import { explainDeepEvidenceWithClaude } from "./lib/claudeDeepEvidenceExplainer.js";
 
 import {
   buildRecommendation, saveRecommendation, listRecommendations,
@@ -1268,6 +1270,38 @@ app.post("/api/diagnosis/technician-readable", async (req, res) => {
       reason: "technician_readable_failed",
       message: err?.message || String(err)
     });
+  }
+});
+
+
+app.post("/api/machine/examine", async (req, res) => {
+  try {
+    const body = req.body || {};
+    if (!body.host) return res.status(400).json({ ok: false, reason: "host_required" });
+
+    const result = await examineMachine({
+      host: body.host,
+      profile: body.profile || "custom",
+      ssh: body.ssh || {},
+      webmin: body.webmin || {},
+      expectedPorts: Array.isArray(body.expectedPorts) ? body.expectedPorts : null,
+      includeWebmin: body.includeWebmin !== false,
+      includeSsh: body.includeSsh !== false,
+      includeClaude: !!body.includeClaude
+    });
+
+    res.json(result);
+  } catch (err) {
+    res.status(500).json({ ok: false, reason: "machine_examine_failed", message: err?.message || String(err) });
+  }
+});
+
+app.post("/api/machine/explain-claude", async (req, res) => {
+  try {
+    const result = await explainDeepEvidenceWithClaude(req.body || {});
+    res.json(result);
+  } catch (err) {
+    res.status(500).json({ ok: false, reason: "claude_explain_failed", message: err?.message || String(err) });
   }
 });
 
