@@ -1215,6 +1215,35 @@ app.post("/api/autopilot/recommendations/:id/reject", (req, res) => {
   res.json({ ok: true, recommendation: r });
 });
 
+
+app.post("/api/diagnosis/claude-full", async (req, res) => {
+  try {
+    const body = req.body || {};
+    const raw = body.lines || body.logs || body.rawEvidence || [];
+    const lines = Array.isArray(raw)
+      ? raw.map(x => typeof x === "string" ? x : (x.rawMessage || x.line || JSON.stringify(x)))
+      : String(raw).split(/\r?\n/);
+
+    const result = await runClaudeDiagnosis({
+      lines,
+      context: {
+        site: body.site || null,
+        appliance: body.appliance || null,
+        problem: body.problem || null,
+        selectedDevices: body.selectedDevices || [],
+      },
+    });
+
+    res.json({ ok: true, result });
+  } catch (err) {
+    res.status(500).json({
+      ok: false,
+      reason: "claude_diagnosis_failed",
+      message: err?.message || String(err),
+    });
+  }
+});
+
 const httpServer = http.createServer(app);
 attachWsBus(httpServer, { path: "/ws/monitor" });
 httpServer.listen(PORT, BIND, () => {
