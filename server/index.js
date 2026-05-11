@@ -90,6 +90,7 @@ import { buildTechnicianReadableDiagnosis } from "./lib/technicianReadableDiagno
 import { examineMachine } from "./lib/taceraMachineExaminer.js";
 import { explainDeepEvidenceWithClaude } from "./lib/claudeDeepEvidenceExplainer.js";
 import { scanTaceraLogsOnHost, buildTaceraLogDiagnosis } from "./lib/taceraLogEvidenceScanner.js";
+import { generateDiscoveryDossier } from "./lib/taceraDiscoveryDossier.js";
 
 import {
   buildRecommendation, saveRecommendation, listRecommendations,
@@ -1373,6 +1374,31 @@ app.post("/api/site/full-tacera-scan", async (req, res) => {
     res.status(500).json({
       ok: false,
       reason: "full_tacera_scan_failed",
+      message: err?.message || String(err),
+      stack: err?.stack
+    });
+  }
+});
+
+
+app.post("/api/system/discovery-dossier", async (req, res) => {
+  try {
+    const body = req.body || {};
+
+    const result = await generateDiscoveryDossier({
+      targets: Array.isArray(body.targets) ? body.targets : [],
+      sshDefaults: body.sshDefaults || {},
+      webminDefaults: body.webminDefaults || {}
+    });
+
+    res.json({
+      ok: true,
+      dossier: result
+    });
+  } catch (err) {
+    res.status(500).json({
+      ok: false,
+      reason: "discovery_dossier_failed",
       message: err?.message || String(err),
       stack: err?.stack
     });
