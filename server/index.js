@@ -93,6 +93,10 @@ import { scanTaceraLogsOnHost, buildTaceraLogDiagnosis } from "./lib/taceraLogEv
 import { generateDiscoveryDossier } from "./lib/taceraDiscoveryDossier.js";
 import { detectTaceraRoles } from "./lib/taceraRoleDetector.js";
 import { translateTaceraFinding } from "./lib/taceraHumanTranslator.js";
+import { analyzeLiveRootCause } from "./lib/liveRootCauseAnalyzer.js";
+import { investigateRootCauseWithAI } from "./lib/aiRootCauseInvestigator.js";
+
+
 
 import {
   buildRecommendation, saveRecommendation, listRecommendations,
@@ -1425,6 +1429,56 @@ app.post("/api/tacera/understand-site", async (req, res) => {
   } catch (err) {
     res.status(500).json({
       ok: false,
+      message: err?.message || String(err)
+    });
+  }
+});
+
+
+app.post("/api/live-root-cause/analyze", async (req, res) => {
+  try {
+    const body = req.body || {};
+    const raw = body.lines || body.logs || body.rawEvidence || body.text || [];
+    const lines = Array.isArray(raw)
+      ? raw.map(x => typeof x === "string" ? x : (x.rawMessage || x.line || x.message || JSON.stringify(x)))
+      : String(raw).split(/\\r?\\n/);
+
+    const result = analyzeLiveRootCause({
+      lines,
+      problem: body.problem || null,
+      devices: body.devices || []
+    });
+
+    res.json(result);
+  } catch (err) {
+    res.status(500).json({
+      ok: false,
+      reason: "live_root_cause_analyze_failed",
+      message: err?.message || String(err)
+    });
+  }
+});
+
+
+app.post("/api/ai/root-cause-investigate", async (req, res) => {
+  try {
+    const body = req.body || {};
+    const raw = body.lines || body.logs || body.rawEvidence || body.text || [];
+    const lines = Array.isArray(raw)
+      ? raw.map(x => typeof x === "string" ? x : (x.rawMessage || x.line || x.message || JSON.stringify(x)))
+      : String(raw).split(/\\r?\\n/);
+
+    const result = await investigateRootCauseWithAI({
+      problem: body.problem || "Unknown Tacera issue",
+      devices: body.devices || [],
+      lines
+    });
+
+    res.json(result);
+  } catch (err) {
+    res.status(500).json({
+      ok: false,
+      reason: "ai_root_cause_investigator_failed",
       message: err?.message || String(err)
     });
   }
