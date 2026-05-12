@@ -95,6 +95,8 @@ import { detectTaceraRoles } from "./lib/taceraRoleDetector.js";
 import { translateTaceraFinding } from "./lib/taceraHumanTranslator.js";
 import { analyzeLiveRootCause } from "./lib/liveRootCauseAnalyzer.js";
 import { investigateRootCauseWithAI } from "./lib/aiRootCauseInvestigator.js";
+import { runLiveWarRoom } from "./lib/liveWarRoomEngine.js";
+
 
 
 
@@ -1492,3 +1494,18 @@ httpServer.listen(PORT, BIND, () => {
   console.log(`[tacera-agent] ws bus on    ws://${BIND}:${PORT}/ws/monitor`);
   console.log(`[tacera-agent] VM: ${v.hostname}  IPs: ${v.addrs.join(", ") || "(none)"}`);
 });
+
+
+app.post("/api/ai/live-war-room", async (req,res) => {
+  try {
+    const result = await runLiveWarRoom(req.body || {});
+    res.json(result);
+  } catch(err) {
+    res.status(500).json({
+      ok:false,
+      reason:"live_war_room_failed",
+      message: err?.message || String(err)
+    });
+  }
+});
+
