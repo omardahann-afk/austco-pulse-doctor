@@ -1,42 +1,30 @@
-import { executeInvestigationPlan } from "./aiToolRouter.js";
+import { collectAllRootSentinels } from "./rootSentinelCollector.js";
 
 const OLLAMA_URL = process.env.OLLAMA_URL || "http://127.0.0.1:11434/api/chat";
 
-async function callClaude(payload) {
-  if (!process.env.ANTHROPIC_API_KEY) {
-    return {
-      ok: false,
-      model: "claude",
-      error: "Missing ANTHROPIC_API_KEY"
-    };
-  }
-
-  const r = await fetch("https://api.anthropic.com/v1/messages", {
+async function callGroq(payload) {
+  const r = await fetch("https://api.groq.com/openai/v1/chat/completions", {
     method: "POST",
     headers: {
       "content-type": "application/json",
-      "x-api-key": process.env.ANTHROPIC_API_KEY,
-      "anthropic-version": "2023-06-01"
+      "Authorization": \`Bearer \${process.env.GROQ_API_KEY}\`
     },
     body: JSON.stringify({
-      model: "claude-3-5-sonnet-latest",
-      max_tokens: 3000,
-      temperature: 0.1,
+      model: process.env.GROQ_MODEL || "llama-3.3-70b-versatile",
       messages: [{
         role: "user",
         content: JSON.stringify(payload)
-      }]
+      }],
+      temperature: 0.1
     })
   });
 
-  const txt = r.ok
-    ? (await r.json())?.content?.[0]?.text || ""
-    : await r.text();
+  const data = await r.json();
 
   return {
     ok: r.ok,
-    model: "claude",
-    text: txt
+    provider: "groq",
+    text: data?.choices?.[0]?.message?.content || JSON.stringify(data)
   };
 }
 
@@ -60,62 +48,39 @@ async function callOllama(payload) {
 
   return {
     ok: r.ok,
-    model: "ollama",
+    provider: "ollama",
     text: data?.message?.content || data?.response || ""
   };
 }
 
-export async function runLiveWarRoom(input = {}) {
-  const hosts = input.hosts || [];
-
-  const collected = await executeInvestigationPlan({
-    hosts
-  });
+export async function runLiveWarRoom() {
+  const collected = await collectAllRootSentinels();
 
   const payload = {
-    role:
-      "Senior Austco/Tacera root cause investigator",
-
-    objective:
-      "Determine EXACTLY why the signal path failed.",
-
-    requiredQuestions: [
-      "Did PST generate the alarm?",
-      "Did IPConnect receive it?",
-      "Did Integration Gateway process it?",
-      "Did CCT receive it?",
-      "Did ODL/ZTS activate?",
-      "Was there delayed queue flush?",
-      "Was there controller overload?",
-      "Were duplicate activation floods present?",
-      "Was first alarm delayed until second alarm?",
-      "What failed FIRST?"
-    ],
-
-    importantRules: [
-      "Do not mention MQTT unless direct evidence proves MQTT involvement.",
+    role: "Senior Austco/Tacera root cause investigator",
+    objective: "Find the REAL root cause across all appliances.",
+    rules: [
       "Explain in plain English.",
-      "Separate proof from assumptions.",
-      "Explain exactly how to reproduce and verify.",
-      "Explain exact fix path."
+      "Do not mention MQTT unless direct evidence exists.",
+      "Identify what failed FIRST.",
+      "Differentiate symptom vs root cause.",
+      "Explain exact next fix."
     ],
-
-    evidence:
-      collected
+    evidence: collected
   };
 
-  const [claude, ollama] = await Promise.allSettled([
-    callClaude(payload),
+  const [groq, ollama] = await Promise.allSettled([
+    callGroq(payload),
     callOllama(payload)
   ]);
 
   return {
     ok: true,
     collected,
-    claude:
-      claude.status === "fulfilled"
-        ? claude.value
-        : { ok:false,error:String(claude.reason) },
+    groq:
+      groq.status === "fulfilled"
+        ? groq.value
+        : { ok:false,error:String(groq.reason) },
 
     ollama:
       ollama.status === "fulfilled"

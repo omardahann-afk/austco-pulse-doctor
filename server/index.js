@@ -1,3 +1,4 @@
+import "dotenv/config";
 /**
  * Tacera Doctor — Local Diagnostic Agent
  * --------------------------------------
@@ -1509,3 +1510,25 @@ app.post("/api/ai/live-war-room", async (req,res) => {
   }
 });
 
+
+app.post("/api/root-sentinel/scan", async (req,res) => {
+  try {
+    const body = req.body || {};
+
+    const result = body.host
+      ? await collectRootSentinel(body.host)
+      : await collectAllRootSentinels();
+
+    res.json({
+      ok:true,
+      result
+    });
+
+  } catch(err) {
+    res.status(500).json({
+      ok:false,
+      reason:"root_sentinel_failed",
+      message: err?.message || String(err)
+    });
+  }
+});
