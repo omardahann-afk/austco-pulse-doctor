@@ -97,6 +97,15 @@ import { translateTaceraFinding } from "./lib/taceraHumanTranslator.js";
 import { analyzeLiveRootCause } from "./lib/liveRootCauseAnalyzer.js";
 import { investigateRootCauseWithAI } from "./lib/aiRootCauseInvestigator.js";
 import { runLiveWarRoom } from "./lib/liveWarRoomEngine.js";
+import {
+  listAppliances,
+  saveAppliance,
+  scanAppliance,
+  scanAllAppliances,
+  suggestFix,
+  listFixes
+} from "./lib/healthCheckSystem.js";
+
 
 
 
@@ -1532,3 +1541,52 @@ app.post("/api/root-sentinel/scan", async (req,res) => {
     });
   }
 });
+
+
+app.get("/api/health/appliances", (req, res) => {
+  res.json({ ok: true, appliances: listAppliances().map(a => ({ ...a, techPass: "********", rootPass: "********" })) });
+});
+
+app.post("/api/health/appliances", (req, res) => {
+  try {
+    const saved = saveAppliance(req.body || {});
+    res.json({ ok: true, appliance: { ...saved, techPass: "********", rootPass: "********" } });
+  } catch (err) {
+    res.status(500).json({ ok: false, message: err?.message || String(err) });
+  }
+});
+
+app.post("/api/health/scan", async (req, res) => {
+  try {
+    const result = await scanAllAppliances();
+    res.json(result);
+  } catch (err) {
+    res.status(500).json({ ok: false, reason: "health_scan_failed", message: err?.message || String(err) });
+  }
+});
+
+app.post("/api/health/scan-one", async (req, res) => {
+  try {
+    const appliances = listAppliances();
+    const appliance = appliances.find(a => a.id === req.body?.id || a.host === req.body?.host);
+    if (!appliance) return res.status(404).json({ ok: false, message: "Appliance not found" });
+    const result = await scanAppliance(appliance);
+    res.json({ ok: true, result });
+  } catch (err) {
+    res.status(500).json({ ok: false, reason: "health_scan_one_failed", message: err?.message || String(err) });
+  }
+});
+
+app.post("/api/fixes/suggest", async (req, res) => {
+  try {
+    const fix = suggestFix(req.body?.scanResult || {});
+    res.json({ ok: true, fix });
+  } catch (err) {
+    res.status(500).json({ ok: false, message: err?.message || String(err) });
+  }
+});
+
+app.get("/api/fixes", (req, res) => {
+  res.json({ ok: true, fixes: listFixes() });
+});
+
