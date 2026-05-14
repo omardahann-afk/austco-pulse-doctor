@@ -98,6 +98,8 @@ import { analyzeLiveRootCause } from "./lib/liveRootCauseAnalyzer.js";
 import { investigateRootCauseWithAI } from "./lib/aiRootCauseInvestigator.js";
 import { runLiveWarRoom } from "./lib/liveWarRoomEngine.js";
 import { buildSystemPulse } from "./lib/systemPulseEngine.js";
+import { buildCausalRootCause } from "./lib/causalRootCauseEngine.js";
+
 
 import {
   listAppliances,
@@ -1600,5 +1602,19 @@ app.get("/api/system-pulse", (req, res) => {
     res.json({ ok: true, pulse });
   } catch (err) {
     res.status(500).json({ ok: false, reason: "system_pulse_failed", message: err?.message || String(err) });
+  }
+});
+
+app.get("/api/causal-root-cause", (req, res) => {
+  try {
+    const evidence = getAgentEvidence();
+    const result = buildCausalRootCause(evidence);
+    res.json(result);
+  } catch (err) {
+    res.status(500).json({
+      ok: false,
+      reason: "causal_root_cause_failed",
+      message: err?.message || String(err)
+    });
   }
 });
