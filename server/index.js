@@ -97,6 +97,8 @@ import { translateTaceraFinding } from "./lib/taceraHumanTranslator.js";
 import { analyzeLiveRootCause } from "./lib/liveRootCauseAnalyzer.js";
 import { investigateRootCauseWithAI } from "./lib/aiRootCauseInvestigator.js";
 import { runLiveWarRoom } from "./lib/liveWarRoomEngine.js";
+import { buildSystemPulse } from "./lib/systemPulseEngine.js";
+
 import {
   listAppliances,
   saveAppliance,
@@ -1590,3 +1592,13 @@ app.get("/api/fixes", (req, res) => {
   res.json({ ok: true, fixes: listFixes() });
 });
 
+
+app.get("/api/system-pulse", (req, res) => {
+  try {
+    const evidence = getAgentEvidence();
+    const pulse = buildSystemPulse(evidence);
+    res.json({ ok: true, pulse });
+  } catch (err) {
+    res.status(500).json({ ok: false, reason: "system_pulse_failed", message: err?.message || String(err) });
+  }
+});
