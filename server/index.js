@@ -100,6 +100,10 @@ import { runLiveWarRoom } from "./lib/liveWarRoomEngine.js";
 import { buildSystemPulse } from "./lib/systemPulseEngine.js";
 import { buildCausalRootCause } from "./lib/causalRootCauseEngine.js";
 
+import { sweepAcsServer, sweepPulseGatewayStatus, discoverAcsPeers } from "./lib/taceraSystemCollector.js";
+import { SILENT_PLATFORM_BUGS, MODULE_REGISTRY, STARTUP_CHAIN, DNS_SERVICE_MAP } from "./lib/taceraSystemKnowledge.js";
+
+
 
 import {
   listAppliances,
@@ -1618,3 +1622,57 @@ app.get("/api/causal-root-cause", (req, res) => {
     });
   }
 });
+
+
+app.post("/api/system/sweep", async (req, res) => {
+  const { sshCreds, serverConfig = {} } = req.body || {};
+  if (!sshCreds?.host || !sshCreds?.username) {
+    return res.status(400).json({ ok: false, reason: "missing_ssh_creds" });
+  }
+
+  try {
+    const result = await sweepAcsServer(sshCreds, serverConfig);
+    res.json(result);
+  } catch (err) {
+    res.status(500).json({ ok: false, reason: "sweep_failed", message: err?.message || String(err) });
+  }
+});
+
+app.post("/api/system/pulse-gateway-status", async (req, res) => {
+  const { sshCreds } = req.body || {};
+  if (!sshCreds?.host || !sshCreds?.username) {
+    return res.status(400).json({ ok: false, reason: "missing_ssh_creds" });
+  }
+
+  try {
+    const result = await sweepPulseGatewayStatus(sshCreds);
+    res.json(result);
+  } catch (err) {
+    res.status(500).json({ ok: false, reason: "pulse_gateway_status_failed", message: err?.message || String(err) });
+  }
+});
+
+app.post("/api/system/discover-peers", async (req, res) => {
+  const { sshCreds } = req.body || {};
+  if (!sshCreds?.host || !sshCreds?.username) {
+    return res.status(400).json({ ok: false, reason: "missing_ssh_creds" });
+  }
+
+  try {
+    const result = await discoverAcsPeers(sshCreds);
+    res.json(result);
+  } catch (err) {
+    res.status(500).json({ ok: false, reason: "discovery_failed", message: err?.message || String(err) });
+  }
+});
+
+app.get("/api/system/knowledge", (_req, res) => {
+  res.json({
+    ok: true,
+    silentBugs: SILENT_PLATFORM_BUGS,
+    startupChain: STARTUP_CHAIN,
+    dnsServiceMap: DNS_SERVICE_MAP,
+    moduleCount: Object.keys(MODULE_REGISTRY).length
+  });
+});
+
