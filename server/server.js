@@ -283,3 +283,127 @@ app.listen(PORT, () => {
 });
 
 export default app;
+
+// ─── Groq AI endpoints ────────────────────────────────────────────────────────
+
+import { getAiExplanation, groqRepairPlan } from './engines/groqEngine.js';
+import { getCredentials } from './sshCredentials.js';
+
+/**
+ * POST /api/ai/explain/:ip
+ * Get AI explanation for an appliance's current issue.
+ * Called automatically when a tile turns red, or on demand.
+ */
+app.post('/api/ai/explain/:ip', async (req, res) => {
+  const ip = decodeURIComponent(req.params.ip);
+  const state = applianceStore.getState(ip);
+
+  if (!state || state.health === 'OK' || state.health === 'UNKNOWN') {
+    return res.json({ ok: true, explanation: null, reason: 'no_active_issue' });
+  }
+
+  try {
+    const result = await getAiExplanation({
+      rootCauseType: state.rootCauseType,
+      rootCauseLabel: state.rootCauseLabel,
+      cascade: state.cascade,
+      events: state.topEvents,
+      role: state.role,
+      ip,
+    });
+
+    res.json({ ok: true, explanation: result?.text || null, source: result?.source || null });
+  } catch (err) {
+    res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
+/**
+ * POST /api/ai/repair-plan/:ip
+ * Get AI-generated repair checklist for an appliance.
+ */
+app.post('/api/ai/repair-plan/:ip', async (req, res) => {
+  const ip = decodeURIComponent(req.params.ip);
+  const state = applianceStore.getState(ip);
+  if (!state) return res.status(404).json({ ok: false, reason: 'not_found' });
+
+  try {
+    const plan = await groqRepairPlan({
+      rootCauseType: state.rootCauseType,
+      rootCauseLabel: state.rootCauseLabel,
+      ip,
+      role: state.role,
+    });
+    res.json({ ok: true, plan: plan || null });
+  } catch (err) {
+    res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
+/**
+ * POST /api/appliance/:ip/repair/run-auto
+ * Run a repair step using stored SSH credentials — no need to pass creds from frontend.
+ * Body: { stepIndex, approved }
+ */
+app.post('/api/appliance/:ip/repair/run-auto', async (req, res) => {
+  const ip = decodeURIComponent(req.params.ip);
+  const { stepIndex, approved = false } = req.body || {};
+
+  const state = applianceStore.getState(ip);
+  if (!state?.rootCauseType) return res.status(404).json({ ok: false, reason: 'no_active_issue' });
+
+  // Load stored credentials — never from frontend
+  const creds = getCredentials(ip);
+  if (!creds.password) return res.status(400).json({ ok: false, reason: 'no_stored_credentials', message: `No SSH credentials stored for ${ip}` });
+
+  const plan = getRepairPlan(state.rootCauseType);
+  const step = plan.steps?.[stepIndex];
+  if (!step) return res.status(400).json({ ok: false, reason: 'invalid_step' });
+
+  if (step.risk === 'MANUAL' || !step.cmd) {
+    return res.json({ ok: true, blocked: true, reason: 'MANUAL_STEP', instruction: step.instruction || step.label });
+  }
+
+  if (step.risk === 'MEDIUM' && !approved) {
+    return res.json({ ok: false, blocked: true, reason: 'REQUIRES_APPROVAL', label: step.label, command: step.cmd, description: step.description });
+  }
+
+  try {
+    const result = await execOverSsh(creds, step.cmd);
+    res.json({
+      ok: result.ok,
+      exitCode: result.exitCode,
+      stdout: result.stdout?.slice(0, 4096),
+      stderr: result.stderr?.slice(0, 1024),
+      command: step.cmd,
+      durationMs: result.durationMs,
+    });
+  } catch (err) {
+    res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
+/**
+ * POST /api/appliance/:ip/repair/verify-auto
+ * Verify a fix using stored credentials.
+ */
+app.post('/api/appliance/:ip/repair/verify-auto', async (req, res) => {
+  const ip = decodeURIComponent(req.params.ip);
+  const state = applianceStore.getState(ip);
+  if (!state?.rootCauseType) return res.status(404).json({ ok: false, reason: 'no_active_issue' });
+
+  const plan = getRepairPlan(state.rootCauseType);
+  if (!plan.verifyCmd) return res.json({ ok: true, verified: null, note: 'No verify command' });
+
+  const creds = getCredentials(ip);
+  if (!creds.password) return res.status(400).json({ ok: false, reason: 'no_stored_credentials' });
+
+  try {
+    const result = await execOverSsh(creds, plan.verifyCmd);
+    const passed = result.ok && result.stdout?.match(plan.verifyExpect);
+    if (passed) applianceStore.clearAppliance(ip);
+    res.json({ ok: true, verified: !!passed, stdout: result.stdout?.slice(0, 1024), message: passed ? '✓ Fix verified' : '✗ Issue still present' });
+  } catch (err) {
+    res.status(500).json({ ok: false, error: err.message });
+  }
+});
